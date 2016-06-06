@@ -2139,7 +2139,7 @@ void CCB::gem_program_virtex6(const char *mcsfile, int gem)
 //     udelay(100);
      comd=VTX6_ISC_PROGRAM; 
      gem_scan(0, (char *)&comd, 10, rcvbuf, 0, gem);
-     udelay(500);
+     udelay(1000);
     for(int i=0; i<blocks-1; i++)
     {
 //    if(i>50) getTheController()->Debug(0);
@@ -2391,8 +2391,8 @@ int CCB::gem_SVFLoad(int gem, const char *fn, int db, int verify)
     }
   fseek(dwnfp, 0, SEEK_SET);
   
-  printf("=== Programming Design with %s to GEM %d\n",downfile, gem);  
-  printf("=== Have to send %d DATA packages \n",total_packages) ;
+//  printf("=== Programming Design with %s to GEM %d\n",downfile, gem);  
+//  printf("=== Have to send %d DATA packages \n",total_packages) ;
   one_pct=(total_packages+99)/100;
   if(one_pct<=0) one_pct=1;
   
@@ -2711,7 +2711,7 @@ int CCB::gem_SVFLoad(int gem, const char *fn, int db, int verify)
 	    send_packages++ ;
             if(!readprom)
             {
-               if ( (send_packages%one_pct)==0 ) 
+               if ( total_packages>=100 && (send_packages%one_pct)==0 ) 
                   std::cout << "Sending " << std::dec << send_packages/one_pct << "%..." << std::endl;
 	       if ( send_packages == total_packages ) std::cout << "Done!" << std::endl;
             }
@@ -3029,6 +3029,97 @@ int CCB::gem_SVFLoad(int gem, const char *fn, int db, int verify)
   }
   fclose(dwnfp);
   return errcntr; 
+}
+
+void CCB::gem_program_eprom(const char *mcsfile, int gem)
+{
+   unsigned short comd;
+   if(hardware_version_<=1) return;
+   const int FIRMWARE_SIZE=5464972; // in bytes
+   char *bufin, bufcmd[128], c;
+   bufin=(char *)malloc(16*1024*1024);
+   if(bufin==NULL)  return;
+   bzero(bufcmd, 128);
+   FILE *fin=fopen(mcsfile,"r");
+   if(fin==NULL ) 
+   { 
+      free(bufin);  
+      std::cout << "ERROR: Unable to open MCS file :" << mcsfile << std::endl;
+      return; 
+   }
+   int mcssize=read_mcs(bufin, fin);
+   fclose(fin);
+   std::cout << "Read MCS size: " << std::dec << mcssize << " bytes" << std::endl;
+   if(mcssize<FIRMWARE_SIZE)
+   {
+       std::cout << "ERROR: Wrong MCS file. Quit..." << std::endl;
+       free(bufin);
+       return;
+   }
+/*
+// byte swap
+   for(int i=0; i<FIRMWARE_SIZE/2; i++)
+   {  c=bufin[i*2];
+      bufin[i*2]=bufin[i*2+1];
+      bufin[i*2+1]=c;
+   }
+*/
+     int blocks=FIRMWARE_SIZE/1024;  // firmware size must be in units of 8192-bit units
+     if (FIRMWARE_SIZE%1024)
+     {  
+         for(int i=0; i<1024; i++) bufin[FIRMWARE_SIZE+i]=0xFF;  // pad the last block with 0xFF
+         blocks++;
+     }
+     int p1pct=blocks/100;
+     int j=0, pcnts=0;
+
+//    getTheController()->Debug(2);
+     getTheController()->SetUseDelay(true);
+  
+    for(int i=0; i<blocks-1; i++)
+    {
+//    if(i>50) getTheController()->Debug(0);
+       comd=VTX6_USR2; 
+       gem_scan(0, (char *)&comd, 10, rcvbuf, 0, gem);
+       udelay(1000);
+       gem_scan(1, bufin+1024*i, 8192, rcvbuf, 0, gem);
+       udelay(100);
+       comd=VTX6_BYPASS; 
+       gem_scan(0, (char *)&comd, 10, rcvbuf, 0, gem);
+       if(i==0)
+       {
+          comd=VTX6_USR3; 
+          gem_scan(0, (char *)&comd, 10, rcvbuf, 0, gem);
+          udelay(10000);
+          bufcmd[0]=0x0E;
+          gem_scan(1, bufcmd, 1024, rcvbuf, 0, gem);
+          comd=VTX6_BYPASS; 
+          gem_scan(0, (char *)&comd, 10, rcvbuf, 0, gem);
+          udelay(100000);
+       }
+       udelay(150000);
+       comd=VTX6_USR3; 
+       gem_scan(0, (char *)&comd, 10, rcvbuf, 0, gem);
+       udelay(10000);
+       bufcmd[0]=0xA0;
+       gem_scan(1, bufcmd, 1024, rcvbuf, 0, gem);
+       comd=VTX6_BYPASS; 
+       gem_scan(0, (char *)&comd, 10, rcvbuf, 0, gem);
+       comd=VTX6_BYPASS; 
+       gem_scan(0, (char *)&comd, 10, rcvbuf, 0, gem);
+
+       j++;
+       if(p1pct>0 && j==p1pct)
+       {  pcnts++;
+          if(pcnts<100) std::cout << "Sending " << pcnts <<"%..." << std::endl;
+          j=0;
+       }   
+    }
+    std::cout << "Sending 100%..." << std::endl;
+//    getTheController()->Debug(2);
+
+    comd=VTX6_BYPASS;
+    gem_scan(0, (char *)&comd, 10, rcvbuf, 0, gem);
 }
 
   } // namespace emu::pc

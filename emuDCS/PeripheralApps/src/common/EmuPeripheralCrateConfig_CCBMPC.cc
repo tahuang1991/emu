@@ -1120,7 +1120,7 @@ void EmuPeripheralCrateConfig::CCBTests(xgi::Input * in, xgi::Output * out )
     *out << cgicc::input().set("type", "submit")
     .set("name", "command")
     .set("value", "Load firmware to OptoHybrid board's EPROM") << std::endl;
-    *out << cgicc::form() << FirmwareDir_+"ccb/gem_ohv2.svf" << std::endl;
+    *out << cgicc::form() << FirmwareDir_+"ccb/gem_ohv2.mcs" << std::endl;
     *out << cgicc::br() << cgicc::hr() << std::endl;
     //
     std::string GEMhardreset = toolbox::toString("/%s/GEMHardreset",getApplicationDescriptor()->getURN().c_str());
@@ -1403,10 +1403,21 @@ void EmuPeripheralCrateConfig::GEMProgramEPROM(xgi::Input * in, xgi::Output * ou
   {
     iSelectedGEM=gem;
              //
-    std::string svffile = FirmwareDir_+"ccb/gem_ohv2.svf";
+    std::string svffile1 = XMLDIR+"/virtex6lx130_header.svf";
+    std::string svffile2 = XMLDIR+"/virtex6_trailer.svf";
+    std::string corefile = XMLDIR+"/virtex6lx130_core.mcs";
+    std::string mcsfile = FirmwareDir_+"ccb/gem_ohv2.mcs";
     std::cout << getLocalDateTime() << " Loading firmware to OH board's EPROM for GEM #" << gem << std::endl;
-    std::cout << "Using SVF file: " << svffile << std::endl;
-    thisCCB->gem_SVFLoad(gem, svffile.c_str(), 0, 0);
+    std::cout << "Using mcs file: " << mcsfile << std::endl;
+    std::cout << "Step #1, loading Xilinx Core..."  << std::endl;    
+    thisCCB->gem_program_virtex6(corefile.c_str(), gem);
+    std::cout << "Step #2, erasing EPROM..."  << std::endl;    
+    thisCCB->gem_SVFLoad(gem, svffile1.c_str(), 0, 0);
+    std::cout << "Step #3, programming EPROM with content from MCS file..."  << std::endl;
+    thisCCB->gem_program_eprom(mcsfile.c_str(), gem);
+    std::cout << "Done!"  << std::endl;  
+    std::cout << "Step #4, finalizing..." << std::endl;
+    thisCCB->gem_SVFLoad(gem, svffile2.c_str(), 0, 0);
     std::cout << getLocalDateTime() << " Finished loading firmware to EPROM." << std::endl;
   }
   //

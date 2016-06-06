@@ -378,6 +378,7 @@ public:
   int gem_virtex6_dna(void *dna, int gem);
   unsigned gem_FPGA_Status(int gem);
   int gem_SVFLoad(int gem, const char *fn, int db, int verify);
+  void gem_program_eprom(const char *mcsfile, int gem);
 
 public:
   //
