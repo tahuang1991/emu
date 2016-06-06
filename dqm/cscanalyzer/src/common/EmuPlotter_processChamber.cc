@@ -632,7 +632,8 @@ void EmuPlotter::processChamber(const CSCEventData& data, int nodeID=0, int dduI
 
               if (mo_EventDisplay)
                 {
-                  mo_EventDisplay->SetBinContent(2, alctsDatas[lct].getKeyWG(), alct_bxn + 1 );
+                  // mo_EventDisplay->SetBinContent(2, alctsDatas[lct].getKeyWG(), alct_bxn + 1 );
+                  mo_EventDisplay->SetBinContent(2, alctsDatas[lct].getKeyWG(), alct_dtime );
                   mo_EventDisplay->SetBinContent(3, alctsDatas[lct].getKeyWG(), alctsDatas[lct].getQuality());
                 }
 
@@ -1263,28 +1264,35 @@ void EmuPlotter::processChamber(const CSCEventData& data, int nodeID=0, int dduI
                             {
                               CSCDetId layer = cratemap->detId(crateID, dmbID, nCFEB, nLayer);
                               ilayer = layer.rawId();
-                              // std::cout << "ilayer id: " << ilayer << std::endl;
-
                             }
 
 
-                          // vector<CSCComparatorDigi> compOutData = clctData->comparatorDigis(nLayer, nCFEB);
+                          /// For EventDisplay plot. ME11s strips numbering fix
+                          int ring = cid.ring();
+                          if ((cid.station() == 1) && (ring == 1) && (nCFEB >=4) && (nCFEB <=6)) ring = 4;
+                          CSCDetId cid_tmp(cid.endcap(), cid.station(), ring, cid.chamber(), nLayer);
+                          ilayer = cid_tmp.rawId();
+                          // if (cid.station() == 1 && (ring == 4)) std::cout << cscTag << " " << nLayer << " " << nCFEB << " ilayer id: " << ilayer << std::endl;
                           vector<CSCComparatorDigi> compOutData = clctData->comparatorDigis(ilayer, nCFEB);
+                          for (vector<CSCComparatorDigi>:: iterator compOutDataItr = compOutData.begin(); compOutDataItr != compOutData.end(); ++compOutDataItr)
+                            {
+                              int hstrip = 2*(compOutDataItr->getStrip()-1)+compOutDataItr->getComparator();
+                              int tbin_clct = (int)compOutDataItr->getTimeBin();
+                              /// Set comparators hit data for EventDisplay
+                              if (mo_EventDisplay) mo_EventDisplay->SetBinContent(nLayer+11, hstrip, tbin_clct+1);
+                            }
 
 
+                          compOutData = clctData->comparatorDigis(nLayer, nCFEB);
                           for (vector<CSCComparatorDigi>:: iterator compOutDataItr = compOutData.begin(); compOutDataItr != compOutData.end(); ++compOutDataItr)
                             {
                               // =VB= Fix to get correct half-strip
                               int hstrip = 2*(compOutDataItr->getStrip()-1)+compOutDataItr->getComparator();
-                              // std::cout <<  cscTag << " hs: " << hstrip <<   " "  << compOutDataItr->getStrip() << " " << compOutDataItr->getComparator()
-                              //	<< " " << compOutDataItr->getTimeBin()  << std::endl;
-
 
                               vector<int> tbins_clct = compOutDataItr->getTimeBinsOn();
                               int tbin_clct = (int)compOutDataItr->getTimeBin();
 
-
-                              if (mo_EventDisplay) mo_EventDisplay->SetBinContent(nLayer+11, hstrip, tbin_clct+1);
+                              // if (mo_EventDisplay) mo_EventDisplay->SetBinContent(nLayer+11, hstrip, tbin_clct+1);
 
                               if (CheckLayerCLCT)
                                 {
@@ -1755,7 +1763,29 @@ void EmuPlotter::processChamber(const CSCEventData& data, int nodeID=0, int dduI
                                 {
                                   peak_sca_charge += ((timeSample(data, nCFEB, peak_sample+1, nLayer, nStrip)->adcCounts)&0xFFF)-pedestal;
                                 }
-                              mo_EventDisplay->SetBinContent(nLayer+17, (nCFEB<<4)+nStrip-1, peak_sca_charge);
+                              int strip = (nCFEB<<4)+nStrip;
+
+                              /// strips flipping for z+ ME11a
+                              if ((cid.endcap() == 1) && (cid.station() == 1) && (cid.ring() == 1) && (nCFEB >=4) && (nCFEB <=6))
+                                {
+                                  strip = strip%64;
+                                  if (theFormatVersion == 2013)
+                                    {
+                                      strip = 49 - strip;
+                                    }
+                                  else
+                                    {
+                                      strip = 17 - strip;
+                                    }
+				   strip = 64 + strip;
+                                };
+                              /// strips flipping for z- ME11b
+                              if ((cid.endcap() == 2) && (cid.station() == 1) && (cid.ring() == 1) && (nCFEB <4))
+                                {
+                                  strip = 65 - strip;
+                                }
+
+                              mo_EventDisplay->SetBinContent(nLayer+17, strip-1, peak_sca_charge);
                             }
                         }
 
