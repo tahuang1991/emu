@@ -8012,6 +8012,10 @@ void EmuPeripheralCrateConfig::TMBReadConfiguration(xgi::Input * in, xgi::Output
 void EmuPeripheralCrateConfig::TMBCheckConfiguration(xgi::Input * in, xgi::Output * out ) 
   throw (xgi::exception::Exception) {
   //
+  if(!parsed)
+  {  this->Default(in,out);
+     return;
+  }
   cgicc::Cgicc cgi(in);
   //
   cgicc::form_iterator name = cgi.getElement("tmb");
