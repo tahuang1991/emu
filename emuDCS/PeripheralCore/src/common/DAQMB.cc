@@ -8544,6 +8544,7 @@ void DAQMB::dcfeb_program_virtex6(CFEB & cfeb, const char *mcsfile, int broadcas
      udelay(100);
      comd=VTX6_ISC_PROGRAM; 
      cfeb_do(10, &comd, 0, &tmp, rcvbuf, NOW);
+     udelay(10000);
     for(int i=0; i<blocks; i++)
     {
        cfeb_do(0, &comd, 32, bufin+4*i, rcvbuf, NOW);
@@ -9665,6 +9666,7 @@ void DAQMB::odmb_program_virtex6(const char *mcsfile)
      udelay(100);
      comd=VTX6_ISC_PROGRAM; 
      dlog_do(10, &comd, 0, &tmp, rcvbuf, NOW);
+     udelay(10000);
     for(int i=0; i<blocks; i++)
     {
        dlog_do(0, &comd, 32, bufin+4*i, rcvbuf, NOW);

@@ -10593,6 +10593,7 @@ void TMB::program_virtex6(const char *mcsfile)
 
      comd=VTX6_ISC_PROGRAM; 
      scan(0, (char *)&comd, 10, rcvbuf, 0);
+     udelay(10000);
     for(int i=0; i<blocks-1; i++)
     {
 //    if(i>50) getTheController()->Debug(0);
@@ -11244,7 +11245,7 @@ void TMB::otmb_readfirmware_mcs(const char *filename) {
 
 // -----------------------------------------------------------------------------
 
-void TMB::otmb_program_eprom(const char *mcsfile) {
+void TMB::otmb_program_eprom_bpi(const char *mcsfile) {
   unsigned int fulladdr;
   unsigned int uaddr, laddr;
   unsigned int i, blocks, lastblock;
@@ -11684,6 +11685,97 @@ bool TMB::otmb_program_eprom_poll(const char *mcsfile) {
      InsertValueIntoDataWord(0, mpc_tx_delay_bithi, mpc_tx_delay_bitlo, &data_w);
      WriteRegister(tmbtim_adr, data_w);
   }
+
+void TMB::otmb_program_eprom(const char *mcsfile)
+{
+   unsigned short comd;
+   if(hardware_version_<=1) return;
+   const int FIRMWARE_SIZE=9232444; // in bytes
+   char *bufin, bufcmd[128];
+   bufin=(char *)malloc(16*1024*1024);
+   if(bufin==NULL)  return;
+   bzero(bufcmd, 128);
+   FILE *fin=fopen(mcsfile,"r");
+   if(fin==NULL ) 
+   { 
+      free(bufin);  
+      std::cout << "ERROR: Unable to open MCS file :" << mcsfile << std::endl;
+      return; 
+   }
+   int mcssize=read_mcs(bufin, fin);
+   fclose(fin);
+   std::cout << "Read MCS size: " << std::dec << mcssize << " bytes" << std::endl;
+   if(mcssize<FIRMWARE_SIZE)
+   {
+       std::cout << "ERROR: Wrong MCS file. Quit..." << std::endl;
+       free(bufin);
+       return;
+   }
+/*
+// byte swap
+   for(int i=0; i<FIRMWARE_SIZE/2; i++)
+   {  c=bufin[i*2];
+      bufin[i*2]=bufin[i*2+1];
+      bufin[i*2+1]=c;
+   }
+*/
+     int blocks=FIRMWARE_SIZE/1024;  // firmware size must be in units of 8192-bit units
+     if (FIRMWARE_SIZE%1024)
+     {  
+         for(int i=0; i<1024; i++) bufin[FIRMWARE_SIZE+i]=0xFF;  // pad the last block with 0xFF
+         blocks++;
+     }
+     int p1pct=blocks/100;
+     int j=0, pcnts=0;
+
+//    getTheController()->Debug(2);
+     getTheController()->SetUseDelay(true);
+  
+    for(int i=0; i<blocks-1; i++)
+    {
+//    if(i>50) getTheController()->Debug(0);
+       comd=VTX6_USR2; 
+       scan(0, (char *)&comd, 10, rcvbuf, 0);
+       udelay(1000);
+       scan(1, bufin+1024*i, 8192, rcvbuf, 0);
+       udelay(100);
+       comd=VTX6_BYPASS; 
+       scan(0, (char *)&comd, 10, rcvbuf, 0);
+       if(i==0)
+       {
+          comd=VTX6_USR3; 
+          scan(0, (char *)&comd, 10, rcvbuf, 0);
+          udelay(10000);
+          bufcmd[0]=0x0E;
+          scan(1, bufcmd, 1024, rcvbuf, 0);
+          comd=VTX6_BYPASS; 
+          scan(0, (char *)&comd, 10, rcvbuf, 0);
+          udelay(100000);
+       }
+       udelay(150000);
+       comd=VTX6_USR3; 
+       scan(0, (char *)&comd, 10, rcvbuf, 0);
+       udelay(10000);
+       bufcmd[0]=0xA0;
+       scan(1, bufcmd, 1024, rcvbuf, 0);
+       comd=VTX6_BYPASS; 
+       scan(0, (char *)&comd, 10, rcvbuf, 0);
+       comd=VTX6_BYPASS; 
+       scan(0, (char *)&comd, 10, rcvbuf, 0);
+
+       j++;
+       if(p1pct>0 && j==p1pct)
+       {  pcnts++;
+          if(pcnts<100) std::cout << "Sending " << pcnts <<"%..." << std::endl;
+          j=0;
+       }   
+    }
+    std::cout << "Sending 100%..." << std::endl;
+//    getTheController()->Debug(2);
+
+    comd=VTX6_BYPASS;
+    scan(0, (char *)&comd, 10, rcvbuf, 0);
+}
   
 } // namespace emu::pc
 } // namespace emu

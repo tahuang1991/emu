@@ -802,7 +802,7 @@ int VMEModule::svfLoad(int jch, const char *fn, int db, int verify )
 	    send_packages++ ;
             if(!readprom)
             {
-               if ( (send_packages%one_pct)==0 ) 
+               if ( total_packages>=100 &&  (send_packages%one_pct)==0 ) 
                   std::cout << "Sending " << std::dec << send_packages/one_pct << "%..." << std::endl;
 	       if ( send_packages == total_packages ) std::cout << "Done!" << std::endl;
             }

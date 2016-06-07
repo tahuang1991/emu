@@ -699,8 +699,9 @@ public:
   void otmb_readparam(int paramblock,int nval,unsigned short int  *val);
   void otmb_loadparam(int paramblock,int nval,unsigned short int  *val);
   void otmb_readfirmware_mcs(const char *filename);
-  void otmb_program_eprom(const char *mcsfile);
+  void otmb_program_eprom_bpi(const char *mcsfile);
   bool otmb_program_eprom_poll(const char *mcsfile);
+  void otmb_program_eprom(const char *mcsfile);
 
   //
   ////////////////////////
