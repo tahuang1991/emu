@@ -4,7 +4,8 @@ var KNOWN_PROBLEMS = { "run": "csc_00124357_Monitor"
                        [
 {"objID": "ME+1/1/01", "name": "ME+1/1/01", "list": [
         {"testID": "CSC_LOWERED_HV_SEGMENT", "scope": "CSC", "descr": "Lowered HV Segment: Layer5 (SCA efficiency < average)", "severity": "1", "obj": "Layer5"},
-        {"testID": "CSC_NO_HV_SEGMENT", "scope": "CSC", "descr": "No HV Segment: Layer5", "severity": "2", "obj": "Layer5"}
+        {"testID": "CSC_NO_HV_SEGMENT", "scope": "CSC", "descr": "No HV Segment: Layer5 (Turned Off HV Segment)", "severity": "2", "obj": "Layer5"},
+	{"testID": "CSC_CFEB_NO_SCA_DATA", "scope": "CSC", "descr": "CFEB No SCA Data: Layer5 (Turned Off HV Segment)", "severity": "3", "obj": "Layer5" }
 ]},
 {"objID": "ME+1/1/03", "name": "ME+1/1/03", "list": [
 	{"testID": "CSC_WITH_L1A_OUT_OF_SYNC", "scope": "CSC", "descr": "L1A out of sync: unknown source of DCFEBs L1A OOS errors", "severity": "3", "obj": "events"},
@@ -53,7 +54,11 @@ var KNOWN_PROBLEMS = { "run": "csc_00124357_Monitor"
         {"testID": "CSC_LOWERED_HV_SEGMENT", "scope": "CSC", "descr": "Lowered HV Segment: Layer1 (SCA efficiency < average)", "severity": "1", "obj": "Layer1"},
         {"testID": "CSC_LOWERED_HV_SEGMENT", "scope": "CSC", "descr": "Lowered HV Segment: Layer3 (SCA efficiency < average)", "severity": "1", "obj": "Layer3"},
 	{"testID": "CSC_NO_HV_SEGMENT", "scope": "CSC", "descr": "No HV at Segment1 Layer3", "severity": "3", "obj": "Layer3"},
-	{"testID": "CSC_CFEB_NO_SCA_DATA", "scope": "CSC", "descr": "CFEB No SCA Data: Layer3 (No HV)", "severity": "3", "obj": "Layer3"}
+	{"testID": "CSC_CFEB_NO_SCA_DATA", "scope": "CSC", "descr": "CFEB No SCA Data: Layer3 (No HV)", "severity": "3", "obj": "Layer3"},
+	{"testID": "CSC_CFEB_SCA_NOISY", "scope": "CSC", "descr": "CFEB Noisy/Hot CFEB SCAs: CFEB1 Layer3 (HV segment is Off)", "severity": "3", "obj": "CFEB1 Layer3"},
+        {"testID": "CSC_CFEB_SCA_NOISY_CHANNEL", "scope": "CSC", "descr": "CFEB Hot/Noisy SCA channel: CFEB1 Layer3 Ch#2 (No HV, but still noisy channel)", "severity": "1", "obj": "CFEB1 Layer3 Ch#2"},
+        {"testID": "CSC_CFEB_SCA_DEAD_CHANNEL", "scope": "CSC", "descr": "CFEB Dead SCA channel: CFEB1 Layer3 Ch# (No HV, reporting channels as dead because of noisy Ch#2 )", "severity": "1", "obj": "CFEB1 Layer3"},
+        {"testID": "CSC_CFEB_SCA_LOW_EFF", "scope": "CSC", "descr": "CFEB No SCA Data: Layer3 (No HV)", "severity": "3", "obj": "Layer3"}
 ]},
 {
 "objID": "ME+1/2/03", "name": "ME+1/2/03", "list": [
@@ -676,7 +681,8 @@ var KNOWN_PROBLEMS = { "run": "csc_00124357_Monitor"
 {"objID": "ME-3/1/09", "name": "ME-3/1/09", "list": [
         {"testID": "CSC_WITH_LOW_CFEB_DAV_EFF", "scope": "CSC", "descr": "CFEB Dead: CFEB4 DAV 0.000% (LV issues)", "severity": "3", "obj": "CFEB4"},
         {"testID": "CSC_CFEB_SCA_LOW_EFF", "scope": "CSC", "descr": "CFEB Low SCA Efficiency: CFEB5 Layer6 (< 25.0% from average)", "severity": "2", "obj": "CFEB5 Layer6"},
-        {"testID": "CSC_CFEB_COMPARATORS_LOW_EFF", "scope": "CSC", "descr": "CFEB Low Comparators Efficiency: CFEB5 Layer6 (< 0.1% threshold)", "severity": "2", "obj": "CFEB5 Layer6"}
+        {"testID": "CSC_CFEB_COMPARATORS_LOW_EFF", "scope": "CSC", "descr": "CFEB Low Comparators Efficiency: CFEB5 Layer6 (< 0.1% threshold)", "severity": "2", "obj": "CFEB5 Layer6"},
+	{"testID": "CSC_CFEB_NO_COMPARATORS_DATA", "scope": "CSC", "descr": "CFEB No Comparators Data: CFEB5 Layer6", "severity": "3", "obj": "CFEB5 Layer6"}
 ]},
 {
 "objID": "ME-3/1/11", "name": "ME-3/1/11", "list": [
