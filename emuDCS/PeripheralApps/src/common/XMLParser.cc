@@ -575,7 +575,8 @@ void XMLParser::TMBParser(xercesc::DOMNode * pNode, Crate * theCrate, Chamber * 
     //0XF4
     if (fillInt("clct_blanking"          ,value)) { tmb_->SetClctBlanking(value);        }
     if (fillInt("clct_pid_thresh_pretrig",value)) { tmb_->SetClctPatternIdThresh(value); }
-    if (fillInt("adjacent_cfeb_distance" ,value)) { tmb_->SetAdjacentCfebDistance(value);}
+    if (fillInt("clct_pid_thresh_postdrift",value)) { tmb_->SetClctPatternIdThreshPostDrift(value); }    
+    if (fillInt("adjacent_cfeb_distance" ,value)) { tmb_->SetAdjacentCfebDistance(value); }
     //
     //0XF6
     if (fillInt("clct_min_separation",value)) { tmb_->SetMinClctSeparation(value); }
