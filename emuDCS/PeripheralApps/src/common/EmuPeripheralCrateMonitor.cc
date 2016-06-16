@@ -2904,7 +2904,7 @@ void EmuPeripheralCrateMonitor::DatabaseOutput(xgi::Input * in, xgi::Output * ou
   *out << "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>" << std::endl;
   *out << "<emuCounters dateTime=\"";
   *out << last_read_time.toString();
-  *out << "\" version=\"1.1\">" << std::endl;
+  *out << "\" version=\"3.0\">" << std::endl;
 
 //  *out << "  <sample name=\"cumulative\" delta_t=\"1000\">" << std::endl;
 
@@ -2922,22 +2922,20 @@ void EmuPeripheralCrateMonitor::DatabaseOutput(xgi::Input * in, xgi::Output * ou
      myDmbs = crateVector[i]->daqmbs();
      for(unsigned int j=0; j<myVector.size(); j++) 
      {
-        if(myVector[j]->GetHardwareVersion()>=2) continue;
-        int imask = 0x3F & (myDmbs[j]->GetPowerMask());
-        if (imask==0x3F) continue;
+//        if(myVector[j]->GetHardwareVersion()>=2) continue;
+        int imask = 0xfF & (myDmbs[j]->GetPowerMask());
+        if (imask==0x3F || imask==0xff ) continue;
         
         *out << "    <count chamber=\"";
         *out << crateVector[i]->GetChamber(myVector[j])->GetLabel();
         *out << "\" ";
-        for(int tc=0; tc<TOTAL_TMB_COUNTERS; tc++)
+        for(int tc=0; tc<REAL_TMB_COUNTERS; tc++)
         {
            sprintf(tcname+2,"%02d",tc);
            *out << tcname << "=\"";
            n_value = (*tmbdata)[j*MAX_TMB_COUNTERS+tc];
-           // the last counter only has 16 bits, not 32 bits
-           if( tc==(TOTAL_TMB_COUNTERS-1) ) n_value &= 0xFFFF;
            // for real counters, if counter error, set it to -1 here:
-           if((tc < myVector[j]->GetMaxCounter()) && (n_value == 0x3FFFFFFF || n_value <0)) n_value = -1;
+           if(n_value == 0x3FFFFFFF || n_value <0) n_value = -1;
            *out << n_value;
            *out << "\" ";
         }
@@ -3020,8 +3018,8 @@ void EmuPeripheralCrateMonitor::EmuCounterNames(xgi::Input * in, xgi::Output * o
   toolbox::TimeVal currentTime;
   xdata::TimeVal now_time = (xdata::TimeVal)currentTime.gettimeofday();
   *out << now_time.toString();
-  *out << "\" version=\"1.1\">" << std::endl;
-  for(int tc=0; tc<TOTAL_TMB_COUNTERS; tc++)
+  *out << "\" version=\"3.0\">" << std::endl;
+  for(int tc=0; tc<REAL_TMB_COUNTERS; tc++)
   {
       *out << "    <count name=\"";
       sprintf(tcname+2,"%02d",tc);
