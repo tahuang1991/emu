@@ -264,7 +264,6 @@ void VMEModule::end() {
 
  
 void VMEModule::endDevice() {
-  theController->end();
 }
 
 void VMEModule::do_vme(char fcn, char vme, 
@@ -1255,8 +1254,8 @@ int VMEModule::svfLoad(int jch, const char *fn, int db, int verify )
     }
   // At the end of downloading, bring JTAG to RESET state.
   // Not absolutely necessary if it is always followed by a Hard-Reset.
-  RestoreReset();
-  this->endDevice();
+//  RestoreReset();
+//  this->endDevice();
   // turn off delay.
   theController->SetUseDelay(false);
 

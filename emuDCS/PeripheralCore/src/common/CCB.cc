@@ -3019,7 +3019,7 @@ int CCB::gem_SVFLoad(int gem, const char *fn, int db, int verify)
     }
   // At the end of downloading, bring JTAG to RESET state.
   // Not absolutely necessary if it is always followed by a Hard-Reset.
-  gem_RestoreIdle(gem);
+  // gem_RestoreIdle(gem);
   // turn off delay.
   theController->SetUseDelay(false);
 
@@ -3076,7 +3076,7 @@ void CCB::gem_program_eprom(const char *mcsfile, int gem)
 //    getTheController()->Debug(2);
      getTheController()->SetUseDelay(true);
   
-    for(int i=0; i<blocks-1; i++)
+    for(int i=0; i<blocks; i++)
     {
 //    if(i>50) getTheController()->Debug(0);
        comd=VTX6_USR2; 

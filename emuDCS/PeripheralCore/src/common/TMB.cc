@@ -10630,8 +10630,8 @@ void TMB::program_virtex6(const char *mcsfile)
     
     std::cout << "FPGA configuration done!" << std::endl;             
     free(bufin);
-    tmb_set_boot_reg(0);
-     getTheController()->SetUseDelay(false);
+//    tmb_set_boot_reg(0);
+//     getTheController()->SetUseDelay(false);
 
 }
 
@@ -11731,7 +11731,7 @@ void TMB::otmb_program_eprom(const char *mcsfile)
 //    getTheController()->Debug(2);
      getTheController()->SetUseDelay(true);
   
-    for(int i=0; i<blocks-1; i++)
+    for(int i=0; i<blocks; i++)
     {
 //    if(i>50) getTheController()->Debug(0);
        comd=VTX6_USR2; 
@@ -11750,9 +11750,9 @@ void TMB::otmb_program_eprom(const char *mcsfile)
           scan(1, bufcmd, 1024, rcvbuf, 0);
           comd=VTX6_BYPASS; 
           scan(0, (char *)&comd, 10, rcvbuf, 0);
-          udelay(100000);
+          udelay(200000);
        }
-       udelay(150000);
+       udelay(200000);
        comd=VTX6_USR3; 
        scan(0, (char *)&comd, 10, rcvbuf, 0);
        udelay(10000);
