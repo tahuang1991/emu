@@ -303,6 +303,14 @@ void EmuPeripheralCrateConfig::CCBUtils(xgi::Input * in, xgi::Output * out )
   //
   *out << cgicc::br() << std::endl;
   //
+  std::string CCBFPGAReset =
+    toolbox::toString("/%s/CCBFPGAReset",getApplicationDescriptor()->getURN().c_str());
+  *out << cgicc::form().set("method","GET").set("action",CCBFPGAReset) << std::endl ;
+  *out << cgicc::input().set("type","submit").set("value","CCB FPGA Reset");
+  *out << cgicc::form() << std::endl ;
+  //
+  *out << cgicc::br() << std::endl;
+  //
   std::string HardReset =
     toolbox::toString("/%s/HardReset",getApplicationDescriptor()->getURN().c_str());
   *out << cgicc::form().set("method","GET").set("action",HardReset) << std::endl ;
@@ -859,6 +867,20 @@ void EmuPeripheralCrateConfig::MPCReadFirmware(xgi::Input * in, xgi::Output * ou
     //
     thisCCB->hardReset();
     // thisCCB->HardReset_crate();
+    //
+    this->CCBUtils(in,out);
+    //
+  }
+  //
+  void EmuPeripheralCrateConfig::CCBFPGAReset(xgi::Input * in, xgi::Output * out ) 
+    throw (xgi::exception::Exception)
+  {
+    //
+    cgicc::Cgicc cgi(in);
+    //
+    std::cout << "CCB FPGA Reset" << std::endl;
+    //
+    thisCCB->hard_reset_ccb();
     //
     this->CCBUtils(in,out);
     //

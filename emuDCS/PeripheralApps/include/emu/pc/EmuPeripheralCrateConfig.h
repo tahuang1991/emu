@@ -563,6 +563,7 @@ private:
   void CCBLoadFirmware(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void ReadTTCRegister(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void HardReset(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
+  void CCBFPGAReset(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void CCBConfig(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
   void CCBReadFirmware(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
   void CCBSignals(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);

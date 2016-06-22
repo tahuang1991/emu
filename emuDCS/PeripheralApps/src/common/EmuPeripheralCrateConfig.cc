@@ -307,6 +307,7 @@ EmuPeripheralCrateConfig::EmuPeripheralCrateConfig(xdaq::ApplicationStub * s): E
   xgi::bind(this,&EmuPeripheralCrateConfig::MPCLoadFirmware, "MPCLoadFirmware");
   xgi::bind(this,&EmuPeripheralCrateConfig::ReadTTCRegister, "ReadTTCRegister");
   xgi::bind(this,&EmuPeripheralCrateConfig::HardReset, "HardReset");
+  xgi::bind(this,&EmuPeripheralCrateConfig::CCBFPGAReset, "CCBFPGAReset");
   xgi::bind(this,&EmuPeripheralCrateConfig::CCBLoadFirmware, "CCBLoadFirmware");
   xgi::bind(this,&EmuPeripheralCrateConfig::PrepareForTriggering, "PrepareForTriggering");
   xgi::bind(this,&EmuPeripheralCrateConfig::CCBConfig, "CCBConfig");
@@ -9894,8 +9895,8 @@ void EmuPeripheralCrateConfig::TMBUtils(xgi::Input * in, xgi::Output * out )
   else
   {  // start OTMB
     *out << "OTMB: " << cgicc::br() << std::endl;
-    std::string svffile=TMBFirmware_[tmb].toString()+".svf";
-    *out << "firmware = " << svffile << cgicc::br() << std::endl;
+    std::string mcsfile=TMBFirmware_[tmb].toString()+".mcs";
+    *out << "firmware = " << mcsfile << cgicc::br() << std::endl;
     //
     *out << "Step 1)  Disable DCS monitoring to crates, and TURN OFF ALCTs" << cgicc::br() << std::endl;
     //
@@ -9935,7 +9936,6 @@ void EmuPeripheralCrateConfig::TMBUtils(xgi::Input * in, xgi::Output * out )
 
     *out << cgicc::br() << std::endl;
     *out << "OTMB FPGA: " << cgicc::br() << std::endl;
-    std::string mcsfile=TMBFirmware_[tmb].toString()+".mcs";
     *out << "firmware = " << mcsfile << cgicc::br() << std::endl;
 
     std::string LoadVirtex6TMBFpga = toolbox::toString("/%s/LoadVirtex6TMBFPGA",getApplicationDescriptor()->getURN().c_str());
@@ -11172,14 +11172,28 @@ void EmuPeripheralCrateConfig::LoadVirtex6TMBFirmware(xgi::Input * in, xgi::Outp
   if(tmb>=0 && (unsigned)tmb<tmbVector.size())  thisTMB = tmbVector[tmb];
   if(thisTMB && (thisTMB->GetHardwareVersion()==2))
   {
-    std::string svffile = TMBFirmware_[tmb].toString()+".svf";
+    std::string svffile1 = XMLDIR+"/virtex6lx240_header.svf";
+    std::string svffile2 = XMLDIR+"/virtex6_trailer.svf";
+    std::string corefile = XMLDIR+"/virtex6lx240_core.mcs";
+    std::string mcsfile = TMBFirmware_[tmb].toString()+".mcs";
+
     // Put CCB in FPGA mode to make the CCB ignore TTC commands (such as hard reset)
     thisCCB->setCCBMode(CCB::VMEFPGA);
       //
-    std::cout  << getLocalDateTime() <<  " Write OTMB (Virtex 6) firmware " << svffile << " to slot " << thisTMB->slot() << std::endl;
+    std::cout  << getLocalDateTime() <<  " Loading OTMB firmware " << mcsfile << " to slot " << thisTMB->slot() << std::endl;
       //
     thisTMB->setup_jtag(ChainTmbMezz);
-    thisTMB->svfLoad(0,svffile.c_str(), 0, 1);
+    std::cout << "Step #1, loading Xilinx Core..."  << std::endl;    
+    thisTMB->program_virtex6(corefile.c_str());
+    std::cout << "Step #2, erasing EPROM..."  << std::endl;    
+    thisTMB->svfLoad(0, svffile1.c_str(), 0, 0);
+    std::cout << "Step #3, programming EPROM with content from MCS file..."  << std::endl;
+    thisTMB->otmb_program_eprom(mcsfile.c_str());
+    std::cout << "Done!"  << std::endl;  
+    std::cout << "Step #4, finalizing..." << std::endl;
+    thisTMB->svfLoad(0, svffile2.c_str(), 0, 0);
+
+//    thisTMB->svfLoad(0,svffile.c_str(), 0, 1);
 
     // enable VME access to TMB FPGA
     // from function ClearTMBBootReg()
@@ -11191,6 +11205,7 @@ void EmuPeripheralCrateConfig::LoadVirtex6TMBFirmware(xgi::Input * in, xgi::Outp
 
     // Put CCB back into DLOG mode to listen to TTC commands...
     thisCCB->setCCBMode(CCB::DLOG);
+    std::cout  << getLocalDateTime() <<  " Finished loading firmware to EPROM." << std::endl;
   }
   //
 this->TMBUtils(in,out);
@@ -11222,9 +11237,10 @@ void EmuPeripheralCrateConfig::LoadVirtex6TMBFPGA(xgi::Input * in, xgi::Output *
     std::cout  << getLocalDateTime() <<  " Program OTMB (Virtex 6) FPGA with firmware " << mcsfile << " to slot " << thisTMB->slot() << std::endl;
       //
     thisTMB->program_virtex6(mcsfile.c_str());
-
+    thisTMB->tmb_set_boot_reg(0);
     // Put CCB back into DLOG mode to listen to TTC commands...
     thisCCB->setCCBMode(CCB::DLOG);
+    std::cout  << getLocalDateTime() <<  " Finished. " << std::endl;
   }
   //
 this->TMBUtils(in,out);
