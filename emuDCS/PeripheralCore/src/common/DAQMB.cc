@@ -795,9 +795,10 @@ void DAQMB::configure() {
    (*MyOutput_) << "doing set_comp_thresh " << set_comp_thresh_ << std::endl;
 
      set_comp_thresh(set_comp_thresh_);
+     set_comp_thresh_bc(set_comp_thresh_);
      //(*MyOutput_) << "doing preamp_initx() " << std::endl;
      preamp_initx();
-
+     udelay(2000);
    //  If the comparator threshold setting is more than 5mV off, re-program the BuckFlash
    //for (int lfeb=0;lfeb<5;lfeb++)
    for(unsigned lfeb=0; lfeb<cfebs_.size();lfeb++){
@@ -817,6 +818,7 @@ void DAQMB::configure() {
      LctL1aDelay(xlatency_);
      //
      
+     (*MyOutput_) << "write buckflash " << std::endl;
      char * flash_content=(char *)malloc(500);
      int n_byts = Fill_BUCK_FLASH_contents(flash_content);
      buckflash_erase();
@@ -1476,7 +1478,7 @@ void DAQMB::set_comp_thresh_bc(float thresh)
    devdo(dv,5,cmd,8,sndbuf,rcvbuf,0);
    cmd[0]=VTX_BYPASS;
    devdo(dv,5,cmd,0,sndbuf,rcvbuf,0);
-   usleep(20);
+   udelay(200);
  }
  else if (hversion==2)
  {
@@ -3067,6 +3069,7 @@ for(CFEBItr cfebItr = cfebs_.begin(); cfebItr != cfebs_.end(); ++cfebItr)
       write_cfeb_selector(cfebItr->SelectorBit());
       BuckeyeShift(chip_mask, shft_bits);
   }
+  udelay(200);
 }
   (*MyOutput_) << "done with preamp init " << std::endl;
 }
@@ -8759,6 +8762,21 @@ int DAQMB::LVDB_map(int chn)
      else return chn;
 }
 
+void DAQMB::power_cycle_cfeb(int cfeb)
+{
+   unsigned short pmask, oldpwr;
+   if(cfeb>=0 && cfeb<=7)
+   {
+      pmask= (1<<LVDB_map(cfeb));
+      oldpwr=ReadRegister(read_POWER_MASK);            
+      WriteRegister(set_POWER_MASK, oldpwr^pmask);
+      sleep(1);
+      WriteRegister(set_POWER_MASK, oldpwr);
+      sleep(1);
+      std::cout<<"Power-cycle CFEB #" << cfeb+1 << std::endl;
+   }
+}
+
 // ODMB discrete logic JTAG port.This method has exactly the same interface as cfeb_do(). 
 void DAQMB::dlog_do(int ncmd, void *cmd,int nbuf, void *inbuf,char *outbuf,int irdsnd)
 {
@@ -9006,6 +9024,20 @@ int DAQMB::DCSread2(char *data, int read_dcfeb)
   {
       data2[retn+i]=int(dsysmon[i]*100);
   }        
+  // read DCFEB fiber link error counters
+  unsigned short fiber_error[7];
+  for(int addr=1; addr<=7; addr++) 
+  {
+      if (addr<7) read_later(FIBER_ERROR_BASE+(addr<<4));
+      else read_now(FIBER_ERROR_BASE+(addr<<4), (char *)fiber_error);
+  }
+  unsigned short link_status=0;
+  for(int i=6; i>=0; i--) 
+  {
+      link_status <<=1;
+      if(fiber_error[i]) link_status |= 1;
+  }
+  data2[retn+dsysmon.size()] = link_status; 
   retn += TOTAL_ODMB;
   return retn;
 }
@@ -9863,6 +9895,20 @@ void DAQMB::autoload_readback_wrd(CFEB &cfeb, char wrd[2])
     dcfeb_hub(cfeb, REG_RD_WRD, 16, &tmp, buf, READ_YES|NOW);
     memcpy(wrd, buf, 2);
     return;
+}
+
+void DAQMB::dcfeb_toggle_daq_txdisable(CFEB &cfeb)
+{
+  char tmp[2];
+  dcfeb_hub(cfeb, TOGGLE_DAQ_TDIS, 0, tmp, tmp, NOW);
+  return;
+}
+
+void DAQMB::dcfeb_toggle_trig_txdisable(CFEB &cfeb)
+{
+  char tmp[2];
+  dcfeb_hub(cfeb, TOGGLE_TRG_TDIS, 0, tmp, tmp, NOW);
+  return;
 }
 
 void DAQMB::dcfeb_set_TMBTxMode(int cfeb_number, int mode){

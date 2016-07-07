@@ -788,11 +788,14 @@ public:
   void dcfeb_adc_finedelay(CFEB & cfeb, unsigned short finedelay);
   unsigned dcfeb_startup_status(CFEB & cfeb);
   unsigned dcfeb_qpll_lost_count(CFEB & cfeb);  
-
+  void dcfeb_toggle_daq_txdisable(CFEB & cfeb);
+  void dcfeb_toggle_trig_txdisable(CFEB & cfeb);
+  
   void dcfeb_set_TMBTxMode(int cfeb_number, int mode);
   void dcfeb_set_TMBTxModeShiftLayers(int cfeb_number, char hs[6]);
   void dcfeb_set_TMBTxModeLayerMask(int cfeb_number, int layer_mask);
 
+  void power_cycle_cfeb(int cfeb);
   int lvmb_power_state();
   // code for ODMB
   void daqmb_do(int ncmd,void *cmd,int nbuf, void *inbuf,char *outbuf,int irdsnd, int dev);   
