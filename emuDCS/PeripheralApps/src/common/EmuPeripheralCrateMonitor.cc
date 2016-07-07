@@ -614,7 +614,8 @@ void EmuPeripheralCrateMonitor::PublishEmuInfospace(int cycle)
                         unsigned cnt_idx = chii%30;
                         unsigned dcfebn = chii/30;
                         // for each DCFEB, data #10, #15, #27-#29 are binary, not floating point values
-                        if(dcfebn<7 && (cnt_idx== 10 || cnt_idx==15 || cnt_idx==27 || cnt_idx==28 || cnt_idx==29))  (*febdata)[ii] = rdv;
+                        if((dcfebn<7 && (cnt_idx== 10 || cnt_idx==15 || cnt_idx==27 || cnt_idx==28 || cnt_idx==29)) || (dcfebn==7 && cnt_idx>=9))  
+                          (*febdata)[ii] = rdv;
                         else (*febdata)[ii] = 0.01*rdv;
                      }
                   }
@@ -3702,7 +3703,7 @@ void EmuPeripheralCrateMonitor::DCSOutput2(xgi::Input * in, xgi::Output * out )
            { 
               int cnt_idx=k%30;
               int dcfebn=k/30;
-              if(dcfebn<7 && (cnt_idx==10 ||cnt_idx==15 ||cnt_idx==27 ||cnt_idx==28 ||cnt_idx==29)) 
+              if((dcfebn<7 && (cnt_idx==10 ||cnt_idx==15 ||cnt_idx==27 ||cnt_idx==28 ||cnt_idx==29)) || (dcfebn==7 && cnt_idx>=9)) 
               {
                  ival=(*febdata)[upgraded*TOTAL_DCFEB_MONS+k];
                  *out << " " << ival;
