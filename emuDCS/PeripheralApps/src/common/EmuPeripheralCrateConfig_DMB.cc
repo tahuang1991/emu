@@ -950,6 +950,8 @@ void EmuPeripheralCrateConfig::CFEBUtils(xgi::Input * in, xgi::Output * out )
   FuncName.push_back("Read EXTPLS Counter (12)");  
   FuncName.push_back("Read BC0 Counter (12)");  
   FuncName.push_back("Comparator Clock Phase Reset");  
+  FuncName.push_back("Toggle DAQ TX_Disable");  
+  FuncName.push_back("TOGGLE Trig TX_Disable");  
 
   cgicc::Cgicc cgi(in);
   //
@@ -1339,6 +1341,8 @@ void EmuPeripheralCrateConfig::CFEBFunction(xgi::Input * in, xgi::Output * out )
   FuncSize.push_back(12);
   FuncSize.push_back(12);
   FuncSize.push_back(12);
+  FuncSize.push_back(0);
+  FuncSize.push_back(0);
   FuncSize.push_back(0);
 
   cgicc::Cgicc cgi(in);
