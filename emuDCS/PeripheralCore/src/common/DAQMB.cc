@@ -9791,7 +9791,7 @@ void DAQMB::chan2shift(int chan[16],unsigned int shft_bits[3]){
 void DAQMB::set_dcfeb_parambuffer(CFEB &cfeb, unsigned short int bufload[34]){
     unsigned number = cfeb.number();
     bufload[0]=0x4321;                         //ready (not 0xffff)
-    float dthresh=0.05;
+    float dthresh=comp_thresh_cfeb_[number];
     int comp_thresh=int(4095*((3.5-dthresh)/3.5));
     int pipeline_depth = cfeb.GetPipelineDepth();
 
