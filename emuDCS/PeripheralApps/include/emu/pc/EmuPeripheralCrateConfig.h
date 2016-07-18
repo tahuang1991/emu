@@ -662,6 +662,7 @@ private:
   void StopPRBS(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void StartNewPRBS(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void StopNewPRBS(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
+  void DumpDCFEBLinkStatus(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void SetRadioactivityTrigger(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void SetTwoLayerTriggerForSystem(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void SetTwoLayerTriggerForCrate(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 

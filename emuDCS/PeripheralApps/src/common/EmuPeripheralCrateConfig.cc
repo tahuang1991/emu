@@ -1,6 +1,7 @@
 #include "emu/pc/EmuPeripheralCrateConfig.h"
 #include "emu/utils/System.h"
 #include "emu/utils/String.h"
+#include "emu/utils/Chamber.h"
 
 #include <string>
 #include <vector>
@@ -243,6 +244,7 @@ EmuPeripheralCrateConfig::EmuPeripheralCrateConfig(xdaq::ApplicationStub * s): E
   xgi::bind(this,&EmuPeripheralCrateConfig::StopPRBS, "StopPRBS");
   xgi::bind(this,&EmuPeripheralCrateConfig::StartNewPRBS, "StartNewPRBS");
   xgi::bind(this,&EmuPeripheralCrateConfig::StopNewPRBS, "StopNewPRBS");
+  xgi::bind(this,&EmuPeripheralCrateConfig::DumpDCFEBLinkStatus, "DumpDCFEBLinkStatus");
   xgi::bind(this,&EmuPeripheralCrateConfig::SetRadioactivityTrigger, "SetRadioactivityTrigger");
   xgi::bind(this,&EmuPeripheralCrateConfig::SetRadioactivityTriggerALCTOnly, "SetRadioactivityTriggerALCTOnly");
   xgi::bind(this,&EmuPeripheralCrateConfig::SetTTCDelays, "SetTTCDelays");
@@ -4255,6 +4257,27 @@ void EmuPeripheralCrateConfig::ExpertToolsPage(xgi::Input * in, xgi::Output * ou
   //
   //  ///////////////////////
   *out << cgicc::fieldset().set("style","font-size: 11pt; font-family: arial;") << std::endl;
+  *out << cgicc::legend("Check optical links from DCFEB to DMB and TMB").set("style","color:blue") << std::endl ;
+  //
+    *out << cgicc::table().set("border","0");
+  //
+    *out << cgicc::td();
+    std::string action = toolbox::toString("/%s/DumpDCFEBLinkStatus",getApplicationDescriptor()->getURN().c_str());
+    *out << cgicc::form().set("method","GET").set("action",action) << std::endl ;
+    *out << cgicc::input().set("type","submit").set("value","Dump link status to file").set("style","color:blue")
+      .set("title","For all DCFEBs, write optical links' status into an XML file /tmp/DCFEBLinkStatus_YY-MM-DD_hh-mm-ss.xml")<< std::endl ;
+    *out << cgicc::form()<< std::endl ;;
+    *out << cgicc::td();
+
+  //
+    *out << cgicc::table() << std::endl ;
+  //
+  *out << cgicc::fieldset();
+  //
+  *out << cgicc::br();
+  //
+  //  ///////////////////////
+  *out << cgicc::fieldset().set("style","font-size: 11pt; font-family: arial;") << std::endl;
   *out << cgicc::legend("Actions spanning the full system").set("style","color:blue") 
        << std::endl ;
   //
@@ -4445,6 +4468,64 @@ void EmuPeripheralCrateConfig::StopNewPRBS(xgi::Input * in, xgi::Output * out )
      }
      prbs_test_=false;
   }
+  this->ExpertToolsPage(in, out);
+}
+//
+void EmuPeripheralCrateConfig::DumpDCFEBLinkStatus(xgi::Input * in, xgi::Output * out )
+  throw (xgi::exception::Exception) {
+  //  
+  std::cout << getLocalDateTime() << " Button: Dump DCFEB optical links' status to file" << std::endl;
+  //
+  ostringstream XML;
+  string dateTime( emu::utils::getDateTime( true ) );
+  XML << "<?xml version='1.0' encoding='UTF-8' standalone='no'?>\n<OpticalLinks dateTime='" << dateTime << "'>";
+  if(total_crates_>0)
+  {
+     for(unsigned int c=0; c<crateVector.size(); c++){
+       if ( crateVector[c]->IsAlive() ){
+	 std::vector<TMB*> tmbs = crateVector.at(c)->tmbs();
+	 std::vector<DAQMB*> dmbs = crateVector.at(c)->daqmbs();
+	 bool hasDCFEBs = false;
+	 for (unsigned int d=0; d<dmbs.size(); d++){
+	   std::vector<CFEB> cfebs = dmbs.at(d)->cfebs();
+	   for (unsigned int f=0; f<cfebs.size(); f++) hasDCFEBs |= ( cfebs.at(f).GetHardwareVersion() >= 2 );
+	 }
+	 if ( hasDCFEBs ){
+	   XML << "\n  <Crate id='" << crateVector[c]->CrateID() << "' label='" << crateVector[c]->GetLabel() << "'>";
+	   for (unsigned int t=0; t<tmbs.size(); t++){
+	     DAQMB* dmb = tmbs[t]->getChamber()->GetDMB();
+	     int nDCFEBs = dmb->cfebs().size();
+	     // TMB
+	     string chamberName = emu::utils::Chamber( tmbs[t]->getChamber()->GetLabel() ).name();
+	     XML << "\n    <TMB slot='" << tmbs[t]->slot() << "' chamber='" << chamberName << "'>";
+	     tmbs[t]->ReadDcfebGtxRxRegisters();
+	     for (int f=0; f<nDCFEBs; f++){
+	       XML << "\n      <DCFEB n='" << f+1 
+		   << "' isGood='"     << tmbs[t]->GetReadGtxRxLinkGood(f)
+		   << "' hadErrors='"  << tmbs[t]->GetReadGtxRxLinkHadError(f)
+		   << "' isUnstable='" << tmbs[t]->GetReadGtxRxLinkBad(f)
+		   << "' errors='"     << tmbs[t]->GetReadGtxRxErrorCount(f) 
+		   << "'/>";
+	     }
+	     XML << "\n    </TMB>";
+	     // DMB
+	     XML << "\n    <DMB slot='" << dmb->slot() << "' chamber='" << chamberName << "'>";
+	     dmb->GetCounters();
+	     const int FIBER_ERROR_START = 54; // see DAQMB::GetCounters()
+	     for (int f=0; f<nDCFEBs; f++){
+	       XML << "\n      <DCFEB n='" << f+1 << "' errors='"     << dmb->GetCounter( FIBER_ERROR_START + f ) << "'/>";
+	     }
+	     XML << "\n    </DMB>";
+	   }
+	   XML << "\n  </Crate>";
+	 }
+       }
+     }
+  }
+  XML << "\n</OpticalLinks>";
+  string fileName( "/tmp/DCFEBLinks_" + dateTime + ".xml" );
+  emu::utils::writeFile( fileName, XML.str() );
+  std::cout << getLocalDateTime() << " DCFEB optical links' status written to " << fileName << std::endl;
   this->ExpertToolsPage(in, out);
 }
 //
