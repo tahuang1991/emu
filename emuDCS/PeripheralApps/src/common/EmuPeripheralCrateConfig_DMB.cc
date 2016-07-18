@@ -848,7 +848,7 @@ void EmuPeripheralCrateConfig::CFEBStatus(xgi::Input * in, xgi::Output * out )
      }
      *out << cgicc::table().set("border","1");
      //
-     *out <<cgicc::td() << "Channel" << std::setprecision(3)<< cgicc::td();
+     *out <<cgicc::td() << "Channel" << std::setprecision(4)<< cgicc::td();
      for(int ch=0; ch<27; ch++)
      {
        if(ch) *out << cgicc::td() << chname[ch-1] << cgicc::td();
