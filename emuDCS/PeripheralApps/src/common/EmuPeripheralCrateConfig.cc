@@ -4478,7 +4478,7 @@ void EmuPeripheralCrateConfig::DumpDCFEBLinkStatus(xgi::Input * in, xgi::Output 
   //
   ostringstream XML;
   string dateTime( emu::utils::getDateTime( true ) );
-  XML << "<?xml version='1.0' encoding='UTF-8' standalone='no'?>\n<OpticalLinks dateTime='" << dateTime << "'>";
+  XML << "<?xml version='1.0' encoding='UTF-8' standalone='no'?>\n<OpticalLinks dateTime='" << emu::utils::getDateTime() << "'>";
   if(total_crates_>0)
   {
      for(unsigned int c=0; c<crateVector.size(); c++){
@@ -4523,7 +4523,7 @@ void EmuPeripheralCrateConfig::DumpDCFEBLinkStatus(xgi::Input * in, xgi::Output 
      }
   }
   XML << "\n</OpticalLinks>";
-  string fileName( "/tmp/DCFEBLinks_" + dateTime + ".xml" );
+  string fileName( "/tmp/DCFEBLinkStatus_" + dateTime + ".xml" );
   emu::utils::writeFile( fileName, XML.str() );
   std::cout << getLocalDateTime() << " DCFEB optical links' status written to " << fileName << std::endl;
   this->ExpertToolsPage(in, out);
