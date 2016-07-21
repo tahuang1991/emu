@@ -111,6 +111,9 @@ private:
   void FastConfigCrates(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void FastConfigOne(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void UnJamTMB(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
+  void PowerCycleCFEB(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
+  void DCFEBResetDAQLink(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
+  void DCFEBResetTrigLink(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void FlashHistory(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void ConfigureInit(int c=0);
   bool ParsingXML(bool reload=false);

@@ -42,6 +42,9 @@ EmuPeripheralCrateService::EmuPeripheralCrateService(xdaq::ApplicationStub * s):
   xgi::bind(this,&EmuPeripheralCrateService::FastConfigCrates, "FastConfigCrates");
   xgi::bind(this,&EmuPeripheralCrateService::FastConfigOne, "FastConfigOne");
   xgi::bind(this,&EmuPeripheralCrateService::UnJamTMB, "UnJamTMB");
+  xgi::bind(this,&EmuPeripheralCrateService::PowerCycleCFEB, "PowerCycleCFEB");
+  xgi::bind(this,&EmuPeripheralCrateService::DCFEBResetDAQLink, "DCFEBResetDAQLink");
+  xgi::bind(this,&EmuPeripheralCrateService::DCFEBResetTrigLink, "DCFEBResetTrigLink");
   xgi::bind(this,&EmuPeripheralCrateService::FlashHistory, "FlashHistory");
   xgi::bind(this,&EmuPeripheralCrateService::ForEmuPage1, "ForEmuPage1");
   xgi::bind(this,&EmuPeripheralCrateService::SwitchBoard, "SwitchBoard"); 
@@ -562,6 +565,177 @@ void EmuPeripheralCrateService::UnJamTMB(xgi::Input * in, xgi::Output * out )
      }
      if(!done) msgHandler("ERROR: UnJamTMB failed! Unknown name: " + command_argu);
      *out << std::endl;
+  }
+}
+
+void EmuPeripheralCrateService::PowerCycleCFEB(xgi::Input * in, xgi::Output * out ) 
+  throw (xgi::exception::Exception)
+{
+  cgicc::Cgicc cgi(in);
+  //
+  cgicc::form_iterator name = cgi.getElement("chamber");
+  std::string chamb="";
+  if(name != cgi.getElements().end()) {
+    chamb = cgicc::form_urldecode(cgi["chamber"]->getValue());
+    // std::cout << "Get chamber = " << chamb << std::endl;
+  }
+  cgicc::form_iterator name2 = cgi.getElement("cfeb");
+  int dcfeb=0;
+  if(name2 != cgi.getElements().end()) {
+    dcfeb = cgi["cfeb"]->getIntegerValue();
+    // std::cout << "Get cfeb = " << dcfeb << std::endl;
+  }
+
+   ParsingXML();
+
+  xdata::Integer xcfeb=dcfeb;
+  bool done=false;
+
+  std::vector<DAQMB*> myVector;
+
+  if (dcfeb>0 && dcfeb<=8 && chamb.size()>7 && chamb.substr(0,2)=="ME")
+  {
+     for ( unsigned int i = 0; i < crateVector.size(); i++ )
+     {
+        myVector = crateVector[i]->daqmbs();
+        if(myVector.size()==0) continue;
+        for(unsigned int j=0; j<myVector.size(); j++) 
+        {
+            if(myVector[j]==NULL) continue;
+            std::string chname = crateVector[i]->GetChamber(myVector[j])->GetLabel();
+            if(chname.substr(3, std::string::npos)==chamb.substr(3, std::string::npos))
+            {
+               if(!Simulation_) myVector[j]->power_cycle_cfeb(dcfeb-1); 
+               msgHandler("Message: Power Cycle CFEB: " + chname + " CFEB #" + xcfeb.toString());
+               *out << "done";
+               done=true;
+            }
+        }
+     }
+     *out << std::endl;
+  }
+  if(!done)
+  {  *out << "failed" << std::endl;
+     msgHandler("ERROR: Power Cycle failed! Invalid Chamber name: " + chamb + " or CFEB number: " + xcfeb.toString());
+  }
+}
+
+void EmuPeripheralCrateService::DCFEBResetDAQLink(xgi::Input * in, xgi::Output * out ) 
+  throw (xgi::exception::Exception)
+{
+  cgicc::Cgicc cgi(in);
+  //
+  cgicc::form_iterator name = cgi.getElement("chamber");
+  std::string chamb="";
+  if(name != cgi.getElements().end()) {
+    chamb = cgicc::form_urldecode(cgi["chamber"]->getValue());
+    // std::cout << "Get chamber = " << chamb << std::endl;
+  }
+  cgicc::form_iterator name2 = cgi.getElement("cfeb");
+  int dcfeb=0;
+  if(name2 != cgi.getElements().end()) {
+    dcfeb = cgi["cfeb"]->getIntegerValue();
+    // std::cout << "Get cfeb = " << dcfeb << std::endl;
+  }
+
+   ParsingXML();
+
+  xdata::Integer xcfeb=dcfeb;
+  bool done=false;
+
+  std::vector<DAQMB*> myVector;
+
+  if (dcfeb>0 && dcfeb<=7 && chamb.size()>7 && chamb.substr(0,2)=="ME")
+  {
+     for ( unsigned int i = 0; i < crateVector.size(); i++ )
+     {
+        myVector = crateVector[i]->daqmbs();
+        if(myVector.size()==0) continue;
+        for(unsigned int j=0; j<myVector.size(); j++) 
+        {
+            if(myVector[j]==NULL) continue;
+            std::string chname = crateVector[i]->GetChamber(myVector[j])->GetLabel();
+            if(chname.substr(3, std::string::npos)==chamb.substr(3, std::string::npos))
+            {
+               std::vector<CFEB> cfebs = myVector[j]->cfebs();
+               if(!Simulation_)
+               { 
+                  for (unsigned ifeb=0; ifeb<cfebs.size(); ifeb++)
+                  {
+                      if((dcfeb-1)==cfebs[ifeb].number()) myVector[j]->dcfeb_toggle_daq_txdisable(cfebs[ifeb]);
+                  }
+               }
+               msgHandler("Message: Reset DCFEB DAQ Link: " + chname + " CFEB #" + xcfeb.toString());
+               *out << "done";
+               done=true;
+            }
+        }
+     }
+     *out << std::endl;
+  }
+  if(!done)
+  {  *out << "failed" << std::endl;
+     msgHandler("ERROR: Reset DCFEB failed! Invalid Chamber name: " + chamb + " or CFEB number: " + xcfeb.toString());
+  }
+}
+
+
+void EmuPeripheralCrateService::DCFEBResetTrigLink(xgi::Input * in, xgi::Output * out ) 
+  throw (xgi::exception::Exception)
+{
+  cgicc::Cgicc cgi(in);
+  //
+  cgicc::form_iterator name = cgi.getElement("chamber");
+  std::string chamb="";
+  if(name != cgi.getElements().end()) {
+    chamb = cgicc::form_urldecode(cgi["chamber"]->getValue());
+    // std::cout << "Get chamber = " << chamb << std::endl;
+  }
+  cgicc::form_iterator name2 = cgi.getElement("cfeb");
+  int dcfeb=0;
+  if(name2 != cgi.getElements().end()) {
+    dcfeb = cgi["cfeb"]->getIntegerValue();
+    // std::cout << "Get cfeb = " << dcfeb << std::endl;
+  }
+
+   ParsingXML();
+
+  xdata::Integer xcfeb=dcfeb;
+  bool done=false;
+
+  std::vector<DAQMB*> myVector;
+
+  if (dcfeb>=0 && dcfeb<=7 && chamb.size()>7 && chamb.substr(0,2)=="ME")
+  {
+     for ( unsigned int i = 0; i < crateVector.size(); i++ )
+     {
+        myVector = crateVector[i]->daqmbs();
+        if(myVector.size()==0) continue;
+        for(unsigned int j=0; j<myVector.size(); j++) 
+        {
+            if(myVector[j]==NULL) continue;
+            std::string chname = crateVector[i]->GetChamber(myVector[j])->GetLabel();
+            if(chname.substr(3, std::string::npos)==chamb.substr(3, std::string::npos))
+            {
+               std::vector<CFEB> cfebs = myVector[j]->cfebs();
+               if(!Simulation_)
+               { 
+                  for (unsigned ifeb=0; ifeb<cfebs.size(); ifeb++)
+                  {
+                      if((dcfeb-1)==cfebs[ifeb].number()) myVector[j]->dcfeb_toggle_trig_txdisable(cfebs[ifeb]);
+                  }
+               }
+               msgHandler("Message: Reset DCFEB Trig Link: " + chname + " CFEB #" + xcfeb.toString());
+               *out << "done";
+               done=true;
+            }
+        }
+     }
+     *out << std::endl;
+  }
+  if(!done) 
+  {  *out << "failed" << std::endl;
+     msgHandler("ERROR: Reset DCFEB failed! Invalid Chamber name: " + chamb + " or CFEB number: " + xcfeb.toString());
   }
 }
 
