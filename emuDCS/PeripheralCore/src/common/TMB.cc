@@ -2077,17 +2077,17 @@ int * TMB::NewCounters(){
       int write_value = ((counter << 9) & 0xfe00) | ((odd_even << 8) & 0x0100) | 0x0020;
       //
       write_later(cnt_ctrl_adr,write_value);
-      vme_delay(10);
+      vme_delay(0x20);
       //
       read_later(cnt_rdata_adr);
-      vme_delay(10);
+      vme_delay(20);
     }
   }   
 
   // CFEB BadBits registers: 0x122->0x142, total 17 words => 9 counters (32-bit)
   for(unsigned short add=0x122; add<=0x142; add+=2) 
   {  read_later(add);
-     vme_delay(10);
+     vme_delay(20);
   }
   read_later(vme_dsn_adr); // adding one extra word to align the data at 32-bit
   //for 7DCFEB firmware
@@ -2095,7 +2095,7 @@ int * TMB::NewCounters(){
     read_later(vme_dsn_adr); // adding one extra word to align the data at 32-bit; add another (7+1 words) 4 extra counters
     for(unsigned short add=0x15c; add<=0x168; add+=2) 
     {   read_later(add);
-        vme_delay(10);
+        vme_delay(20);
     }
   }
   // time since last hard_reset (in seconds)
@@ -10434,19 +10434,21 @@ int TMB::DCSvoltages(char *databuf)
      {
         data_in = ((vchip>>(3-j))&1) ? data_bit : 0;
         write_later(adc_adr, base_value | data_in);
-        vme_delay(2);
+        vme_delay(20);
         write_later(adc_adr, base_value | data_in | clock_bit);
-        vme_delay(2);
+        vme_delay(20);
         read_later(adc_adr);
+        vme_delay(10);
      }
      /* shift out the rest 8 bits of data */
      for(int j=0; j<8; j++)
      {
         write_later(adc_adr, base_value);
-        vme_delay(2);
+        vme_delay(20);
         write_later(adc_adr, base_value | clock_bit);
-        vme_delay(2);
+        vme_delay(20);
         read_later(adc_adr);
+        vme_delay(10);
      }
   }
   write_now(adc_adr, chip_sel, (char *)&ttbuf);

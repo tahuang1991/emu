@@ -7266,18 +7266,23 @@ int DAQMB::DCSreadAll(char *data)
      for(int j=0;j<8; j++)
      {
         write_later(0x8020, m);
+        vme_delay(10);
         n=(j<<4) + 0xFF89;
         write_later(0x8000, n);
+        vme_delay(20);
         read_later(0x8004);
+        vme_delay(10);
      }
   }
   for(int j=0; j<6; j++)
   {
      // devdo() dev=17, ncmd=16, Cmd[0]=1, Cmd[1]=j
-
+     vme_delay(10);
      write_later(0x7020, 0x0E);
+     vme_delay(10);
      n=(j<<4) + 0xFF89;
      write_later(0x7000, n);
+     vme_delay(20);
      if(j==5) retn=read_now(0x7004, data);
      else     read_later(0x7004);
   }
@@ -9901,6 +9906,7 @@ void DAQMB::dcfeb_toggle_daq_txdisable(CFEB &cfeb)
 {
   char tmp[2];
   dcfeb_hub(cfeb, TOGGLE_DAQ_TDIS, 0, tmp, tmp, NOW);
+  udelay(200000);
   return;
 }
 
@@ -9908,6 +9914,7 @@ void DAQMB::dcfeb_toggle_trig_txdisable(CFEB &cfeb)
 {
   char tmp[2];
   dcfeb_hub(cfeb, TOGGLE_TRG_TDIS, 0, tmp, tmp, NOW);
+  udelay(200000);
   return;
 }
 
