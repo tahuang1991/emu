@@ -104,6 +104,15 @@ function toUnixTime( dateTime ){
 	 d.setMinutes ( Number( dateTime.substr(14,2) )     );
 	 d.setSeconds ( Number( dateTime.substr(17,2) )     );
     }
+    else if ( dateTime.length == 23 ){
+	 // YYYY-MM-DD hh:mm:ss UTC
+	 d.setUTCFullYear( Number( dateTime.substr( 0,4) )     );
+	 d.setUTCMonth   ( Number( dateTime.substr( 5,2) ) - 1 );
+	 d.setUTCDate    ( Number( dateTime.substr( 8,2) )     );
+	 d.setUTCHours   ( Number( dateTime.substr(11,2) )     );
+	 d.setUTCMinutes ( Number( dateTime.substr(14,2) )     );
+	 d.setUTCSeconds ( Number( dateTime.substr(17,2) )     );
+    }
     else {
 	 var months = { 'Jan':1, 'Feb':2, 'Mar':3, 'Apr':4, 'May':5, 'Jun':6, 'Jul':7, 'Aug':8, 'Sep':9, 'Oct':10, 'Nov':11, 'Dec':12 }
 	 // Wed, Jun 10 2009 21:47:35 GMT
@@ -283,9 +292,11 @@ function Panel( name, refreshPeriod, dataURL ) {
     	this.coords_element = document.getElementById(this.name+"-pointerCoords");
     	this.pad_element = document.getElementById(this.name+"-pad");
     	this.pad_element.onmousedown = this.onMouseDownOnPad;
+    	this.pad_element.onmouseup = this.onMouseUpOnPad;
     	this.graph_element.onmouseover = this.onMouseOverGraph;
     	this.graph_element.onmouseout = this.onMouseOffGraph;
-    	this.pad_element.addEventListener('DOMMouseScroll', this.onMouseWheelOnPad, false);
+    	this.pad_element.addEventListener('DOMMouseScroll', this.onMouseWheelOnPad, false); // Firefox
+    	this.pad_element.addEventListener('mousewheel', this.onMouseWheelOnPad, false); // Chrome
     	this.follow_element.onmousedown = this.onMouseDownOnFollowButton;
     	this.zoom_element.onmousedown = this.onMouseDownOnZoomButton;
     };
@@ -298,6 +309,13 @@ function Panel( name, refreshPeriod, dataURL ) {
 	self.graph_element.transform.baseVal.consolidate();
 	self.oldTransform = self.graph_element.getAttribute( "transform" );
 	// self.printSvgSvg();
+	event.preventDefault();
+    };
+
+    this.onMouseUpOnPad = function (e){
+	if ( document.body ) document.body.style.cursor = 'default';
+	self.dragging = false;
+	event.preventDefault();
     };
 
     this.onMouseDownOnFollowButton = function (){
@@ -361,40 +379,37 @@ function Panel( name, refreshPeriod, dataURL ) {
     };
 
     this.onMouseWheelOnPad = function (event){
-	var newTransform;
-	var delta = 0;
-	// Delta is multiple of +-3.
-	// Or +-1 if Alt is pressed.
-	delta = event.detail;
-	if (delta){
-	    switch(delta){
-	    case -1:
-		// Scale up in X
-		if ( document.body ) document.body.style.cursor = 'w-resize';
- 		self.scale( 1.25, 1. );
-		break;
-	    case 1:
-		// Scale down in X
-		if ( document.body ) document.body.style.cursor = 'e-resize';
- 		self.scale( 0.8, 1. );
-		break;
-	    case -3:
+	// console.log( 'Alt: ' + event.altKey + '  detail: ' + event.detail + '  deltaX: ' + event.deltaX  + '  deltaY: ' + event.deltaY  + '  deltaZ: ' + event.deltaZ + '  wheelDelta: ' + event.wheelDelta );
+	var delta;
+	if ( typeof event.wheelDelta === "undefined" ) delta = -event.detail;     // Firefox
+	else                                           delta =  event.wheelDelta; // Chrome
+	if ( event.altKey ){
+	    if ( delta > 0 ){
 		// Scale up in Y
 		if ( document.body ) document.body.style.cursor = 'n-resize';
 		self.scale( 1., 1.25 );
-		break;    
-	    case 3:
+	    }
+	    else if ( delta < 0 ){
 		// Scale down in Y
 		if ( document.body ) document.body.style.cursor = 's-resize';
 		self.scale( 1., 0.8 );
-		break;
-	    default:
-		if ( document.body ) document.body.style.cursor = 'default';
+	    }
+	}
+	else{
+	    if ( delta > 0 ){
+		// Scale up in X
+		if ( document.body ) document.body.style.cursor = 'e-resize';
+ 		self.scale( 1.25, 1. );
+	    }
+	    else if ( delta < 0 ){
+		// Scale down in X
+		if ( document.body ) document.body.style.cursor = 'w-resize';
+ 		self.scale( 0.8, 1. );
 	    }
 	}
 	// Prevent default actions caused by mouse wheel.
 	event.preventDefault();
-	event.returnValue = false;
+	//event.returnValue = false; // what does this do?
     };
 
     this.translate = function ( xDistSVG, yDistSVG ){
@@ -670,39 +685,61 @@ function Panel( name, refreshPeriod, dataURL ) {
 		    $('#'+self.name+'-td_value_CPMPriState').attr( 'class', row.state_name );
 		    $('#'+self.name+'-a_value_CPMPriState').text( row.state_name );
 		    $('#'+self.name+'-a_value_CPMPriState').attr( 'title', 'The CPM (Central Partition Manager) Controller application is '+row.state_name);
-		}		
+		}
 	    });
 	    $('#'+self.name+'-td_value_State').attr( 'class', combinedState );
 	    $('#'+self.name+'-a_value_State').text( combinedState );
 	    $('#'+self.name+'-a_value_State').attr( 'title', (combinedState == 'INDEFINITE' ? 'Not all TCDS CI and PI Controller applications are in the same FSM state.' : 'All TCDS CI and PI Controller applications are '+combinedState ) );
 	    
 	}).success( function(){
-	    if ( whoIsInControl == 'global' ){
-	      $.getJSON( self.DataURL+'?fmt=json&flash=urn:xdaq-flashlist:tcds_cpm_rates', function(json){
-		  var time = toUnixTime( json.table.properties.LastUpdate );
-		  $('#'+self.name+'-td_localDateTime').text( timeToString( time ) );
-		  var totalTriggerRate = 0;
-		  $.each( json.table.rows, function(i,row){
-		      if ( row.service == 'cpm-pri' ) totalTriggerRate = row.trg_rate_total;
-		    });
-		  var graphPoint = { name:'Total primary CPM trigger [Hz]', time:time, value:totalTriggerRate };
-		  self.appendPoint( graphPoint );
-		  // }).success( function(){
-		  clearTimeout(self.Clock);
-		  self.ageOfPageClock(0);
-		});
-	    }
-	    else{
-	      // TODO: get LPM rate instead
-	      $.getJSON( self.DataURL+'?fmt=json&flash=urn:xdaq-flashlist:tcds_cpm_rates', function(json){
-		  var time = toUnixTime( json.table.properties.LastUpdate );
-		  $('#'+self.name+'-td_localDateTime').text( timeToString( time ) );
-		  clearTimeout(self.Clock);
-		  self.ageOfPageClock(0);
-		});
-	    }
+	    // if ( whoIsInControl == 'global' ){
+	      // $.getJSON( self.DataURL+'?fmt=json&flash=urn:xdaq-flashlist:tcds_cpm_rates', function(json){
+ 	      // 	  var time = toUnixTime( json.table.properties.LastUpdate );
+	      // 	  $('#'+self.name+'-td_localDateTime').text( timeToString( time ) );
+	      // 	  var totalTriggerRate = 0;
+	      // 	  $.each( json.table.rows, function(i,row){
+	      // 	      if ( row.service == 'cpm-pri' ) totalTriggerRate = row.trg_rate_total;
+	      // 	    });
+	    // 	  var graphPoint = { name:'Total primary CPM trigger [Hz]', time:time, value:totalTriggerRate };
+	    // 	  self.appendPoint( graphPoint );
+	    // 	  // }).success( function(){
+	    // 	  clearTimeout(self.Clock);
+	    // 	  self.ageOfPageClock(0);
+	    	// });
+	    // }
+	    // else{
+	    //   // TODO: get LPM rate instead
+	    //   $.getJSON( self.DataURL+'?fmt=json&flash=urn:xdaq-flashlist:tcds_cpm_rates', function(json){
+	    // 	  var time = toUnixTime( json.table.properties.LastUpdate );
+	    // 	  $('#'+self.name+'-td_localDateTime').text( timeToString( time ) );
+	    // 	  clearTimeout(self.Clock);
+	    // 	  self.ageOfPageClock(0);
+	    // 	});
+	    // }
 	});
-    }
+ 	// Get TCDS PI spy log
+	$.getJSON('http://tcds-control-csc-pri.cms:2104/urn:xdaq-application:lid=502/update', function(json){
+	    // var msg='';
+	    var nHardResets=0;
+	    $.each( json["itemset-ttcspylog"], function(k,v){
+	    	// msg+=' '+k+'\n';
+	    	$.each( v, function(l,u){
+		    if ( u["Data"] == 0x10 ){
+			nHardResets++;
+	    		// msg+='  '+ nHardResets +' '+l+' '+u["Delta"].split(' ')[0]+' '+u["Data"]+'\n';
+		    }
+	    	});
+	    });
+	    var time = toUnixTime( json["Application state"]["Latest monitoring update time"] );
+	    // msg = json["Application state"]["Latest monitoring update time"] + ' ' + time + ' ' + msg; 
+	    $('#'+self.name+'-td_localDateTime').text( timeToString( time ) );
+	    var graphPoint = { name:'Hard resets since TTCSpy conf', time:time, value:nHardResets };
+	    self.appendPoint( graphPoint );
+	    clearTimeout(self.Clock);
+	    self.ageOfPageClock(0);
+            // console.log( msg );
+	});
+   }
 
 
     this.diskUsageFromJson = function(){
