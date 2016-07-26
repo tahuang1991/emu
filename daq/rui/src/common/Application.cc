@@ -3520,10 +3520,12 @@ xoap::MessageReference emu::daq::rui::Application::onSTEPQuery( xoap::MessageRef
     xdata::UnsignedInteger64                totalCount  = STEPEventCounter_.getNEvents();
     xdata::UnsignedInteger64                lowestCount = STEPEventCounter_.getLowestCount();
     xdata::Vector<xdata::UnsignedInteger64> counts;
+    xdata::Vector<xdata::UnsignedInteger64> readCounts;
     xdata::Vector<xdata::Boolean>           masks;
     xdata::Vector<xdata::Boolean>           liveInputs;
     for( uint32_t iInput=0; iInput < emu::daq::rui::STEPEventCounter::maxDDUInputs_; ++iInput ){
       counts.push_back( STEPEventCounter_.getCount( iInput ) );
+      readCounts.push_back( STEPEventCounter_.getCountRead( iInput ) );
       masks.push_back( STEPEventCounter_.isMaskedInput( iInput ) );
       liveInputs.push_back( STEPEventCounter_.isLiveInput( iInput ) );
     }
@@ -3535,6 +3537,7 @@ xoap::MessageReference emu::daq::rui::Application::onSTEPQuery( xoap::MessageRef
 			  .add( "TotalCount"        , &totalCount          )
 			  .add( "LowestCount"       , &lowestCount         )
 			  .add( "Counts"            , &counts              )
+			  .add( "ReadCounts"        , &readCounts          )
 			  .add( "Masks"             , &masks               )
 			  .add( "LiveInputs"        , &liveInputs          ) );
   }

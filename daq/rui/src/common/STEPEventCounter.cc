@@ -21,6 +21,7 @@ void emu::daq::rui::STEPEventCounter::initialize( const uint64_t requestedEvents
     isLiveInput_[i] = bool( bitMask & *liveDDUInputs );
     bitMask <<= 1;
     count_[i] = 0;
+    countRead_[i] = 0;
   }
   isInitialized_ = true;
 }
@@ -33,6 +34,7 @@ void emu::daq::rui::STEPEventCounter::reset(){
   for ( int i=0; i<maxDDUInputs_; ++i ){
     isLiveInput_[i] = false;
     count_[i] = 0;
+    countRead_[i] = 0;
   }
   isInitialized_ = false;
 }
@@ -67,6 +69,14 @@ bool emu::daq::rui::STEPEventCounter::isNeededEvent( char* const DDUHeader ){
     ++neededEvents_;
   }
 
+  // Irrespective of whether this event is needed, increment the counters of read events with data from the given input.
+  bitMask = 0x0001;
+  for ( int i=0; i<maxDDUInputs_; ++i ){
+    if ( bitMask & *nonEmptyDDUInputs && 
+	 ! isMaskedInput_[i]             ) ++countRead_[i];
+    bitMask <<= 1;
+  }
+
   return isNeeded;
 }
 
@@ -87,6 +97,11 @@ uint64_t emu::daq::rui::STEPEventCounter::getLowestCount() const {
 
 uint64_t emu::daq::rui::STEPEventCounter::getCount( const int dduInputIndex ) const {
   if ( 0 <= dduInputIndex && dduInputIndex < maxDDUInputs_ ) return count_[dduInputIndex];
+  return 0;
+}
+
+uint64_t emu::daq::rui::STEPEventCounter::getCountRead( const int dduInputIndex ) const {
+  if ( 0 <= dduInputIndex && dduInputIndex < maxDDUInputs_ ) return countRead_[dduInputIndex];
   return 0;
 }
 
