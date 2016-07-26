@@ -1,6 +1,7 @@
 // $Id: EmuPeripheralCrateService.cc
 
 #include "emu/pc/EmuPeripheralCrateService.h"
+#include "emu/utils/Chamber.h"
 
 #include <string>
 #include <vector>
@@ -603,7 +604,8 @@ void EmuPeripheralCrateService::PowerCycleCFEB(xgi::Input * in, xgi::Output * ou
         {
             if(myVector[j]==NULL) continue;
             std::string chname = crateVector[i]->GetChamber(myVector[j])->GetLabel();
-            if(chname.substr(3, std::string::npos)==chamb.substr(3, std::string::npos))
+            std::string chname2 = emu::utils::Chamber( crateVector[i]->GetChamber(myVector[j])->GetLabel() ).name();
+            if(chname.substr(3, std::string::npos)==chamb.substr(3, std::string::npos) || chname2.substr(3, std::string::npos)==chamb.substr(3, std::string::npos) )
             {
                if(!Simulation_) myVector[j]->power_cycle_cfeb(dcfeb-1); 
                msgHandler("Message: Power Cycle CFEB: " + chname + " CFEB #" + xcfeb.toString());
@@ -655,7 +657,8 @@ void EmuPeripheralCrateService::DCFEBResetDAQLink(xgi::Input * in, xgi::Output *
         {
             if(myVector[j]==NULL) continue;
             std::string chname = crateVector[i]->GetChamber(myVector[j])->GetLabel();
-            if(chname.substr(3, std::string::npos)==chamb.substr(3, std::string::npos))
+            std::string chname2 = emu::utils::Chamber( crateVector[i]->GetChamber(myVector[j])->GetLabel() ).name();
+            if(chname.substr(3, std::string::npos)==chamb.substr(3, std::string::npos) || chname2.substr(3, std::string::npos)==chamb.substr(3, std::string::npos) )
             {
                std::vector<CFEB> cfebs = myVector[j]->cfebs();
                if(!Simulation_)
@@ -715,7 +718,8 @@ void EmuPeripheralCrateService::DCFEBResetTrigLink(xgi::Input * in, xgi::Output 
         {
             if(myVector[j]==NULL) continue;
             std::string chname = crateVector[i]->GetChamber(myVector[j])->GetLabel();
-            if(chname.substr(3, std::string::npos)==chamb.substr(3, std::string::npos))
+            std::string chname2 = emu::utils::Chamber( crateVector[i]->GetChamber(myVector[j])->GetLabel() ).name();
+            if(chname.substr(3, std::string::npos)==chamb.substr(3, std::string::npos) || chname2.substr(3, std::string::npos)==chamb.substr(3, std::string::npos) )
             {
                std::vector<CFEB> cfebs = myVector[j]->cfebs();
                if(!Simulation_)
