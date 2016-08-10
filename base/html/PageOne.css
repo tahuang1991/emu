@@ -10,7 +10,7 @@ td { background-color:#111111; text-align:center; }
 th.title { color:#222222; background-color:#aaaaaa; width: 100%; }
 td.time { font-size:70%; }
 td.Halted, td.halted { background-color:#7777FF; }
-td.halted_configure_configured, td.Configuring, td.configuring, td.Zeroing { background-color:#999933; }
+td.halted_configure_configured, td.Configuring, td.configuring, td.Zeroing, td.Starting, td.starting, td.Stopping, td.stopping { background-color:#999933; }
 td.Ready, td.ready, td.Configured, td.configured { background-color:#dddd00; }
 td.suspended, td.paused, td.Pausing, td.Paused { background-color:#AACC77; }
 td.Enabled, td.enabled, td.running { background-color:#33cc33; }
@@ -18,7 +18,7 @@ td.ON { background-color:#33cc33; }
 td.Calibration { background-color:#33cc33; }
 td.Failed { background-color:#ff4444; }
 td.UNKNOWN, td.Unknown { background-color:#ff4444; }
-td.INDEFINITE, td.Indefinite { background-color:#ff4444; }
+td.INDEFINITE, td.Indefinite { background-color:#664444; }
 td.OFF { background-color:#ff4444; }
 td.NA { background-color:#ff4444; }
 table.root { width: 100%; border-collapse: collapse; background-color:#000000; }

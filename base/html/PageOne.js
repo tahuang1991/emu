@@ -668,6 +668,13 @@ function Panel( name, refreshPeriod, dataURL ) {
 
     this.TCDSFromJson = function (){
 	// Get info on TCDS
+	var isFirstCall = false;
+	if ( self.trends.length == 0 ){
+	    self.trends[0] = new Trend(2); // container to keep the last two HardReset counts in
+	    self.trends[1] = new Trend(2); // container to keep the last two changed HardReset counts in
+	    self.trends[2] = new Trend(2); // container to keep the LPM L1A counts in
+	    isFirstCall = true; // So that we know that this is the first call after this page was loaded, and percieve a HardReset count of 0 on the second call as a change from the previous one.
+	}
 	$.getJSON( self.DataURL+'?fmt=json&flash=urn:xdaq-flashlist:tcds_common', function(json){
 	    var combinedState = null;
 	    $.each( json.table.rows, function(i,row){
@@ -692,34 +699,39 @@ function Panel( name, refreshPeriod, dataURL ) {
 	    $('#'+self.name+'-a_value_State').attr( 'title', (combinedState == 'INDEFINITE' ? 'Not all TCDS CI and PI Controller applications are in the same FSM state.' : 'All TCDS CI and PI Controller applications are '+combinedState ) );
 	    
 	}).success( function(){
-	    // if ( whoIsInControl == 'global' ){
-	      // $.getJSON( self.DataURL+'?fmt=json&flash=urn:xdaq-flashlist:tcds_cpm_rates', function(json){
- 	      // 	  var time = toUnixTime( json.table.properties.LastUpdate );
-	      // 	  $('#'+self.name+'-td_localDateTime').text( timeToString( time ) );
-	      // 	  var totalTriggerRate = 0;
-	      // 	  $.each( json.table.rows, function(i,row){
-	      // 	      if ( row.service == 'cpm-pri' ) totalTriggerRate = row.trg_rate_total;
-	      // 	    });
-	    // 	  var graphPoint = { name:'Total primary CPM trigger [Hz]', time:time, value:totalTriggerRate };
-	    // 	  self.appendPoint( graphPoint );
-	    // 	  // }).success( function(){
-	    // 	  clearTimeout(self.Clock);
-	    // 	  self.ageOfPageClock(0);
-	    	// });
-	    // }
-	    // else{
-	    //   // TODO: get LPM rate instead
-	    //   $.getJSON( self.DataURL+'?fmt=json&flash=urn:xdaq-flashlist:tcds_cpm_rates', function(json){
-	    // 	  var time = toUnixTime( json.table.properties.LastUpdate );
-	    // 	  $('#'+self.name+'-td_localDateTime').text( timeToString( time ) );
-	    // 	  clearTimeout(self.Clock);
-	    // 	  self.ageOfPageClock(0);
-	    // 	});
-	    // }
+	    if ( whoIsInControl == 'global' ){
+	      $.getJSON( self.DataURL+'?fmt=json&flash=urn:xdaq-flashlist:tcds_cpm_rates', function(json){
+ 	      	  var time = toUnixTime( json.table.properties.LastUpdate );
+	      	  $('#'+self.name+'-td_localDateTime').text( timeToString( time ) );
+	      	  var totalTriggerRate = 0;
+	      	  $.each( json.table.rows, function(i,row){
+	      	      if ( row.service == 'cpm-pri' ) totalTriggerRate = row.trg_rate_total;
+	      	    });
+	    	  var graphPoint = { name:'Total primary CPM trigger [Hz]', time:time, value:totalTriggerRate };
+	    	  self.appendPoint( graphPoint );
+	    	  // }).success( function(){
+	    	  clearTimeout(self.Clock);
+	    	  self.ageOfPageClock(0);
+	    	});
+	    }
+	    else{
+		$.getJSON('http://tcds-control-csc-pri.cms:2104/urn:xdaq-application:service=lpm-csc/update', function(json){
+		    var time = toUnixTime( json["Application state"]["Latest monitoring update time"] );
+		    $('#'+self.name+'-td_localDateTime').text( timeToString( time ) );
+		    var L1As = json["itemset-trigger-counter"]["# L1As"];
+		    self.trends[2].add( time, Number(L1As) );
+		    var graphPoint = { name:'CSC LPM L1A rate [Hz]', time:time, value:self.trends[2].rate( 2 ) };
+		    self.appendPoint( graphPoint );
+		    clearTimeout(self.Clock);
+		    self.ageOfPageClock(0);
+		});
+	    }
+			  
 	});
  	// Get TCDS PI spy log
-	$.getJSON('http://tcds-control-csc-pri.cms:2104/urn:xdaq-application:lid=502/update', function(json){
+	$.getJSON('http://tcds-control-csc-pri.cms:2104/urn:xdaq-application:service=pi-cscm/update', function(json){
 	    // var msg='';
+	    var time = toUnixTime( json["Application state"]["Latest monitoring update time"] );
 	    var nHardResets=0;
 	    $.each( json["itemset-ttcspylog"], function(k,v){
 	    	// msg+=' '+k+'\n';
@@ -730,13 +742,34 @@ function Panel( name, refreshPeriod, dataURL ) {
 		    }
 	    	});
 	    });
-	    var time = toUnixTime( json["Application state"]["Latest monitoring update time"] );
+	    // Add this value to the container of counts:
+	    self.trends[0].add( time, nHardResets );
+	    if ( self.trends[0].difference( 2 ) > 0 || isFirstCall ){
+		// The count changed w.r.t. the previous reading, or this is the first call. Add the new value to the container of changed values:
+		self.trends[1].add( time, nHardResets );
+	    }
+	    //console.log( 'self.trends[1].points.length ' + self.trends[1].points.length );
+	    if ( isFirstCall ){
+		// First call. Wait for the next one.
+		$('#TCDS-a_value_LastHardReset').text( 'reading...' ).attr('title','Please, wait for the next automatic refresh.');
+	    }
+	    else{
+		if ( nHardResets == 0 ){
+		    $('#TCDS-a_value_LastHardReset').text( 'none' + String.fromCharCode(160) + 'yet' ).attr('title','No HardReset yet, at least since the PI Spy was last configured. Click to visit the plus-side PI.');
+		}
+		else{
+		    var timeOfLastHardReset = self.trends[1].points[self.trends[1].points.length-1].time;
+		    if ( self.trends[1].points.length > 1 ){
+			// We have seen more than one change. (One change may just mean that the first reading was non-zero, in which case we don't know when it incremented last.)
+			$('#TCDS-a_value_LastHardReset').text( timeToString( timeOfLastHardReset ) + String.fromCharCode(160,177) + '15s' ).attr('title','This time is accurate to wothin ~15s. '+nHardResets+' HardReset(s) issued since the last time the PI Spy was configured. Click to visit the plus-side PI.');
+		    }
+		    else{
+			// We don't know when the first change actually happened, so we just give an upper limit.
+			$('#TCDS-a_value_LastHardReset').text( 'before' + String.fromCharCode(160) + timeToString( timeOfLastHardReset ) ).attr('title','Not sure when the last HardReset was issued as it may have been before this page was loaded. '+nHardResets+' HardReset(s) issued since the last time the PI Spy was configured. Click to visit the plus-side PI.');
+		    }
+		}
+	    }
 	    // msg = json["Application state"]["Latest monitoring update time"] + ' ' + time + ' ' + msg; 
-	    $('#'+self.name+'-td_localDateTime').text( timeToString( time ) );
-	    var graphPoint = { name:'Hard resets since TTCSpy conf', time:time, value:nHardResets };
-	    self.appendPoint( graphPoint );
-	    clearTimeout(self.Clock);
-	    self.ageOfPageClock(0);
             // console.log( msg );
 	});
    }
