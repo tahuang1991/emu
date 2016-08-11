@@ -568,8 +568,12 @@ void EmuPeripheralCrateBroadcast::LoadODMBEPROM(xgi::Input * in, xgi::Output * o
   //
     std::cout << getLocalDateTime() << " Programming EPROM on all ODMBs via broadcast slot" << std::endl;
     std::cout << "Using mcs file: " << ODMBFirmwareFile_ << std::endl;
-    
-    broadcastODMB->odmb_program_eprom(ODMBFirmwareFile_.c_str());
+    for(unsigned i=0; i<otherDMBs.size(); i++)
+    {
+       std::cout << " Broadcast on slot " << otherDMBs[i]->slot() << std::endl;
+       if(otherDMBs[i]->GetHardwareVersion()==2)
+          otherDMBs[i]->odmb_program_eprom(ODMBFirmwareFile_.c_str());
+    }
     std::cout << getLocalDateTime() << " Finished programming all ODMB EPROMs." << std::endl;
   this->LoadDMBCFEBFPGAFirmware(in, out);
 }
