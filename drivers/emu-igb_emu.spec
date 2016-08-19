@@ -4,7 +4,7 @@
 
 Summary: CMS Emu local DAQ Gbit and peripheral crate VME drivers for kernel %{kernel_version} based on the igb module for the Intel dual port NIC model I350-F2
 Name: emu-igb_emu
-Version: 2.1.4
+Version: 2.1.11
 Release: 1.slc6
 License: none
 Group: none
@@ -47,20 +47,7 @@ touch %{_topdir}/BUILD/MAINTAINER
 
 %files
 %defattr(744,root,root,-)
-/usr/local/bin/igb_emu/eth_hook_2_ddu.ko
-/usr/local/bin/igb_emu/eth_hook_3_ddu.ko
-/usr/local/bin/igb_emu/eth_hook_4_ddu.ko
-/usr/local/bin/igb_emu/eth_hook_5_ddu.ko
-/usr/local/bin/igb_emu/eth_hook_2_dmb.ko
-/usr/local/bin/igb_emu/eth_hook_3_dmb.ko
-/usr/local/bin/igb_emu/eth_hook_4_dmb.ko
-/usr/local/bin/igb_emu/eth_hook_5_dmb.ko
-/usr/local/bin/igb_emu/eth_hook_2_vme.ko
-/usr/local/bin/igb_emu/eth_hook_3_vme.ko
-/usr/local/bin/igb_emu/eth_hook_4_vme.ko
-/usr/local/bin/igb_emu/eth_hook_5_vme.ko
-/usr/local/bin/igb_emu/igb_emu.ko
-/usr/local/bin/igb_emu/load_igb_emu.sh
+/usr/local/bin/igb_emu
 # Files required by Quattor
 %defattr(644,root,root,755)
 %doc MAINTAINER ChangeLog README
@@ -74,16 +61,21 @@ echo "[[ -x /usr/local/bin/igb_emu/load_igb_emu.sh ]] && /usr/local/bin/igb_emu/
 /usr/local/bin/igb_emu/load_igb_emu.sh || true
 
 %preun
-# Unload modules
-[[ $(/sbin/lsmod | grep -c igb_emu) -eq 0 ]] || /sbin/modprobe -r igb_emu || true
+if [[ $1 -eq 0 ]]; then
+   echo "Definitive uninstall of this package. Cleaning up."
 
-# Stop loading daq drivers at boot time.
-[[ -f /etc/rc.d/rc.local ]] && sed -i -e "/\/usr\/local\/bin\/igb_emu\/load_igb_emu.sh/d" /etc/rc.d/rc.local
+   # Unload modules
+   [[ $(/sbin/lsmod | grep -c igb_emu) -eq 0 ]] || /sbin/modprobe -r igb_emu || true
+
+   # Remove modules from /lib/modules
+   rm -f /lib/modules/%{kernel_version}/kernel/drivers/net/igb/igb_emu.ko
+   rm -f /lib/modules/%{kernel_version}/kernel/drivers/net/igb/eth_hook_*.ko
+
+   # Update module dependencies
+   /sbin/depmod
+
+   # Stop loading daq drivers at boot time.
+   [[ -f /etc/rc.d/rc.local ]] && sed -i -e "/\/usr\/local\/bin\/igb_emu\/load_igb_emu.sh/d" /etc/rc.d/rc.local
+fi
 
 %postun
-# Remove modules from /lib/modules
-rm -f /lib/modules/%{kernel_version}/kernel/drivers/net/igb/igb_emu.ko
-rm -f /lib/modules/%{kernel_version}/kernel/drivers/net/igb/eth_hook_*.ko
-rm -rf /usr/local/bin/igb_emu
-# Update module dependencies
-/sbin/depmod
