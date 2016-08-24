@@ -4,7 +4,7 @@
 
 Summary: CMS Emu local DAQ Gbit and peripheral crate VME drivers for kernel %{kernel_version} based on the e1000e module for the Intel dual port NIC model PRO/1000 PF
 Name: emu-e1000e_emu
-Version: 1.2.12
+Version: 1.2.13
 Release: 1.slc6
 License: none
 Group: none
