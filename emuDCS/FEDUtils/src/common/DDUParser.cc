@@ -103,6 +103,7 @@ throw (emu::fed::exception::ParseException)
 		if (ddu->getRUI() == 0xc0) Parser::insert(dduElement, "INVERT_CCB_COMMAND_SIGNALS", 1);
 		else Parser::insert(dduElement, "INVERT_CCB_COMMAND_SIGNALS", 0);
 		Parser::insert(dduElement, "FMM_ID", ddu->getFMMID());
+		Parser::insert(dduElement, "SLINK_ID", ddu->getSlinkId());
 		Parser::insert(dduElement, "GBE_PRESCALE", ddu->getGbEPrescale());
 		
 		std::vector<std::string> optionNames;
