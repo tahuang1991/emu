@@ -30,7 +30,7 @@ export XDAQ_OS=linux
 if [[ ${#DISTRIB_ID} -gt 0 ]]; then
     XDAQ_PLATFORM=${XDAQ_PLATFORM}_$DISTRIB_ID
 elif [[ -f /etc/issue ]]; then
-    XDAQ_PLATFORM=${XDAQ_PLATFORM}_$(/bin/sed -n -e 's/[^0-9]*\([0-9]\).[0-9][^0-9]*/slc\1/p' /etc/issue)
+    XDAQ_PLATFORM=${XDAQ_PLATFORM}_$(/bin/sed -n -e 's/[^0-9]*\([0-9]\).[0-9]\+[^0-9]*/slc\1/p' /etc/issue)
 fi
 export XDAQ_PLATFORM
 export XDAQ_DOCUMENT_ROOT=${XDAQ_ROOT}/htdocs
@@ -52,8 +52,14 @@ print
 OPTIONS="\
  -h $HOST \
  -p 10000 \
- -c ${BUILD_HOME}/emu/step/xml/EmuSTEP.xml \
- -e ${BUILD_HOME}/emu/step/xml/EmuSTEP.profile"
+ -c ${HOME}/config/step/AllInOne_STEP.xml \
+ -e ${HOME}/etc/default.profile"
+
+#OPTIONS="\
+# -h $HOST \
+# -p 10000 \
+# -c ${BUILD_HOME}/emu/step/xml/EmuSTEP.xml \
+# -e ${BUILD_HOME}/emu/step/xml/EmuSTEP.profile"
 
 #OPTIONS="\
 # -h emu42fastprod01.cern.ch \
