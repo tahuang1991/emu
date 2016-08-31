@@ -10,6 +10,8 @@
 #include "emu/pc/EmuEndcap.h"
 #include "emu/pc/DAQMB.h"
 
+#include "toolbox/exception/Listener.h"
+
 #include <vector>
 #include <map>
 #include <string>
@@ -34,7 +36,7 @@ namespace emu{
 			   kill_All    = 0x01ff };
 
 
-    class Test : public TestParameters {
+    class Test : public TestParameters, public toolbox::exception::Listener {
 
     public:
 
@@ -180,6 +182,7 @@ namespace emu{
       void enable_30();
       void enable_40();
       void enable_fake();
+      virtual void onException( xcept::Exception& e ); // callback for toolbox::exception::Listener
 
     };
   }

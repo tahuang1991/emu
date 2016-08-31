@@ -1,5 +1,7 @@
 #include "emu/step/Test.h"
 
+#include "emu/step/PeriodicDumper.h"
+
 #include "emu/utils/IO.h"
 #include "emu/utils/DOM.h"
 #include "emu/utils/String.h"
@@ -38,7 +40,7 @@ emu::step::Test::Test( const string& id,
   , isFake_( isFake )
   , isToStop_( false )
   , runNumber_( 0 )
-  , runStartTime_( "YYYY-MM-DD hh:mm:ss UTC" ){
+  , runStartTime_( "YYYYMMDD_hhmmss_UTC" ){
 
   stringstream ss;
   if ( ! getProcedure( id, emu::step::Test::forConfigure_ ) || ! getProcedure( id, emu::step::Test::forEnable_ ) ){
@@ -186,7 +188,7 @@ void emu::step::Test::setUpDDU(emu::pc::Crate* crate)
     (*ddu)->writeFlashKillFiber(0x7fff); 
     usleep(20);
     (crate)->ccb()->HardReset_crate();
-    sleep(1);
+    ::sleep(1);
 
     // Make sure ODMB LV on-off registers are all on (their value is unpredictable after a hard reset)
     turnONlvDCFEBandALCT(crate);
@@ -463,9 +465,9 @@ void emu::step::Test::turnONlvDCFEBandALCT(emu::pc::Crate* crate ) {
       if ( pLogger_ ){ LOG4CPLUS_INFO( *pLogger_, "turning on-chamber boards ON for this ODMB" ); }
       int state = (*dmb)->lvmb_power_state();
       if ( pLogger_ ){ LOG4CPLUS_INFO( *pLogger_, "low voltage power state before power on: " << state ); }
-      sleep(2);
+      ::sleep(2);
       (*dmb)->lowv_onoff( 0xff ); // 8 bits = 1 ALCT + 7 DCFEBs
-      sleep(3);
+      ::sleep(3);
       state = (*dmb)->lvmb_power_state();
       if ( pLogger_ ){ LOG4CPLUS_INFO( *pLogger_, "low voltage power state after power on: " << state ); }
 
@@ -482,7 +484,7 @@ void emu::step::Test::turnONlvDCFEBandALCT(emu::pc::Crate* crate ) {
       } // reconfigure alct
 
       (crate)->ccb()->HardReset_crate();
-      sleep(3);
+      ::sleep(3);
 
     } //  ODMB hv = 2
     
@@ -713,7 +715,7 @@ void emu::step::Test::enable_11(){
   while ( progress_.getPercent() < 100 ){
     progress_.increment();
     if ( isToStop_ ) return;
-    sleep( 1 );
+    ::sleep( 1 );
   }
 }
 void emu::step::Test::configure_11c(){
@@ -766,7 +768,7 @@ void emu::step::Test::enable_11c(){
   while ( progress_.getPercent() < 100 ){
     progress_.increment();
     if ( isToStop_ ) return;
-    sleep( 1 );
+    ::sleep( 1 );
   }
 }
 
@@ -1147,7 +1149,7 @@ void emu::step::Test::configure_15(){ // OK
 	if( (*dmb)->GetHardwareVersion() == 2 ){
 	  setUpODMBPulsing( *dmb, ODMBPedestalMode, ODMBInputKill_t( kill_ALCT | kill_TMB ) );
 	} // if( (*dmb)->GetHardwareVersion() == 2 )
-	sleep(1);
+	::sleep(1);
 
 	if ( isToStop_ ) return;
       } 
@@ -1268,7 +1270,7 @@ void emu::step::Test::configure_16(){
       if( (*dmb)->GetHardwareVersion() == 2 ){
 	setUpODMBPulsing( *dmb, ODMBPedestalMode, ODMBInputKill_t( kill_ALCT | kill_TMB ) );
       } // if( (*dmb)->GetHardwareVersion() == 2 )
-      sleep(1);
+      ::sleep(1);
       
     }
 
@@ -1769,7 +1771,7 @@ void emu::step::Test::enable_18(){
   // Let's stay here until we're told to stop. Only then should we go on to disable trigger.
   while( true ){
     if ( isToStop_ ) return;
-    sleep( 1 );
+    ::sleep( 1 );
   }
 }
 
@@ -2335,6 +2337,32 @@ void emu::step::Test::enable_27(){
   // Test of undefined duration, progress should be monitored in local DAQ.
   
   vector<emu::pc::Crate*> crates = parser_.GetEmuEndcap()->crates();
+
+  // Get optional TMB counter dump period
+  double tmbDumpPeriodInSec = ( parameters_.find( "tmb_counter_dump_period_ms" ) == parameters_.end() ? double( 0. ) : double( parameters_[ "tmb_counter_dump_period_ms" ] ) * 0.001 );
+
+  vector<emu::pc::TMB*> tmbs;
+  string dumperName( withoutChars( " \t:;<>'\",?/~`!@#$%^&*()=[]|\\", group_ ) + "_Test" + id_ + "_" + runStartTime_ );
+  string dumpDir;
+  if ( tmbDumpPeriodInSec > 0. ){
+    // Collect TMBs whose counters are to be dumped periodically:
+    for ( vector<emu::pc::Crate*>::iterator crate = crates.begin(); crate != crates.end(); ++crate ){
+      vector<emu::pc::TMB*> tmbsInCrate = (*crate)->tmbs();
+      tmbs.insert( tmbs.end(), tmbsInCrate.begin(), tmbsInCrate.end() );
+    }
+    // Get the data directory name. That's where we want to save the TMB counters' dump file, too.
+    dumpDir = getDataDirName(); 
+    if ( dumpDir.size() == 0 ){
+      if ( pLogger_ ){ LOG4CPLUS_WARN( *pLogger_, "No data directory found on this host. TMB counter's dump files will be saved in /tmp instead." ); }
+      dumpDir = "/tmp";
+    }
+    if ( pLogger_ ){ LOG4CPLUS_INFO( *pLogger_, "TMB counters will be dumped every " << tmbDumpPeriodInSec << " seconds to a file in directory " << dumpDir ); }
+  }
+  else{
+    if ( pLogger_ ){ LOG4CPLUS_WARN( *pLogger_, "TMB counters will not be read out and saved. Set the parameter tmb_counter_dump_period_ms to a positive integer (e.g. 10000 for 10s samples) if you want to dump them periodically." ); }
+  }
+
+  // Start triggering
   for ( vector<emu::pc::Crate*>::iterator crate = crates.begin(); crate != crates.end(); ++crate ){
 
     (*crate)->ccb()->startTrigger(); // necessary for tmb to start triggering (alct should work with just L1A reset and bc0)
@@ -2343,11 +2371,14 @@ void emu::step::Test::enable_27(){
 
     if ( isToStop_ ) return;
   }
-      
+
+  // Start periodic dumper
+  PeriodicDumper tmbCountsDumper( this, dumperName, dumpDir, tmbDumpPeriodInSec, tmbs, pLogger_ );
+
   // Let's stay here until we're told to stop. Only then should we go on to disable trigger.
   while( true ){
     if ( isToStop_ ) return;
-    sleep( 1 );
+    ::sleep( 1 );
 //     // Find the time between the DMB's receiving CLCT pretrigger and L1A:
 //     for ( vector<emu::pc::Crate*>::iterator crate = crates.begin(); crate != crates.end(); ++crate ){
 //       vector<emu::pc::DAQMB *> dmbs = (*crate)->daqmbs();
@@ -2516,6 +2547,32 @@ void emu::step::Test::enable_40(){
   // Test of undefined duration, progress should be monitored in local DAQ.
   
   vector<emu::pc::Crate*> crates = parser_.GetEmuEndcap()->crates();
+
+  // Get optional TMB counter dump period
+  double tmbDumpPeriodInSec = ( parameters_.find( "tmb_counter_dump_period_ms" ) == parameters_.end() ? double( 0. ) : double( parameters_[ "tmb_counter_dump_period_ms" ] ) * 0.001 );
+
+  vector<emu::pc::TMB*> tmbs;
+  string dumperName( withoutChars( " \t:;<>'\",?/~`!@#$%^&*()=[]|\\", group_ ) + "_Test" + id_ + "_" + runStartTime_ );
+  string dumpDir;
+  if ( tmbDumpPeriodInSec > 0. ){
+    // Collect TMBs whose counters are to be dumped periodically:
+    for ( vector<emu::pc::Crate*>::iterator crate = crates.begin(); crate != crates.end(); ++crate ){
+      vector<emu::pc::TMB*> tmbsInCrate = (*crate)->tmbs();
+      tmbs.insert( tmbs.end(), tmbsInCrate.begin(), tmbsInCrate.end() );
+    }
+    // Get the data directory name. That's where we want to save the TMB counters' dump file, too.
+    dumpDir = getDataDirName(); 
+    if ( dumpDir.size() == 0 ){
+      if ( pLogger_ ){ LOG4CPLUS_WARN( *pLogger_, "No data directory found on this host. TMB counter's dump files will be saved in /tmp instead." ); }
+      dumpDir = "/tmp";
+    }
+    if ( pLogger_ ){ LOG4CPLUS_INFO( *pLogger_, "TMB counters will be dumped every " << tmbDumpPeriodInSec << " seconds to a file in directory " << dumpDir ); }
+  }
+  else{
+    if ( pLogger_ ){ LOG4CPLUS_WARN( *pLogger_, "TMB counters will not be read out and saved. Set the parameter tmb_counter_dump_period_ms to a positive integer (e.g. 10000 for 10s samples) if you want to dump them periodically." ); }
+  }
+
+  // Start triggering
   for ( vector<emu::pc::Crate*>::iterator crate = crates.begin(); crate != crates.end(); ++crate ){
 
     (*crate)->ccb()->startTrigger(); // necessary for tmb to start triggering (alct should work with just L1A reset and bc0)
@@ -2525,10 +2582,13 @@ void emu::step::Test::enable_40(){
     if ( isToStop_ ) return;
   }
       
+  // Start periodic dumper
+  PeriodicDumper tmbCountsDumper( this, dumperName, dumpDir, tmbDumpPeriodInSec, tmbs, pLogger_ );
+
   // Let's stay here until we're told to stop. Only then should we go on to disable trigger.
   while( true ){
     if ( isToStop_ ) return;
-    sleep( 1 );
+    ::sleep( 1 );
   }
 }
 
@@ -2536,7 +2596,7 @@ void emu::step::Test::configure_fake(){
   if ( pLogger_ ){ LOG4CPLUS_INFO( *pLogger_, "emu::step::Test::configure_fake starting" ); }
   for ( uint64_t i = 0; i < 30; ++i ){
     if ( isToStop_ ) return;
-    sleep( 1 );    
+    ::sleep( 1 );    
   }
   if ( pLogger_ ){ LOG4CPLUS_INFO( *pLogger_, "emu::step::Test::configure_fake ending" ); }
 }
@@ -2556,8 +2616,14 @@ void emu::step::Test::enable_fake(){
     }
     if ( pLogger_ ){ LOG4CPLUS_INFO( *pLogger_, "Event " << iEvent + 1 ); }
     progress_.setCurrent( (int)iEvent + 1 );
-    sleep( 1 );    
+    ::sleep( 1 );    
   }
   
   if ( pLogger_ ){ LOG4CPLUS_INFO( *pLogger_, "emu::step::Test::enable_fake ending" ); }
+}
+
+void emu::step::Test::onException( xcept::Exception& e ){ // callback for toolbox::exception::Listener
+  if ( pLogger_ ){
+    LOG4CPLUS_ERROR( *pLogger_, "Exception caught in periodic TMB dumper thread: " << xcept::stdformat_exception_history(e) );
+  }
 }
