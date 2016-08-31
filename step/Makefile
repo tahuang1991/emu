@@ -31,6 +31,7 @@ Sources = \
 	TestParameters.cc	\
 	Test.cc	\
 	ChamberMap.cc	\
+	PeriodicDumper.cc	\
 	version.cc
 TestSources =
 TestIncludeDirs =
