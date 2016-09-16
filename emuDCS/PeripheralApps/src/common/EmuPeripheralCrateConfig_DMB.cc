@@ -1514,12 +1514,6 @@ void EmuPeripheralCrateConfig::DCFEBReadFirmware(xgi::Input * in, xgi::Output * 
 void EmuPeripheralCrateConfig::DCFEBProgramFpgaAll(xgi::Input * in, xgi::Output * out )
   throw (xgi::exception::Exception)
 {
-    if(!write_dcfeb_prom_allowed_)
-    {
-       std::cout << "Write to DCFEB's PROM disabled!" << std::endl;
-       this->CFEBUtils(in,out);
-       return;
-    }
     cgicc::Cgicc cgi(in);
     
     cgicc::form_iterator name = cgi.getElement("dmb");
