@@ -1514,6 +1514,12 @@ void EmuPeripheralCrateConfig::DCFEBReadFirmware(xgi::Input * in, xgi::Output * 
 void EmuPeripheralCrateConfig::DCFEBProgramFpgaAll(xgi::Input * in, xgi::Output * out )
   throw (xgi::exception::Exception)
 {
+    if(!write_dcfeb_prom_allowed_)
+    {
+       std::cout << "Write to DCFEB's PROM disabled!" << std::endl;
+       this->CFEBUtils(in,out);
+       return;
+    }
     cgicc::Cgicc cgi(in);
     
     cgicc::form_iterator name = cgi.getElement("dmb");
@@ -1583,6 +1589,12 @@ void EmuPeripheralCrateConfig::DCFEBProgramFpga(xgi::Input * in, xgi::Output * o
 void EmuPeripheralCrateConfig::DCFEBProgramEprom(xgi::Input * in, xgi::Output * out )
   throw (xgi::exception::Exception)
 {
+    if(!write_dcfeb_prom_allowed_)
+    {
+       std::cout << "Write to DCFEB's PROM disabled!" << std::endl;
+       this->CFEBUtils(in,out);
+       return;
+    }
 
   cgicc::Cgicc cgi(in);
 
@@ -1618,6 +1630,12 @@ void EmuPeripheralCrateConfig::DCFEBProgramEprom(xgi::Input * in, xgi::Output * 
 void EmuPeripheralCrateConfig::DCFEBProgramEpromSVF(xgi::Input * in, xgi::Output * out )
   throw (xgi::exception::Exception)
 {
+    if(!write_dcfeb_prom_allowed_)
+    {
+       std::cout << "Write to DCFEB's PROM disabled!" << std::endl;
+       this->CFEBUtils(in,out);
+       return;
+    }
 
   cgicc::Cgicc cgi(in);
 
@@ -1669,6 +1687,12 @@ void EmuPeripheralCrateConfig::DCFEBProgramEpromSVF(xgi::Input * in, xgi::Output
 void EmuPeripheralCrateConfig::DCFEBProgramEpromXilinx(xgi::Input * in, xgi::Output * out )
   throw (xgi::exception::Exception)
 {
+    if(!write_dcfeb_prom_allowed_)
+    {
+       std::cout << "Write to DCFEB's PROM disabled!" << std::endl;
+       this->CFEBUtils(in,out);
+       return;
+    }
 
   cgicc::Cgicc cgi(in);
 
@@ -1719,6 +1743,12 @@ void EmuPeripheralCrateConfig::DCFEBProgramEpromXilinx(xgi::Input * in, xgi::Out
 void EmuPeripheralCrateConfig::DCFEBProgramEpromAll(xgi::Input * in, xgi::Output * out )
   throw (xgi::exception::Exception)
 {
+    if(!write_dcfeb_prom_allowed_)
+    {
+       std::cout << "Write to DCFEB's PROM disabled!" << std::endl;
+       this->CFEBUtils(in,out);
+       return;
+    }
 
   cgicc::Cgicc cgi(in);
 
@@ -4267,6 +4297,12 @@ xoap::MessageReference EmuPeripheralCrateConfig::LoadAllCfebPromUserid (xoap::Me
 void EmuPeripheralCrateConfig::ConfigDCFEBs(xgi::Input * in, xgi::Output * out ) 
     throw (xgi::exception::Exception)
 {
+    if(!write_dcfeb_prom_allowed_)
+    {
+       std::cout << "Write to DCFEB's PROM disabled!" << std::endl;
+       this->CFEBUtils(in,out);
+       return;
+    }
   std::cout << "Button: ConfigDCFEBs" << std::endl;
 
   cgicc::Cgicc cgi(in);

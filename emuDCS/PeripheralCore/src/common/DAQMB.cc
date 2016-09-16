@@ -888,7 +888,8 @@ void DAQMB::configure() {
 // Write DCFEB cofiguration parameters into EPROM
    for(unsigned lfeb=0; lfeb<cfebs_.size();lfeb++)
    {
-         dcfeb_configure(cfebs_[lfeb]);   
+// LIU 2016-09-16, temporarily disabled DCFEB PROM writting
+//         dcfeb_configure(cfebs_[lfeb]);   
    }
    restoreCFEBIdle();
 }

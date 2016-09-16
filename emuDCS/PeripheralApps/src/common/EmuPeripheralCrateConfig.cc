@@ -134,6 +134,7 @@ EmuPeripheralCrateConfig::EmuPeripheralCrateConfig(xdaq::ApplicationStub * s): E
   //
   DisplayRatio_ = false;
   AutoRefresh_  = true;
+  write_dcfeb_prom_allowed_ = false;
   //thisTMB = 0;
   //thisDMB = 0;
   thisCCB = 0;
@@ -561,6 +562,11 @@ EmuPeripheralCrateConfig::EmuPeripheralCrateConfig(xdaq::ApplicationStub * s): E
   // Bind monitoring methods
   //----------------------------
   xgi::bind(this,&EmuPeripheralCrateConfig::CrateDumpConfiguration, "CrateDumpConfiguration");
+  //
+  //----------------------------
+  // Allow Write to DCFEB's PROM
+  //----------------------------
+  xgi::bind(this,&EmuPeripheralCrateConfig::EnableWriteDCFEBPROM,"EnableWriteDCFEBPROM");
   //
   // SOAP call-back functions, which relays to *Action method.
   //-----------------------------------------------------------
@@ -13353,6 +13359,14 @@ void EmuPeripheralCrateConfig::TMBBPIPromLoadAddress(xgi::Input * in, xgi::Outpu
   //
   this->TMBUtils(in, out);
   //
+}
+
+void EmuPeripheralCrateConfig::EnableWriteDCFEBPROM(xgi::Input * in, xgi::Output * out) throw (xgi::exception::Exception) 
+{
+  cgicc::Cgicc cgi(in);
+  //
+    write_dcfeb_prom_allowed_ = true;
+    std::cout << getLocalDateTime() << " Enable Write to DCFEB's PROM. " << std::endl;
 }
 
  }  // namespace emu::pc

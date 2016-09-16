@@ -200,6 +200,7 @@ protected:
   unsigned long int CFEBBoardNumber[62][10][7];
 
   bool tmb_fiber_status_read_;
+  bool write_dcfeb_prom_allowed_;
 
   //VCC Utilities
 
@@ -681,6 +682,7 @@ private:
   //
   void DefineFirmwareFilenames();
   std::string GetFormString(const std::string& form_element, xgi::Input* in);
+  void EnableWriteDCFEBPROM(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
 
   //
   std::vector<TMBTester> InitTMBTests(Crate *);
