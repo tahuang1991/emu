@@ -767,11 +767,14 @@ void EmuPeripheralCrateConfig::MPCLoadFirmware(xgi::Input * in, xgi::Output * ou
 void EmuPeripheralCrateConfig::MPCReadFirmware(xgi::Input * in, xgi::Output * out ) 
   throw (xgi::exception::Exception) {
   //
-  std::string mcsfile="/tmp/MPC_"+ ThisCrateID_ + ".mcs";
-  std::string jtagfile=XMLDIR+"/mpc.vrf";
-  std::cout << getLocalDateTime() << " Reading MPC firmware; saving as " << mcsfile << std::endl;
+  std::string mcsfile0="/tmp/MPC_"+ ThisCrateID_ + "_0.mcs";
+  std::string mcsfile1="/tmp/MPC_"+ ThisCrateID_ + "_1.mcs";
+  std::string jtagfile0=XMLDIR+"/mpc_0.vrf";
+  std::string jtagfile1=XMLDIR+"/mpc_1.vrf";
+  std::cout << getLocalDateTime() << " Reading MPC firmware; saving as " << mcsfile0 << " and " << mcsfile1 << std::endl;
 
-  thisMPC->read_prom(jtagfile.c_str(),mcsfile.c_str());
+  thisMPC->read_prom(jtagfile0.c_str(),mcsfile0.c_str());
+  thisMPC->read_prom(jtagfile1.c_str(),mcsfile1.c_str());
   //
   this->MPCUtils(in,out);
   //
