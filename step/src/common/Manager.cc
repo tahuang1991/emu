@@ -45,7 +45,7 @@ void emu::step::Manager::exportParameters(){
   s->fireItemAvailable( "specialVMESettingsFileName", &specialVMESettingsFileName_ );
   s->fireItemAvailable( "analysisScriptName"        , &analysisScriptName_         );
   s->fireItemAvailable( "analysisExeName"           , &analysisExeName_            );
-  // s->fireItemAvailable( "", &_ );
+  s->fireItemAvailable( "dataFileNamesCSV"          , &dataFileNamesCSV_           );
 }
 
 void emu::step::Manager::bindWebInterface(){
@@ -573,6 +573,7 @@ void emu::step::Manager::updateDataFileNames(){
       for ( size_t iFile = 0; iFile < dataFileNames.elements(); iFile++ ){
 	dataFileNames_.insert( ( dynamic_cast<xdata::String*>( dataFileNames.elementAt( iFile ) ) )->toString() );
       }
+      dataFileNamesCSV_ = emu::utils::csvFrom( dataFileNames_ );
       // if ( dataFileNames_.size() > 0 ) XCEPT_RAISE( xcept::Exception, "Forced exception for test purposes." );
       successful = true;
     } catch( xcept::Exception& e ){
