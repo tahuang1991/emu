@@ -368,6 +368,9 @@ static const unsigned long int alct_load_cfg_time_adr   = 0x00018E;
 static const unsigned long int gtx_phaser_lock_time_adr = 0x000190;
 static const unsigned long int gtx_sync_done_time_adr   = 0x000192;
 
+// config new trigger algorithm
+static const unsigned long int algo2016_ctrl_adr = 0x000198;
+
 //GTX link control and monitoring for the GEM
 static const unsigned long int  gem_gtx_rx0_adr          = 0x000300;  //ADR_GEM_GTX_RX0
 static const unsigned long int  gem_gtx_rx1_adr          = 0x000302;  //ADR_GEM_GTX_RX1
@@ -376,7 +379,7 @@ static const unsigned long int  gem_gtx_rx3_adr          = 0x000306;  //ADR_GEM_
 
 //
 static const int LARGEST_VME_ADDRESS = badbits445_adr;
-static const int OTMB_LARGEST_VME_ADDRESS = gtx_sync_done_time_adr;
+static const int OTMB_LARGEST_VME_ADDRESS = algo2016_ctrl_adr;
 //
 //
 // TMB counter indices:
@@ -1736,6 +1739,11 @@ const int mpc_tx_delay_vmereg            =  tmbtim_adr;
 const int mpc_tx_delay_bitlo             =  8;
 const int mpc_tx_delay_bithi             = 11;
 const int mpc_tx_delay_default           =  0;
+//
+const int clct_match_window_size_vmereg  =  tmbtim_adr;
+const int clct_match_window_size_bitlo   = 12;
+const int clct_match_window_size_bithi   = 15;
+const int clct_match_window_size_default =  3;
 //
 //
 //------------------------------------------------------------------
@@ -3138,6 +3146,50 @@ const int mpc_frames_fifo_ctrl_sditter_vmereg            = mpc_frames_fifo_ctrl_
 const int mpc_frames_fifo_ctrl_sditter_bitlo             = 8;
 const int mpc_frames_fifo_ctrl_sditter_bithi             = 8;
 const int mpc_frames_fifo_ctrl_sditter_default           = 0;
+
+//------------------------------------------------------------------
+//0X198 = ADR_NEWALGO_CTRL:  Controls parameters of new trigger algorithm  (Yuriy, 2016)
+//------------------------------------------------------------------
+const int use_dead_time_zone_vmereg  = algo2016_ctrl_adr;
+const int use_dead_time_zone_bitlo   = 0;
+const int use_dead_time_zone_bithi   = 0;
+const int use_dead_time_zone_default = 1;
+//
+//
+const int dead_time_zone_size_vmereg  = algo2016_ctrl_adr;
+const int dead_time_zone_size_bitlo   = 1;
+const int dead_time_zone_size_bithi   = 5;
+const int dead_time_zone_size_default = 15;
+//
+//
+const int use_dynamic_dead_time_zone_vmereg  = algo2016_ctrl_adr;
+const int use_dynamic_dead_time_zone_bitlo   = 6;
+const int use_dynamic_dead_time_zone_bithi   = 6;
+const int use_dynamic_dead_time_zone_default = 1;
+//
+//
+const int clct_to_alct_vmereg  = algo2016_ctrl_adr;
+const int clct_to_alct_bitlo   = 7;
+const int clct_to_alct_bithi   = 7;
+const int clct_to_alct_default = 1;
+//
+//
+const int drop_used_clcts_vmereg  = algo2016_ctrl_adr;
+const int drop_used_clcts_bitlo   = 8;
+const int drop_used_clcts_bithi   = 8;
+const int drop_used_clcts_default = 0;
+//
+//
+const int cross_bx_algorithm_vmereg  = algo2016_ctrl_adr;
+const int cross_bx_algorithm_bitlo   = 9;
+const int cross_bx_algorithm_bithi   = 9;
+const int cross_bx_algorithm_default = 1; // for now this improvement is switched off by default because it is not fully functional in firmware
+//
+//
+const int clct_use_corrected_bx_vmereg  = algo2016_ctrl_adr;
+const int clct_use_corrected_bx_bitlo   = 10;
+const int clct_use_corrected_bx_bithi   = 10;
+const int clct_use_corrected_bx_default = 1; // for now this improvement is switched off by default because it is not fully functional in firmware
 
 //
 //////////////////////////////////////////////

@@ -6155,6 +6155,9 @@ void TMB::DefineTMBConfigurationRegisters_(){
   //
   // TMB trigger configuration:
   TMBConfigurationRegister.push_back(tmbtim_adr  );   //0xB2 ALCT*CLCT trigger coincidence timing, MPC tx delay 
+  if (hardware_version_>=2){
+    TMBConfigurationRegister.push_back(algo2016_ctrl_adr); //0X198 = ADR_NEWALGO_CTRL:  Controls parameters of new trigger algorithm  (Yuriy, 2016)
+  }
   TMBConfigurationRegister.push_back(tmb_trig_adr);   //0x86 TMB trigger configuration/MPC accept, delays
   //
   // TMB/RPC readout:
@@ -6491,6 +6494,7 @@ void TMB::SetTMBRegisterDefaults() {
   alct_vpf_delay_         = alct_vpf_delay_default        ;
   alct_match_window_size_ = alct_match_window_size_default;
   mpc_tx_delay_           = mpc_tx_delay_default          ;
+  clct_match_window_size_ = clct_match_window_size_default;
   //
   //------------------------------------------------------------------
   //0XB6 = ADR_RPC_CFG:  RPC Configuration
@@ -6747,6 +6751,16 @@ void TMB::SetTMBRegisterDefaults() {
   //------------------------------------------------------------------
   //defaults are pulled from the main parameter fields
 
+  //------------------------------------------------------------------
+  //0X198 = ADR_NEWALGO_CTRL:  Controls parameters of new trigger algorithm  (Yuriy, 2016)
+  //------------------------------------------------------------------
+  use_dead_time_zone_         = use_dead_time_zone_default        ;
+  dead_time_zone_size_        = dead_time_zone_size_default       ;
+  use_dynamic_dead_time_zone_ = use_dynamic_dead_time_zone_default;
+  clct_to_alct_               = clct_to_alct_default              ;
+  drop_used_clcts_            = drop_used_clcts_default           ;
+  cross_bx_algorithm_         = cross_bx_algorithm_default        ;
+  clct_use_corrected_bx_      = clct_use_corrected_bx_default     ;
   //
   //-----------------------------------------------------------------------------
   // 0X300 - 0X306 = ADR_GEM_GTX_RX[0-3]: GTX link control and monitoring for GEM
@@ -7303,6 +7317,19 @@ void TMB::DecodeTMBRegister_(unsigned long int address, int data) {
     read_alct_vpf_delay_         = ExtractValueFromData(data,alct_vpf_delay_bitlo        ,alct_vpf_delay_bithi        );
     read_alct_match_window_size_ = ExtractValueFromData(data,alct_match_window_size_bitlo,alct_match_window_size_bithi);
     read_mpc_tx_delay_           = ExtractValueFromData(data,mpc_tx_delay_bitlo          ,mpc_tx_delay_bithi          );
+    read_clct_match_window_size_ = ExtractValueFromData(data,clct_match_window_size_bitlo,clct_match_window_size_bithi);
+    //
+  } else if ( address == algo2016_ctrl_adr ) {
+    //---------------------------------------------------------------------
+    // 0X198 = ADR_NEWALGO_CTRL:  Controls parameters of new trigger algorithm (Yuriy, 2016)
+    //---------------------------------------------------------------------
+    read_use_dead_time_zone_         = ExtractValueFromData(data,use_dead_time_zone_bitlo        ,use_dead_time_zone_bithi        );
+    read_dead_time_zone_size_        = ExtractValueFromData(data,dead_time_zone_size_bitlo       ,dead_time_zone_size_bithi       );
+    read_use_dynamic_dead_time_zone_ = ExtractValueFromData(data,use_dynamic_dead_time_zone_bitlo,use_dynamic_dead_time_zone_bithi);
+    read_clct_to_alct_               = ExtractValueFromData(data,clct_to_alct_bitlo              ,clct_to_alct_bithi              );
+    read_drop_used_clcts_            = ExtractValueFromData(data,drop_used_clcts_bitlo           ,drop_used_clcts_bithi           );
+    read_cross_bx_algorithm_         = ExtractValueFromData(data,cross_bx_algorithm_bitlo        ,cross_bx_algorithm_bithi        );
+    read_clct_use_corrected_bx_      = ExtractValueFromData(data,clct_use_corrected_bx_bitlo     ,clct_use_corrected_bx_bithi     );
     //
   } else if ( address == rpc_cfg_adr ) {
     //------------------------------------------------------------------
@@ -8296,7 +8323,20 @@ void TMB::PrintTMBRegister(unsigned long int address) {
     (*MyOutput_) << "    ALCT*CLCT trigger ALCT (Valid Pattern Flag) delay = " << std::dec << read_alct_vpf_delay_         << std::endl;
     (*MyOutput_) << "    ALCT*CLCT trigger match window size               = " << std::dec << read_alct_match_window_size_ << std::endl;
     (*MyOutput_) << "    MPC transmit delay                                = " << std::dec << read_mpc_tx_delay_           << std::endl;
+    (*MyOutput_) << "    Algo2016 ALCT*CLCT trigger match window size      = " << std::dec << read_clct_match_window_size_ << std::endl;
     //
+  } else if ( address == algo2016_ctrl_adr ) {
+    //---------------------------------------------------------------------
+    // 0X198 = ADR_NEWALGO_CTRL:  Controls parameters of new trigger algorithm (Yuriy, 2016)
+    //---------------------------------------------------------------------
+    (*MyOutput_) << " ->TMB algo2016 register:" << std::endl;
+    (*MyOutput_) << "    Toggle dead time zone                                         = " << std::dec << read_use_dead_time_zone_         << std::endl;
+    (*MyOutput_) << "    Dead time zone size from 0 to 31 (in hs)                      = " << std::dec << read_dead_time_zone_size_        << std::endl;
+    (*MyOutput_) << "    Toggle dead time zone size dependence on pattern ID           = " << std::dec << read_use_dynamic_dead_time_zone_ << std::endl;
+    (*MyOutput_) << "    Toggle ALCT-centric matching                                  = " << std::dec << read_clct_to_alct_               << std::endl;
+    (*MyOutput_) << "    Toggle dropping CLCTs from matching in ALCT-centric algorithm = " << std::dec << read_drop_used_clcts_            << std::endl;
+    (*MyOutput_) << "    Toggle LCT sorting using cross BX algorithm                   = " << std::dec << read_cross_bx_algorithm_         << std::endl;
+    (*MyOutput_) << "    Toggle use of medians for CLCT timing                         = " << std::dec << read_clct_use_corrected_bx_      << std::endl;
   } else if ( address == rpc_cfg_adr ) {
     //------------------------------------------------------------------
     //0XB6 = ADR_RPC_CFG:  RPC Configuration
@@ -9203,10 +9243,31 @@ int TMB::FillTMBRegister(unsigned long int address) {
     //------------------------------------------------------------------
     //0XB2 = ADR_TMBTIM:  TMB Timing for ALCT*CLCT Coincidence
     //------------------------------------------------------------------
-    InsertValueIntoDataWord(alct_vpf_delay_        ,alct_vpf_delay_bithi        ,alct_vpf_delay_bitlo        ,&data_word);
-    InsertValueIntoDataWord(alct_match_window_size_,alct_match_window_size_bithi,alct_match_window_size_bitlo,&data_word);
-    InsertValueIntoDataWord(mpc_tx_delay_          ,mpc_tx_delay_bithi          ,mpc_tx_delay_bitlo          ,&data_word);
+    InsertValueIntoDataWord(alct_vpf_delay_         ,alct_vpf_delay_bithi         ,alct_vpf_delay_bitlo         ,&data_word);
+    InsertValueIntoDataWord(alct_match_window_size_ ,alct_match_window_size_bithi ,alct_match_window_size_bitlo ,&data_word);
+    InsertValueIntoDataWord(mpc_tx_delay_           ,mpc_tx_delay_bithi           ,mpc_tx_delay_bitlo           ,&data_word);
+    InsertValueIntoDataWord(clct_match_window_size_ ,clct_match_window_size_bithi ,clct_match_window_size_bitlo ,&data_word);
     //
+  } else if ( address == algo2016_ctrl_adr ) {
+    //---------------------------------------------------------------------
+    // 0X198 = ADR_NEWALGO_CTRL:  Controls parameters of new trigger algorithm (Yuriy, 2016)
+    //---------------------------------------------------------------------
+    std::cout << "Inserting values for register ADR_NEWALGO_CTRL at 0X198"
+    	      << "\n    use_dead_time_zone_         " << use_dead_time_zone_        
+    	      << "\n    dead_time_zone_size_        " << dead_time_zone_size_       
+    	      << "\n    use_dynamic_dead_time_zone_ " << use_dynamic_dead_time_zone_
+    	      << "\n    clct_to_alct_               " << clct_to_alct_              
+    	      << "\n    drop_used_clcts_            " << drop_used_clcts_           
+    	      << "\n    cross_bx_algorithm_         " << cross_bx_algorithm_        
+    	      << "\n    clct_use_corrected_bx_      " << clct_use_corrected_bx_     
+    	      << std::endl;
+    InsertValueIntoDataWord(use_dead_time_zone_        ,use_dead_time_zone_bithi        ,use_dead_time_zone_bitlo        ,&data_word);
+    InsertValueIntoDataWord(dead_time_zone_size_       ,dead_time_zone_size_bithi       ,dead_time_zone_size_bitlo       ,&data_word);
+    InsertValueIntoDataWord(use_dynamic_dead_time_zone_,use_dynamic_dead_time_zone_bithi,use_dynamic_dead_time_zone_bitlo,&data_word);
+    InsertValueIntoDataWord(clct_to_alct_              ,clct_to_alct_bithi              ,clct_to_alct_bitlo              ,&data_word);
+    InsertValueIntoDataWord(drop_used_clcts_           ,drop_used_clcts_bithi           ,drop_used_clcts_bitlo           ,&data_word);
+    InsertValueIntoDataWord(cross_bx_algorithm_        ,cross_bx_algorithm_bithi        ,cross_bx_algorithm_bitlo        ,&data_word);
+    InsertValueIntoDataWord(clct_use_corrected_bx_     ,clct_use_corrected_bx_bithi     ,clct_use_corrected_bx_bitlo     ,&data_word);
   } else if ( address == rpc_cfg_adr ) {
     //------------------------------------------------------------------
     //0XB6 = ADR_RPC_CFG:  RPC Configuration
@@ -9961,9 +10022,21 @@ void TMB::CheckTMBConfiguration(int max_number_of_reads) {
     //------------------------------------------------------------------
     //0XB2 = ADR_TMBTIM:  TMB Timing for ALCT*CLCT Coincidence
     //------------------------------------------------------------------
-    config_ok &= compareValues("TMB match_trig_alct_delay" ,read_alct_vpf_delay_        ,alct_vpf_delay_        , print_errors);
-    config_ok &= compareValues("TMB match_trig_window_size",read_alct_match_window_size_,alct_match_window_size_, print_errors);
-    config_ok &= compareValues("TMB mpc_tx_delay"          ,read_mpc_tx_delay_          ,mpc_tx_delay_          , print_errors);
+    config_ok &= compareValues("TMB match_trig_alct_delay"         ,read_alct_vpf_delay_        ,alct_vpf_delay_        , print_errors);
+    config_ok &= compareValues("TMB match_trig_window_size"        ,read_alct_match_window_size_,alct_match_window_size_, print_errors);
+    config_ok &= compareValues("TMB mpc_tx_delay"                  ,read_mpc_tx_delay_          ,mpc_tx_delay_          , print_errors);
+    config_ok &= compareValues("TMB clct_match_window_size"        ,read_clct_match_window_size_,clct_match_window_size_, print_errors);
+    //
+    //---------------------------------------------------------------------
+    // 0X198 = ADR_NEWALGO_CTRL:  Controls parameters of new trigger algorithm (Yuriy, 2016)
+    //---------------------------------------------------------------------
+    config_ok &= compareValues("TMB use_dead_time_zone"        ,read_use_dead_time_zone_        ,use_dead_time_zone_        , print_errors);
+    config_ok &= compareValues("TMB dead_time_zone_size"       ,read_dead_time_zone_size_       ,dead_time_zone_size_       , print_errors);
+    config_ok &= compareValues("TMB use_dynamic_dead_time_zone",read_use_dynamic_dead_time_zone_,use_dynamic_dead_time_zone_, print_errors);
+    config_ok &= compareValues("TMB clct_to_alct"              ,read_clct_to_alct_              ,clct_to_alct_              , print_errors);
+    config_ok &= compareValues("TMB drop_used_clcts"           ,read_drop_used_clcts_           ,drop_used_clcts_           , print_errors);
+    config_ok &= compareValues("TMB cross_bx_algorithm"        ,read_cross_bx_algorithm_        ,cross_bx_algorithm_        , print_errors);
+    config_ok &= compareValues("TMB clct_use_corrected_bx"     ,read_clct_use_corrected_bx_     ,clct_use_corrected_bx_     , print_errors);
     //
     //------------------------------------------------------------------
     //0XB6 = ADR_RPC_CFG:  RPC Configuration

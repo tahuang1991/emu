@@ -520,9 +520,19 @@ void XMLParser::TMBParser(xercesc::DOMNode * pNode, Crate * theCrate, Chamber * 
     //if (fillInt("scint_veto_clr"         ,value)) { tmb_->SetScintillatorVetoClear(value);     }
     //
     //0XB2:
-    if (fillInt("match_trig_alct_delay" ,value)) { tmb_->SetAlctVpfDelay(value);        }
-    if (fillInt("match_trig_window_size",value)) { tmb_->SetAlctMatchWindowSize(value); }
-    if (fillInt("mpc_tx_delay"          ,value)) { tmb_->SetMpcTxDelay(value);          }
+    if (fillInt("match_trig_alct_delay" ,value)) { tmb_->SetAlctVpfDelay(value);           }
+    if (fillInt("match_trig_window_size",value)) { tmb_->SetAlctMatchWindowSize(value);    }
+    if (fillInt("mpc_tx_delay"          ,value)) { tmb_->SetMpcTxDelay(value);             }
+    if (fillInt("clct_match_window_size",value)) { tmb_->Set_clct_match_window_size(value);}
+    //
+    //0X198 = ADR_NEWALGO_CTRL:  Controls parameters of new trigger algorithm  (Yuriy, 2016)
+    if (fillInt("use_dead_time_zone"        ,value)) { tmb_->Set_use_dead_time_zone        (value); }
+    if (fillInt("dead_time_zone_size"       ,value)) { tmb_->Set_dead_time_zone_size       (value); }
+    if (fillInt("use_dynamic_dead_time_zone",value)) { tmb_->Set_use_dynamic_dead_time_zone(value); }
+    if (fillInt("clct_to_alct"              ,value)) { tmb_->Set_clct_to_alct              (value); }
+    if (fillInt("drop_used_clcts"           ,value)) { tmb_->Set_drop_used_clcts           (value); }
+    if (fillInt("cross_bx_algorithm"        ,value)) { tmb_->Set_cross_bx_algorithm        (value); }
+    if (fillInt("clct_use_corrected_bx"     ,value)) { tmb_->Set_clct_use_corrected_bx     (value); }
     //
     //0XB6:
     if (fillInt("rpc_exists"     ,value)) { tmb_->SetRpcExist(value);           }

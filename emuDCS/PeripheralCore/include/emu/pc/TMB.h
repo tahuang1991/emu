@@ -1616,6 +1616,9 @@ public:
   //!mpc_tx_delay = [0-15] = delay sending LCT to MPC (bx)
   inline void SetMpcTxDelay(int mpc_tx_delay) { mpc_tx_delay_ = mpc_tx_delay; }
   inline  int GetMpcTxDelay() { return mpc_tx_delay_; }
+  //!clct_match_window_size = [0-15] = new algo ALCT/CLCT match window width for trigger (bx)
+  inline void Set_clct_match_window_size(int clct_match_window_size) { clct_match_window_size_ = clct_match_window_size; }
+  inline  int Get_clct_match_window_size() { return clct_match_window_size_; }
   //
   //-----------------------------------------------------------------
   //0XB6 = ADR_RPC_CFG:  RPC Configuration:
@@ -2426,6 +2429,42 @@ public:
   // 0X192 = ADR_GTX_SYNC_DONE_TIME
   //---------------------------------------------------------------------
   inline int GetReadGtxSyncDoneTime() { return read_gtx_sync_done_time_;}
+  //---------------------------------------------------------------------
+  // 0X198 = ADR_NEWALGO_CTRL:  Controls parameters of new trigger algorithm (Yuriy, 2016)
+  //---------------------------------------------------------------------
+  inline void Set_use_dead_time_zone(int use_dead_time_zone) { use_dead_time_zone_ = use_dead_time_zone; }
+  inline int  Get_use_dead_time_zone() { return use_dead_time_zone_; }
+  inline int  GetRead_use_dead_time_zone() { return read_use_dead_time_zone_; }
+
+  inline void Set_dead_time_zone_size(int dead_time_zone_size) { dead_time_zone_size_ = dead_time_zone_size; }
+  inline int  Get_dead_time_zone_size() { return dead_time_zone_size_; }
+  inline int  GetRead_dead_time_zone_size() { return read_dead_time_zone_size_; }
+
+  inline void Set_use_dynamic_dead_time_zone(int use_dynamic_dead_time_zone) { use_dynamic_dead_time_zone_ = use_dynamic_dead_time_zone; }
+  inline int  Get_use_dynamic_dead_time_zone() { return use_dynamic_dead_time_zone_; }
+  inline int  GetRead_use_dynamic_dead_time_zone() { return read_use_dynamic_dead_time_zone_; }
+
+  inline void Set_clct_to_alct(int clct_to_alct) { clct_to_alct_ = clct_to_alct; }
+  inline int  Get_clct_to_alct() { return clct_to_alct_; }
+  inline int  GetRead_clct_to_alct() { return read_clct_to_alct_; }
+  
+  inline void Set_drop_used_clcts(int drop_used_clcts) { drop_used_clcts_ = drop_used_clcts; }
+  inline int  Get_drop_used_clcts() { return drop_used_clcts_; }
+  inline int  GetRead_drop_used_clcts() { return read_drop_used_clcts_; }
+  
+  inline void Set_cross_bx_algorithm(int cross_bx_algorithm) { cross_bx_algorithm_ = cross_bx_algorithm; }
+  inline int  Get_cross_bx_algorithm() { return cross_bx_algorithm_; }
+  inline int  GetRead_cross_bx_algorithm() { return read_cross_bx_algorithm_; }
+  
+  // inline void Set_(int ) { _ = ; }
+  // inline int  Get_() { return _; }
+  // inline int  GetRead_() { return read__; }
+  
+  inline void Set_clct_use_corrected_bx(int clct_use_corrected_bx) { clct_use_corrected_bx_ = clct_use_corrected_bx; }
+  inline int  Get_clct_use_corrected_bx() { return clct_use_corrected_bx_; }
+  inline int  GetRead_clct_use_corrected_bx() { return read_clct_use_corrected_bx_; }
+  
+
   //
   //---------------------------------------------------------------------
   // 0X15C ADR_V6_CFEB_BADBITS_CTRL: CFEB Bad Bits Control/Status (See Adr 0x122) (extra DCFEB Bad Bits on OTMB)
@@ -3379,10 +3418,12 @@ private:
   int alct_vpf_delay_;
   int alct_match_window_size_;
   int mpc_tx_delay_;
+  int clct_match_window_size_;
   //
   int read_alct_vpf_delay_;
   int read_alct_match_window_size_;
   int read_mpc_tx_delay_;
+  int read_clct_match_window_size_;
   //
   //------------------------------------------------------------------
   //0XB6 = ADR_RPC_CFG:  RPC Configuration
@@ -4035,6 +4076,25 @@ private:
   int read_mpc_frames_fifo_ctrl_prog_full_;
   int read_mpc_frames_fifo_ctrl_sbiterr_;
   int read_mpc_frames_fifo_ctrl_sditter_;
+  //
+  //------------------------------------------------------------------
+  //0X198 = ADR_NEWALGO_CTRL:  Controls parameters of new trigger algorithm  (Yuriy, 2016)
+  //------------------------------------------------------------------
+  int use_dead_time_zone_;
+  int dead_time_zone_size_;
+  int use_dynamic_dead_time_zone_;
+  int clct_to_alct_;
+  int drop_used_clcts_;
+  int cross_bx_algorithm_;
+  int clct_use_corrected_bx_;
+
+  int read_use_dead_time_zone_;
+  int read_dead_time_zone_size_;
+  int read_use_dynamic_dead_time_zone_;
+  int read_clct_to_alct_;
+  int read_drop_used_clcts_;
+  int read_cross_bx_algorithm_;
+  int read_clct_use_corrected_bx_;
   //
   //-----------------------------------------------------------------------------
   // 0X300 - 0X306 = ADR_GEM_GTX_RX[0-3]: GTX link control and monitoring for GEM
