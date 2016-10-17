@@ -1853,11 +1853,13 @@ void VMEModule::Jtag_Norm(long dev, int reg, const char *snd, int cnt, char *rcv
   buff_mode = 1;
 
  //
-   if (DEBUG) {
-      printf("scan_jtag: reg=%d, cnt=%d, ird=%d, Send %02x %02x\n", reg, cnt, ird, snd[0]&0xff, snd[1]&0xff);
-   }
-
    theController->start( theSlot, boardType() );
+   DEBUG=theController->GetDebug();
+   if (DEBUG) {
+      printf("scan_jtag: reg=%d, cnt=%d, ird=%d, Send %02x %02x", reg, cnt, ird, snd[0]&0xff, snd[1]&0xff);
+      if(cnt>16) printf(" %02x %02x", snd[2]&0xff, snd[3]&0xff);
+      printf("\n");
+   }
    //  reset JTAG State Machine to Idle state
    if(reg==0 && cnt<0)
    {
@@ -1948,7 +1950,9 @@ void VMEModule::Jtag_Norm(long dev, int reg, const char *snd, int cnt, char *rcv
   
   // printf("done loop\n");
   // Now put the state machine into idle.
-  for(i=0; i<2; i++)
+  int steps=2;
+  if(get_flag(reg)==1) steps=1;   // if special flag is set, stop at UPDATE
+  for(i=0; i<steps; i++)
   {
      d=pvme;
      if(i==0) d |=TMS;

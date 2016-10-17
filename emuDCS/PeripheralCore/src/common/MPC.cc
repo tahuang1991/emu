@@ -184,6 +184,7 @@
 #include <stdlib.h>
 #include <sys/time.h>
 #include <unistd.h>
+#include <string.h>
 #include "emu/pc/MPC.h"
 #include "emu/pc/VMEController.h"
 #include "emu/pc/EmuLogger.h"
@@ -1136,5 +1137,193 @@ void MPC::resetGTP(int signal)
    ::usleep(10000);
 }
 
-} // namespace emu::pc
+void MPC::mpc_scan(int reg, char *snd,int cnt,char *rcv,int ird, int chip)
+{
+   // same interface as regular scan() but with chip seletion
+   // chip=0   FPGA   
+   //      1   PROM 1 
+   //      2   PROM 2 
+           
+   if(chip<0 || chip>2) return;
+   int TIR[3]={0, 6, 22}, HIR[3]={32,16,0}, HDR[3]={2,1,0}, TDR[3]={0,1,2};
+   unsigned long TDI=5, TMS=6, TCK=7, TDO=8; 
+   unsigned long regV=0x6200;
+   unsigned long handle=(TDI)+(TMS<<4)+(TCK<<8)+(TDO<<12) + (regV<<16);
+   char buff[4200];
+   int ncnt=cnt;
+   if(cnt>0) memcpy(buff, snd, (cnt+7)/8);
+   if(reg==1)
+   {
+      add_headtail(buff, cnt, TDR[chip], HDR[chip]);
+      ncnt += HDR[chip]+TDR[chip];
+   }
+   else if (reg==0 && cnt>0) 
+   { 
+      add_headtail(buff, cnt, TIR[chip], HIR[chip]); 
+      ncnt += HIR[chip]+TIR[chip];
+   }
+   Jtag_Norm(handle, reg, buff, ncnt, rcv, ird, NOW);
+   if(reg==1) cut_headtail(rcv, ncnt, TDR[chip], HDR[chip]);
+}
+
+void MPC::jtag_RestoreIdle()
+{
+   int tmp=0;
+   mpc_scan(0, (char *)&tmp, -1, (char *)&tmp, 0, 0);
+}
+
+int MPC::erase_eprom(int chip, int broadcast)
+{
+
+    unsigned comd=0, data=0;
+    int blank_state=0;
+    std::cout << "Erasing EPROM #" << chip << "......" << std::endl;
+    if(chip<1 || chip>2) return -1;
+    getTheController()->SetUseDelay(true);
+
+       jtag_RestoreIdle();      
+       comd=XCF_ISC_ENABLE; 
+       mpc_scan(0, (char *)&comd, 16, rcvbuf, 0, chip);
+       data=0x03;
+       mpc_scan(1, (char *)&data, 8, rcvbuf, 0, chip);
+       comd=XCF_XSC_UNLOCK; 
+       mpc_scan(0, (char *)&comd, 16, rcvbuf, 0, chip);
+       data=0x3F;
+       mpc_scan(1, (char *)&data, 24, rcvbuf, 0, chip);
+       set_flag(0);
+       comd=XCF_ISC_ERASE; 
+       mpc_scan(0, (char *)&comd, 16, rcvbuf, 0, chip);
+       data=0x3F;
+       mpc_scan(1, (char *)&data, 24, rcvbuf, 0, chip);
+       clear_flag(0);
+       ::sleep(140);
+    if(broadcast==0)
+    {
+       comd=XCF_CLR_STATUS; 
+       mpc_scan(0, (char *)&comd, 16, rcvbuf, 0, chip);
+       udelay(50);
+       comd=XCF_BLANK_CHECK; 
+       mpc_scan(0, (char *)&comd, 16, rcvbuf, 0, chip);
+       ::sleep(1);
+       data=0;
+       mpc_scan(1, (char *)&data, 8, rcvbuf, 1, chip);
+       blank_state = rcvbuf[0]&0x3F;
+       if(blank_state==0) std::cout << "Blank Check successful!" << std::endl;
+       comd=XCF_CLR_STATUS; 
+       mpc_scan(0, (char *)&comd, 16, rcvbuf, 0, chip);
+       udelay(50);
+              
+    }
+       comd=XCF_ISC_DISABLE; 
+       mpc_scan(0, (char *)&comd, 16, rcvbuf, 0, chip);
+       udelay(200);
+    std::cout << "Done." << std::endl;
+    return blank_state;
+}
+
+int MPC::program_eprom(const char *mcsfile, int chip, int broadcast)
+{
+    if(chip<1 || chip>2) return -1;
+    std::cout << "Programming EPROM #" << chip << "......" << std::endl;
+   unsigned comd, data;
+   const int PROM_SIZE=4194304; // in bytes
+
+   char *bufin, c;
+   bufin=(char *)malloc(16*1024*1024);
+   if(bufin==NULL)  return -2;
+   FILE *fin=fopen(mcsfile,"r");
+   if(fin==NULL ) 
+   { 
+      free(bufin);  
+      std::cout << "ERROR: Unable to open MCS file :" << mcsfile << std::endl;
+      return -3; 
+   }
+   int mcssize=read_mcs(bufin, fin);
+   fclose(fin);
+   std::cout << "Read MCS size: " << std::dec << mcssize << " bytes" << std::endl;
+   if(chip==1 && mcssize<PROM_SIZE)
+   {
+       std::cout << "ERROR: Wrong MCS file. Quit..." << std::endl;
+       free(bufin);
+       return -4;
+   }
+/*
+// byte swap
+   for(int i=0; i<FIRMWARE_SIZE/2; i++)
+   {  c=bufin[i*2];
+      bufin[i*2]=bufin[i*2+1];
+      bufin[i*2+1]=c;
+   }
+*/
+     int blocks=mcssize/32;  // firmware size must be in units of 256-bit units
+     if (mcssize%32)
+     {  
+         for(int i=0; i<32; i++) bufin[mcssize+i]=0xFF;  // pad the last block with 0xFF
+         blocks++;
+     }
+     int p1pct=blocks/100;
+     int j=0, pcnts=0;
+
+//    getTheController()->Debug(2);
+     getTheController()->SetUseDelay(true);
+  
+     jtag_RestoreIdle();      
+     comd=XCF_ISC_ENABLE; 
+     mpc_scan(0, (char *)&comd, 16, rcvbuf, 0, chip);
+     data=0x03;
+     mpc_scan(1, (char *)&data, 8, rcvbuf, 0, chip);
+     comd=XCF_XSC_UNLOCK; 
+     mpc_scan(0, (char *)&comd, 16, rcvbuf, 0, chip);
+     data=0x3F;
+     mpc_scan(1, (char *)&data, 24, rcvbuf, 0, chip);
+     comd=XCF_DATA_BTC; 
+     mpc_scan(0, (char *)&comd, 16, rcvbuf, 0, chip);
+     data=0xFFFFFFEC;
+     mpc_scan(1, (char *)&data, 32, rcvbuf, 0, chip);
+     comd=XCF_ISC_PROGRAM; 
+     mpc_scan(0, (char *)&comd, 16, rcvbuf, 0, chip);
+     udelay(200);
+     for(int i=0; i<blocks; i++)
+     {
+        if((i%0x8000)==0)   
+        {  /* At beginning of each big block, send (byte) address. */
+           comd=XCF_ADD_SHIFT; 
+           mpc_scan(0, (char *)&comd, 16, rcvbuf, 0, chip);
+           data=i*32;
+           mpc_scan(1, (char *)&data, 24, rcvbuf, 0, chip);
+        }
+       comd=XCF_DATA_SHIFT; 
+       mpc_scan(0, (char *)&comd, 16, rcvbuf, 0, chip);
+       mpc_scan(1, bufin+32*i, 256, rcvbuf, 0, chip);
+       comd=XCF_ISC_PROGRAM; 
+       mpc_scan(0, (char *)&comd, 16, rcvbuf, 0, chip);
+       udelay(1000);
+       j++;
+       if(p1pct>0 && j==p1pct)
+       {  pcnts++;
+          if(pcnts<100) std::cout << "Sending " << pcnts <<"%..." << std::endl;
+          j=0;
+       }   
+     }
+     comd=XCF_DATA_DONE; 
+     mpc_scan(0, (char *)&comd, 16, rcvbuf, 0, chip);
+     data=0xC0;
+     mpc_scan(1, (char *)&data, 8, rcvbuf, 0, chip);
+     comd=XCF_ISC_PROGRAM; 
+     mpc_scan(0, (char *)&comd, 16, rcvbuf, 0, chip);
+     udelay(200);
+     std::cout << "Sending 100%..." << std::endl;
+//    getTheController()->Debug(2);
+     if(broadcast==0)
+     {
+         std::cout << "Verify. " << std::endl;
+     }
+     comd=XCF_ISC_DISABLE; 
+     mpc_scan(0, (char *)&comd, 16, rcvbuf, 0, chip);
+     udelay(200);
+     free(bufin);
+     return 0;
+}
+
+  } // namespace emu::pc
 } // namespace emu
