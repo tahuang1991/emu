@@ -308,6 +308,7 @@ EmuPeripheralCrateConfig::EmuPeripheralCrateConfig(xdaq::ApplicationStub * s): E
   xgi::bind(this,&EmuPeripheralCrateConfig::ReadMPCRegister, "ReadMPCRegister");
   xgi::bind(this,&EmuPeripheralCrateConfig::WriteMPCRegister, "WriteMPCRegister");
   xgi::bind(this,&EmuPeripheralCrateConfig::MPCLoadFirmware, "MPCLoadFirmware");
+  xgi::bind(this,&EmuPeripheralCrateConfig::MPCLoadFirmwareMCS, "MPCLoadFirmwareMCS");
   xgi::bind(this,&EmuPeripheralCrateConfig::ReadTTCRegister, "ReadTTCRegister");
   xgi::bind(this,&EmuPeripheralCrateConfig::HardReset, "HardReset");
   xgi::bind(this,&EmuPeripheralCrateConfig::CCBFPGAReset, "CCBFPGAReset");
@@ -11414,7 +11415,7 @@ void EmuPeripheralCrateConfig::DefineFirmwareFilenames() {
     char mpcdate[7];
     sprintf(mpcdate,"%02u%02u%02u",month,day,year);
     std::ostringstream MPCFirmware;
-    MPCFirmware << FirmwareDir_ << "mpc/mpc2004_" << mpcdate << ".svf";
+    MPCFirmware << FirmwareDir_ << "mpc/mez_" << mpcdate;
     MPCFirmware_ = MPCFirmware.str();
 
   //  std::cout << "CCB firmware name: " << CCBFirmware_ << std::endl;

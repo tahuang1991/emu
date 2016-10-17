@@ -646,7 +646,15 @@ void EmuPeripheralCrateConfig::MPCUtils(xgi::Input * in, xgi::Output * out )
   std::string MPCLoadFirmware = toolbox::toString("/%s/MPCLoadFirmware",getApplicationDescriptor()->getURN().c_str());
   *out << cgicc::form().set("method","GET").set("action",MPCLoadFirmware) << std::endl ;
   *out << cgicc::input().set("type","submit").set("value","Load MPC Firmware") << std::endl ;
-  *out << MPCFirmware_;
+  *out << MPCFirmware_ << ".svf";
+  *out << cgicc::form() << std::endl ;
+  //
+  *out << cgicc::hr() << std::endl;
+  //
+  std::string MPCLoadFirmwaremcs = toolbox::toString("/%s/MPCLoadFirmwareMCS",getApplicationDescriptor()->getURN().c_str());
+  *out << cgicc::form().set("method","GET").set("action",MPCLoadFirmwaremcs) << std::endl ;
+  *out << cgicc::input().set("type","submit").set("value","Load MPC Firmware") << std::endl ;
+  *out << MPCFirmware_ << "_0.mcs and " << MPCFirmware_ << "_1.mcs ";
   *out << cgicc::form() << std::endl ;
   //
   *out << cgicc::br();
@@ -749,14 +757,44 @@ void EmuPeripheralCrateConfig::MPCLoadFirmware(xgi::Input * in, xgi::Output * ou
   int debugMode(0);
   int jch(0);
   int verify(1);
-  std::cout << getLocalDateTime() << " Programming MPC using " << MPCFirmware_ << std::endl;
-  int status = thisMPC->svfLoad(jch,MPCFirmware_.c_str(),debugMode, verify);
+  std::cout << getLocalDateTime() << " Programming MPC using " << MPCFirmware_ << ".svf" << std::endl;
+
+  std::string svffile=MPCFirmware_+".svf";
+  int status = thisMPC->svfLoad(jch,svffile.c_str(),debugMode, verify);
   if (status >= 0){
     std::cout << getLocalDateTime() << " Programming finished with " << status << " Verify Errors occured" << std::endl;
   }
   else{
     std::cout << getLocalDateTime() << " Fatal Error. Exiting with " <<  status << std::endl;
   }
+
+  //
+  //thisCCB->hardReset();
+  //
+  this->MPCUtils(in,out);
+  //
+}
+//
+void EmuPeripheralCrateConfig::MPCLoadFirmwareMCS(xgi::Input * in, xgi::Output * out ) 
+  throw (xgi::exception::Exception) {
+  //
+  int rt_erase1, rt_erase2, rt_write1, rt_write2;
+  std::cout << getLocalDateTime() << " Programming MPC using " << MPCFirmware_ << "_x.mcs" << std::endl;
+
+  rt_erase1=thisMPC->erase_eprom(1);
+  if(rt_erase1!=0) std::cout << "Erase EPROM #1 with error code: " << rt_erase1 << std::endl;
+  rt_erase2=thisMPC->erase_eprom(2);
+  if(rt_erase2!=0) std::cout << "Erase EPROM #2 with error code: " << rt_erase2 << std::endl;
+
+  std::string mcsfile1=MPCFirmware_+"_0.mcs";
+  std::string mcsfile2=MPCFirmware_+"_1.mcs"; 
+  rt_write1=thisMPC->program_eprom(mcsfile1.c_str(), 1);
+  if(rt_write1!=0) std::cout << "Progrom EPROM #1 with error code: " << rt_write1 << std::endl;
+  rt_write2=thisMPC->program_eprom(mcsfile2.c_str(), 2);
+  if(rt_write2!=0) std::cout << "Program EPROM #2 with error code: " << rt_write2 << std::endl;
+
+  std::cout << getLocalDateTime() << " Finished. " << std::endl;
+
   //
   //thisCCB->hardReset();
   //
@@ -787,7 +825,7 @@ void EmuPeripheralCrateConfig::MPCReadFirmware(xgi::Input * in, xgi::Output * ou
     thisMPC->CheckConfig();
     thisMPC->RedirectOutput(&std::cout);
     std::cout << OutputStringMPCStatus.str() << std::endl;      
-      
+
     this->MPCUtils(in,out);
   }
 
