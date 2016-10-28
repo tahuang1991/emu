@@ -82,6 +82,7 @@ public:
   std::string HomeDir_;
   std::string ConfigDir_;  
   std::string FirmwareDir_;
+  std::string XMLDIR;
   //
   void DefineBroadcastCrate();
   xdata::String PeripheralCrateBroadcastXmlFile_;

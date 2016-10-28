@@ -39,6 +39,7 @@ EmuPeripheralCrateBroadcast::EmuPeripheralCrateBroadcast(xdaq::ApplicationStub *
   HomeDir_     = getenv("HOME");
   FirmwareDir_ = HomeDir_+"/firmware/";
   ConfigDir_   = HomeDir_+"/config/";
+  XMLDIR = "/opt/xdaq/htdocs/emu/emuDCS/PeripheralApps/xml";
   //
   PeripheralCrateBroadcastXmlFile_  = ConfigDir_+"pc/broadcast.xml";
   DmbControlFPGAFirmwareFile_       = FirmwareDir_+"dmb/dmb6cntl_pro.svf";
@@ -46,7 +47,7 @@ EmuPeripheralCrateBroadcast::EmuPeripheralCrateBroadcast(xdaq::ApplicationStub *
   CfebFPGAFirmwareFile_             = FirmwareDir_+"cfeb/cfeb_pro.svf";
   ODMBFirmwareFile_                 = FirmwareDir_+"odmb/me11_odmb.mcs";
   DCFEBFirmwareFile_                = FirmwareDir_+"cfeb/me11_dcfeb.mcs";
-  OTMBFirmwareFile_                 = FirmwareDir_+"tmb/tmb_me11_virtex6.svf";
+  OTMBFirmwareFile_                 = FirmwareDir_+"tmb/tmb_me11_virtex6.mcs";
 //  CCBFirmwareFile_                  = FirmwareDir_+"ccb/ccb2004p_030507.svf";
 //  MPCFirmwareFile_                  = FirmwareDir_+"mpc/mpc2004_100808.svf";
 
@@ -410,13 +411,13 @@ void EmuPeripheralCrateBroadcast::LoadDMBCFEBFPGAFirmware(xgi::Input * in, xgi::
     char mpcdate[7];
     sprintf(mpcdate,"%02u%02u%02u",month,day,year);
     std::ostringstream MPCFirmware;
-    MPCFirmware << FirmwareDir_ << "mpc/mpc2004_" << mpcdate << ".svf";
+    MPCFirmware << FirmwareDir_ << "mpc/mez_" << mpcdate;
     MPCFirmwareFile_ = MPCFirmware.str();
  
   std::string LoadMPCFirmware = toolbox::toString("/%s/LoadMPCFirmware",getApplicationDescriptor()->getURN().c_str());
   *out << cgicc::form().set("method","GET").set("action",LoadMPCFirmware) << std::endl ;
   *out << cgicc::input().set("type","submit").set("value","Load MPC Firmware") << std::endl ;
-  *out << MPCFirmwareFile_;
+  *out << MPCFirmwareFile_ << "_0.mcs" << " and " << MPCFirmwareFile_ << "_1.mcs" << std::endl;
   *out << cgicc::form() << std::endl;
   //
   std::string LoadCCBFirmware = toolbox::toString("/%s/LoadCCBFirmware",getApplicationDescriptor()->getURN().c_str());
@@ -538,7 +539,22 @@ void EmuPeripheralCrateBroadcast::LoadOTMBEPROM(xgi::Input * in, xgi::Output * o
       //
     bool broadcast=true;
     broadcastOTMB->setup_jtag(ChainTmbMezz, broadcast);
-    broadcastOTMB->svfLoad(0,OTMBFirmwareFile_.c_str(), 0, 0);
+//    broadcastOTMB->svfLoad(0,OTMBFirmwareFile_.c_str(), 0, 0);
+    std::string svffile1 = XMLDIR+"/virtex6lx240_header.svf";
+    std::string svffile2 = XMLDIR+"/virtex6_trailer.svf";
+    std::string corefile = XMLDIR+"/virtex6lx240_core.mcs";
+
+    std::cout << "Step #1, loading Xilinx Core..."  << std::endl;    
+    broadcastOTMB->program_virtex6(corefile.c_str());
+    std::cout << "Step #2, erasing EPROM..."  << std::endl;    
+    broadcastOTMB->svfLoad(0, svffile1.c_str(), 0, 0);
+    std::cout << "Step #3, programming EPROM with content from MCS file..."  << std::endl;
+    broadcastOTMB->otmb_program_eprom(OTMBFirmwareFile_.c_str());
+    std::cout << "Done!"  << std::endl;  
+    std::cout << "Step #4, finalizing..." << std::endl;
+    broadcastOTMB->svfLoad(0, svffile2.c_str(), 0, 0);
+
+    std::cout  << getLocalDateTime() <<  " Finished loading firmware to EPROM." << std::endl;
 
     // enable VME access to TMB FPGA
     // from function ClearTMBBootReg()
@@ -559,6 +575,13 @@ void EmuPeripheralCrateBroadcast::LoadOTMBFPGA(xgi::Input * in, xgi::Output * ou
   //
   // load the OTMB firmware to FPGA
   //
+  if( broadcastOTMB )
+  {
+     std::cout << getLocalDateTime() << " Programming FPGA on all OTMBs" << std::endl;
+     std::cout << "Using mcs file: " << OTMBFirmwareFile_ << std::endl;
+     broadcastOTMB->program_virtex6(OTMBFirmwareFile_.c_str());
+     std::cout << getLocalDateTime() << " Finished programming all OTMB FPGAs." << std::endl;
+  }
   this->LoadDMBCFEBFPGAFirmware(in, out);
 }
 //
@@ -566,7 +589,7 @@ void EmuPeripheralCrateBroadcast::LoadODMBEPROM(xgi::Input * in, xgi::Output * o
   //
   // load the ODMB firmware to EPROM
   //
-    std::cout << getLocalDateTime() << " Programming EPROM on all ODMBs via broadcast slot" << std::endl;
+    std::cout << getLocalDateTime() << " Programming EPROM on all ODMBs" << std::endl;
     std::cout << "Using mcs file: " << ODMBFirmwareFile_ << std::endl;
     for(unsigned i=0; i<otherDMBs.size(); i++)
     {
@@ -926,13 +949,25 @@ void EmuPeripheralCrateBroadcast::LoadMPCFirmware(xgi::Input * in, xgi::Output *
   // load the MPC firmware
   //
   if (broadcastMPC) {
-    std::cout <<" Loading all MPCs with firmware from " << MPCFirmwareFile_ << std::endl;
+    int broadcast_mode=1;
 
-    int debugMode(0);
-    int jch(0);
-    int verify(0);
-    //
-    broadcastMPC->svfLoad(jch,MPCFirmwareFile_.c_str(),debugMode,verify);
+    std::cout << getLocalDateTime() << " Broadcast Programming MPC using " << MPCFirmwareFile_ << "_x.mcs" << std::endl;
+
+    broadcastMPC->erase_eprom(1, broadcast_mode);
+    broadcastMPC->erase_eprom(2, broadcast_mode);
+
+    std::string mcsfile1=MPCFirmwareFile_+"_0.mcs";
+    std::string mcsfile2=MPCFirmwareFile_+"_1.mcs"; 
+    broadcastMPC->program_eprom(mcsfile1.c_str(), 1, broadcast_mode);
+    broadcastMPC->program_eprom(mcsfile2.c_str(), 2, broadcast_mode);
+
+    std::cout << getLocalDateTime() << " Finished. " << std::endl;
+
+   // int debugMode(0);
+   // int jch(0);
+   // int verify(0);
+   //
+   // broadcastMPC->svfLoad(jch,MPCFirmwareFile_.c_str(),debugMode,verify);
   //
   } else 
   {
