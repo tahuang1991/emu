@@ -37,6 +37,7 @@ void emu::daq::writer::RawDataFile::open(){
     bytesInFileCounter_  = 0;
     eventsInFileCounter_ = 0;
     filesInRunCounter_++;
+    tjson_.resetData();
     LOG4CPLUS_INFO( logger_, "Opened " << fileName_ );
   }
   else{
@@ -71,26 +72,34 @@ void emu::daq::writer::RawDataFile::close(){
 }
 
 void emu::daq::writer::RawDataFile::writeMetaFile(){
-  /// Writes a <em>file_name_base</em>.<tt>meta</tt> metadata file to make CASTOR happy.
+  /// Writes a .sn file that's needed for the transfer to EOS.
+  /// Also writes a <em>file_name_base</em>.<tt>meta</tt> metadata file that will
+  /// contain the name of the .jsn file.
   if ( fs_->is_open() ) fs_->close(); // just in case...
+
+  // First prepare the JSON file.
+  // Take the timestamp as run number if it's not booked.
+  if ( isBookedRunNumber_ ) tjson_.setRunNumber(                runNumber_      );
+  else                      tjson_.setRunNumber( toDecimalTime( runStartTime_ ) );
+  // For stream name, take the app name + instance number. 
+  ostringstream stream;
+  stream << appName_ << setfill('0') << setw(2) << appInstance_;
+  // TODO: Have EOS synlinks created.
+  tjson_
+    .setLSNumber      ( filesInRunCounter_ >= 1 ? filesInRunCounter_-1 : 0 )
+    .setNumberOfEvents( eventsInFileCounter_ )
+    .setDataFileName  ( fileName_ )
+    .setStreamName    ( stream.str() )
+    .setHostName      ( getenv( "HOSTNAME" ) )
+    .setSymbolicLink  ( chooseEOSSymLink() );
+  // Write the JSON file.
+  fs_->open( ( pathToFile_ + "/" + tjson_.getJSONFileName() ).c_str() , ios::out );
+  *fs_ << tjson_;
+  fs_->close();
+    
+  // Write the name of the JSON file into the .meta file.
   fs_->open( metaFileName_.c_str(), ios::out );
-
-  *fs_ << "runnumber"   << " " << runNumber_           << endl;
-  *fs_ << "lumisection" << " " << "0"                  << endl;
-  *fs_ << "nevents"     << " " << eventsInFileCounter_ << endl;
-  *fs_ << "appname"     << " " << appName_             << endl;
-  *fs_ << "instance"    << " " << appInstance_         << endl;
-  *fs_ << "appversion"  << " " << appVersion_          << endl;
-  *fs_ << "start_time"  << " " << toUnixTime( runStartTime_ ) << endl; // may be 0
-  *fs_ << "stop_time"   << " " << toUnixTime( runStopTime_  ) << endl; // may be 0
-  *fs_ << "setuplabel"  << " " << "CSC"                << endl;
-  *fs_ << "type"        << " " << "edm"                << endl;
-  *fs_ << "stream"      << " " << nameStream()         << endl;
-  *fs_ << "filename"    << " " << fileName_            << endl;
-  *fs_ << "pathname"    << " " << pathToFile_          << endl;
-  *fs_ << "hostname"    << " " << host_                << endl;
-  *fs_ << "filesize"    << " " << bytesInFileCounter_  << endl;
-
+  *fs_ << tjson_.getJSONFileName();
   fs_->close();
 }
 
@@ -113,15 +122,28 @@ time_t emu::daq::writer::RawDataFile::toUnixTime( const std::string YYMMDD_hhmms
   return ( unixTime < 0 ? time_t(0) : unixTime );
 }
 
-std::string emu::daq::writer::RawDataFile::nameStream(){
-  /// Names the stream, which will appear as a subdirectory name in CASTOR.
-  string streamName;
-  if ( runType_.substr(0,5) == "Calib" ) streamName = "Calib";
-  else if ( appName_.substr(0,6) == "EmuRUI" ) streamName = "Local";
-  else if ( appName_.substr(0,5) == "EmuFU"  ) streamName = "Built";
+#include <iostream>
+unsigned long int emu::daq::writer::RawDataFile::toDecimalTime( const std::string& YYMMDD_hhmmss_UTC ) const {
+  /// Converts time given as string to a decimal number that reads YYMMDDhhmmss, or 0 if conversion fails.
+  unsigned long int dt( 0 );
+  std::cout << "YYMMDD_hhmmss_UTC " << YYMMDD_hhmmss_UTC << "\n";
+  if ( YYMMDD_hhmmss_UTC.size() < 17 ) return dt;
+  std::string dtstring( YYMMDD_hhmmss_UTC );
+  std::istringstream iss( dtstring.erase( 13 ).erase( 6, 1 ) );
+  std::cout << "iss " << iss.str() << "\n";
+  iss >> dt;
+  std::cout << "dt " << dt << "\n";
+  if ( dt < 100000000000 || dt >= 1000000000000 ) return 0; // It must be a twelve-digit decimal number.
+  return dt;
+}
 
-  if ( runStartTime_.size() < 17 ) return streamName;
-  else return streamName+string("20")+runStartTime_.substr(0,2);
+std::string emu::daq::writer::RawDataFile::chooseEOSSymLink() const {
+  /// Picks the symlink, which determines the destination dir on EOS.
+  string symlink;
+  if      ( runType_.substr(0,5) == "Calib"  ) symlink = "CSCUXCCALEOS";
+  else if ( appName_.substr(0,6) == "EmuRUI" ) symlink = "CSCUXCLOCEOS";
+  else if ( appName_.substr(0,5) == "EmuFU"  ) symlink = "CSCUXCLOCEOS";
+  return symlink;
 }
 
 emu::daq::writer::RawDataFile::RawDataFile(const uint64_t maxFileSize, 
@@ -187,6 +209,7 @@ void emu::daq::writer::RawDataFile::writeData( const char* buf, const int nBytes
   else{
     bytesInFileCounter_ += nBytes;
     bytesInRunCounter_  += nBytes;
+    tjson_.addData( (const unsigned char*) buf, nBytes );
   }
 }
 

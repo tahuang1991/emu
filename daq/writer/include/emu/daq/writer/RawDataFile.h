@@ -10,6 +10,8 @@
 #include <iomanip>
 #include "log4cplus/logger.h"
 
+#include "emu/daq/writer/TransferJSON.h"
+
 namespace emu { namespace daq { namespace writer {
 
   /// Class for writing binary data files.
@@ -70,6 +72,7 @@ namespace emu { namespace daq { namespace writer {
     string            metaFileName_; ///< name of metadata file [ <em>file_name_base</em>.<tt>meta</tt> ]
     vector<string>    fileNames_;	///< names of files opened so far
     fstream          *fs_;		///< output file stream
+    TransferJSON      tjson_;	///< builds checksum and writes it (and other metadata) to a JSON file
 
     /// Names the file to be written.
     void nameFile();
@@ -95,17 +98,22 @@ namespace emu { namespace daq { namespace writer {
     ///
     time_t toUnixTime( const std::string YYMMDD_hhmmss_UTC ) const;
 
-    /// Names the stream, which will appear as a subdirectory name in CASTOR.
-
     ///
-    /// @return Stream name as sssssYYYY, where ssss is
-    ///     <b>Local</b> for event fragments (DDU data from RUIs)
-    ///     <b>Built</b> for built local Emu events (from FUs)
-    ///     <b>Calib</b> for calibration data (DDU data from RUIs)
-    /// and YYYY is the year (not appended if runStartTime_ is not in YYMMDD_hhmmss_UTC format).
+    /// @param YYMMDD_hhmmss_UTC Time string. Must be in this format.
     ///
-    std::string nameStream();
+    /// @return Integer time that reads YYMMDDhhmmss in decimal. 0 if conversion fails.
+    ///
+    unsigned long int toDecimalTime( const std::string& YYMMDD_hhmmss_UTC ) const;
 
+    /** 
+     * Picks the symlink, which determines the destination dir on EOS:
+     * CSCUXCLOCEOS -> /eos/cms/store/group/dpg_csc/comm_csc/uxc/ldaq/local
+     * CSCUXCCALEOS -> /eos/cms/store/group/dpg_csc/comm_csc/uxc/ldaq/calib
+     * CSCUXCDQMEOS -> /eos/cms/store/group/dpg_csc/comm_csc/uxc/ldqm
+     * @return The name of the EOS symlink (one of the above).
+     */
+    std::string chooseEOSSymLink() const;
+    
   public:
 
     /// constructor
