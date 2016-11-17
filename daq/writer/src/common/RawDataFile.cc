@@ -84,11 +84,12 @@ void emu::daq::writer::RawDataFile::writeMetaFile(){
   // For stream name, take the app name + instance number. 
   ostringstream stream;
   stream << appName_ << setfill('0') << setw(2) << appInstance_;
+  if (  runType_ == "BadEvents" ) stream << "Bad";
   // TODO: Have EOS synlinks created.
   tjson_
     .setLSNumber      ( filesInRunCounter_ >= 1 ? filesInRunCounter_-1 : 0 )
     .setNumberOfEvents( eventsInFileCounter_ )
-    .setDataFileName  ( fileName_ )
+    .setDataFileName  ( fileName_.substr( pathToFile_.length()+1 ) ) // Remove the path to file, only the file name is needed.
     .setStreamName    ( stream.str() )
     .setHostName      ( getenv( "HOSTNAME" ) )
     .setSymbolicLink  ( chooseEOSSymLink() );
