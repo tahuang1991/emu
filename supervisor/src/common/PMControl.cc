@@ -83,7 +83,7 @@ emu::supervisor::PMControl& emu::supervisor::PMControl::configureSequence(){
   return *this;
 }
 
-emu::supervisor::PMControl::PMControl& emu::supervisor::PMControl::enableSequence(){
+emu::supervisor::PMControl& emu::supervisor::PMControl::enableSequence(){
   switch ( runType_ ){
   case global:
     // In global, we're not in control of the PM, therefore:
@@ -100,7 +100,7 @@ emu::supervisor::PMControl::PMControl& emu::supervisor::PMControl::enableSequenc
   return *this;
 }
 
-emu::supervisor::PMControl::PMControl& emu::supervisor::PMControl::stopSequence(){
+emu::supervisor::PMControl& emu::supervisor::PMControl::stopSequence(){
   switch ( runType_ ){
   case global:
     // In global, we're not in control of the PM, therefore:

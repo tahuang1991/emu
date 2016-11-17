@@ -115,7 +115,7 @@ emu::supervisor::CIControl& emu::supervisor::CIControl::configureSequence(){
   return *this;
 }
 
-emu::supervisor::CIControl::CIControl& emu::supervisor::CIControl::enableSequence(){
+emu::supervisor::CIControl& emu::supervisor::CIControl::enableSequence(){
   // First of all, wait for CI to complete 'Enable' transition
   waitForState( "Enabled", 20 );
 
@@ -133,7 +133,7 @@ emu::supervisor::CIControl::CIControl& emu::supervisor::CIControl::enableSequenc
   return *this;
 }
 
-emu::supervisor::CIControl::CIControl& emu::supervisor::CIControl::stopSequence(){
+emu::supervisor::CIControl& emu::supervisor::CIControl::stopSequence(){
   // First of all, wait for CI to complete the 'Stop' transition
   // waitForState( "Halted|Configured", 20 );
   waitForState( "Configured", 20 );
