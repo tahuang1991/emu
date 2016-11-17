@@ -447,6 +447,8 @@ time_t emu::daq::rui::Application::toUnixTime( const std::string YYMMDD_hhmmss_U
   ss << YYMMDD_hhmmss_UTC.substr( 9,2); ss >> stm.tm_min;  ss.clear();
   ss << YYMMDD_hhmmss_UTC.substr(11,2); ss >> stm.tm_sec;  ss.clear();
 
+  stm.tm_isdst = -1; // Initialize it to make sure it's not a random value. Negative means 'not available'.
+
   time_t unixTime = mktime( &stm );
 
   return ( unixTime < 0 ? time_t(0) : unixTime );
