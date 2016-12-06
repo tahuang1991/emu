@@ -435,6 +435,9 @@ private:
   void DMBTurnOn(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void CFEBUtils(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void CFEBFunction(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
+  void DCFEBPromTest(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
+  void DCFEBPromTestFast(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
+  void AllDCFEBsPromTestFast(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void DCFEBReadFirmware(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void DCFEBProgramFpga(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void DCFEBProgramFpgaAll(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
@@ -674,6 +677,7 @@ private:
   void MeasureAllTMBVoltages(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void ProgramAllOdmbEproms(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void ProgramOdmbEpromsForCrate(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
+  void TestDcfebEpromsForCrate(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void HardResetForSystem(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void OtmbFiberTest(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void UpdateInFlashKey(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);

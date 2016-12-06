@@ -8283,10 +8283,10 @@ void DAQMB::dcfeb_readfirmware_mcs(CFEB & cfeb, const char *filename)
    unsigned read_size=0x800;
    unsigned short *buf;
    FILE *mcsfile;
-   int total_blocks=1335;
+   int total_blocks=4096; // use 1335 for only the firmware part of the prom
 // int readback_size=read_size*total_blocks*2=5468160; 
 // XC6VLX130T's configuration bitstream (firmware) is exactly 5464972 bytes:
-   const int FIRMWARE_SIZE=5464972;
+   const int FIRMWARE_SIZE=16777216; // use 5464972 for only the firmware part of the prom
 
    mcsfile=fopen(filename, "w");
    if(mcsfile==NULL)
@@ -8296,13 +8296,15 @@ void DAQMB::dcfeb_readfirmware_mcs(CFEB & cfeb, const char *filename)
    }
 
    write_cfeb_selector(cfeb.SelectorBit());
-   buf=(unsigned short *)malloc(8*1024*1024);
+   buf=(unsigned short *)malloc(16*1024*1024); // can use 8*1024*1024 if only reading the firmware part of the prom
    if(buf==NULL) return;
    dcfeb_bpi_reset();
    dcfeb_bpi_enable();
    
    for(int i=0; i< total_blocks; i++)
    {
+       std::cout << "Block " << i << " / " << total_blocks << std::endl;
+
        uaddr = (fulladdr >> 16);
        laddr = fulladdr &0xffff;
        dcfebprom_loadaddress(uaddr, laddr);
@@ -11446,6 +11448,798 @@ void DAQMB::dcfeb_program_eprom_Xilinx(CFEB & cfeb, const char *mcsfile, int bro
 
     comd=VTX6_BYPASS;
     cfeb_do(10, &comd, 0, &tmp, rcvbuf, NOW);
+}
+
+// This function tests the DCFEB PROM using the unused blocks (doesn't touch the firmware and parameter blocks)
+// Test procedure was defined by Ben Bylsma and it goes like this:
+//   1) Readback block, check for blank (all ones), count all blocks initially not blank
+//   2) Erase block, readback, check for blank, count all blocks failing erase
+//   3) Program all zero’s, readback, check for zeroed, count all blocks failing zero test
+//   4) Erase block, readback, check for blank, count all failing erase after zeroed
+// All results are logged in the log file with the provided filename
+// These are the unused PROM blocks with which this function is working: 43 to 47, 49 to 126, and parameter blocks 127 and 128
+// This function returns the number of total EEPROM errors. There are also special return codes for errors that stop the test:
+//   -1 means error while running the test
+//   -2 means that DCFEB FPGA was not configured before the start of the test
+int DAQMB::dcfeb_prom_test2(CFEB & cfeb, const char *filename, const char * dumpFilename, const bool fastCheck)
+{
+   std::stringstream msg;
+   std::ofstream logFile;
+   std::ofstream dumpFile;
+
+   unsigned int fulladdr;
+   unsigned int uaddr,laddr;
+   unsigned int i, blocks, lastblock;
+   unsigned short *buf;
+
+   const int PROM_SIZE=16777216/2; // in words
+
+   // each eprom block has 0x10000 words
+   const int BLOCK_SIZE=0x10000; // in words
+
+   // each write call takes 0x400 words
+   const int WRITE_SIZE=0x400;  // in words
+
+   // each read call takes 0x800 words
+   const unsigned READ_SIZE=0x800; // in words 
+
+// open log files
+   logFile.open(filename);
+   dumpFile.open(dumpFilename);
+   if (!logFile.is_open())
+   {
+      std::cout << "Unable to open file to write :" << filename << std::endl;
+      return -1;
+   }
+
+   if (!dumpFile.is_open())
+   {
+      std::cout << "Unable to open file to write :" << filename << std::endl;
+      return -1;
+   }
+
+// check if the DCFEB FPGA is configured
+   int donebits = read_cfeb_done();
+   int isConfigured = (donebits >> cfeb.number()) & 1;
+   if (!isConfigured)
+   {
+      msg << std::endl << "FPGA of this DCFEB is not configured (before starting the test) -- skipping this DCFEB" << std::endl;
+      dcfeb_prom_log(&msg, &logFile);
+      return -2;
+   }
+
+   std::cout << "Starting DCFEB EEPROM test 2" << std::endl;
+
+// prepare buffers and stuff
+   char *bufw_char;
+   bufw_char=(char *)malloc(WRITE_SIZE * 2);
+   if(bufw_char==NULL)  return -1;
+   unsigned short *bufw= (unsigned short *)bufw_char;
+   // fill it with zeros
+   long blankWord64 = 0xFFFFFFFFFFFFFFFF;
+   long zeroWord64  = 0x0000000000000000;
+   for (i=0; i < 256; i++) {
+       memcpy(bufw_char + i*8, &zeroWord64, 8);
+   }
+
+   char *bufr_char;
+   bufr_char = (char*) malloc(READ_SIZE * 0x20 * 2);
+   if(bufr_char == NULL) return -1;
+   unsigned short * bufr = (unsigned short *) bufr_char;
+  
+ 
+   write_cfeb_selector(cfeb.SelectorBit());
+
+//####################################################################################
+// 1) Readback blocks, check for blank (all ones), count all blocks initially not blank
+//####################################################################################
+
+   msg << std::endl << ">>>>> Step 1: check if all unused blocks are blank <<<<<" << std::endl << std::endl;
+   dcfeb_prom_log(&msg, &logFile);
+
+   dcfeb_bpi_reset();
+   dcfeb_bpi_enable();
+   
+   int numErrors1 = 0;
+   for(int i=43; i <= 128; i++)
+   {
+       if (i == 48) continue; // leave this block alone - that has the DCFEB marker
+
+       int bitflips = dcfeb_prom_check_block(i, bufr, blankWord64, &dumpFile, fastCheck);
+
+       if (bitflips == 0)
+       {
+          msg << "Block " << i << ": OK" << std::endl;
+          dcfeb_prom_log(&msg, &logFile);
+       }
+       else 
+       {
+          msg << "Block " << i << ": BAD! number of bitflips = " << bitflips << " (block dumped to " << dumpFilename << ")" << std::endl;
+          dcfeb_prom_log(&msg, &logFile);
+          numErrors1++;
+       }
+
+   }
+   dcfeb_bpi_disable();
+
+   msg << ">>>>> Step 1 finished: number of blocks that initially were not blank = " << numErrors1 << " <<<<<" << std::endl;
+   dcfeb_prom_log(&msg, &logFile);
+
+//####################################################################################
+// 2) Erase blocks, readback, check for blank, count all blocks failing erase
+//####################################################################################
+
+   msg << std::endl << ">>>>> Step 2: erase all unused blocks and check if they are blank <<<<<" << std::endl << std::endl;
+   dcfeb_prom_log(&msg, &logFile);
+
+   // erase prom
+
+   dcfeb_bpi_reset();
+   dcfeb_bpi_enable();
+   dcfebprom_timerstop();
+   dcfebprom_timerreset();
+   dcfebprom_timerstart();
+
+   blocks=PROM_SIZE/BLOCK_SIZE;
+   if((PROM_SIZE%BLOCK_SIZE)>0) blocks++;
+   msg << "Erasing..." << std::endl;
+   dcfeb_prom_log(&msg, &logFile);
+   for(i=43; i<blocks; i++)
+   {
+      if (i == 48) continue; // leave this block alone - that has the DCFEB marker
+
+      std::cout << "Erasing block " << i << " / " << blocks << std::endl;
+
+      // erase the 64K banks
+      if (i < blocks - 1) {
+          uaddr=i;
+          laddr=0;
+
+          dcfebprom_loadaddress(uaddr,laddr);
+          // unlock and erase the block
+          dcfebprom_unlockerase();
+
+          dcfebprom_clearstatus();
+          int bpi_status;
+          for(int j=0;j<200;j++)
+          {
+             udelay(100000);
+             bpi_status=dcfeb_bpi_status();
+             if((bpi_status&0x0080)==0x0080) { std::cout << "Finish at loop " << j << std::endl;  break; }
+          }          
+          if((bpi_status&0x0080)!=0x0080)
+          {
+             msg << "Error: BPI Status wrong after erasing!" << std::endl;
+             dcfeb_prom_log(&msg, &logFile);
+             logFile.close();
+             dumpFile.close();
+             return -1;
+          }
+          // udelay(5000000);
+      }
+      
+      // erase the 16K banks (except the last two where we have the DCFEB serial number and parameters)
+      if (i == blocks - 1) {
+          for (int j=0; j < 2; j++) {  // this should go up to 4, but I don't want to erase the last two 16K blocks where we have the DCFEB serial number and parameters
+	      std::cout << "Erasing parameter space block " << j << std::endl;
+              uaddr = i;
+              laddr = j * 0x4000;
+
+              dcfebprom_loadaddress(uaddr,laddr);
+              // unlock and erase the block
+              dcfebprom_unlockerase();
+
+          dcfebprom_clearstatus();
+          int bpi_status;
+          for(int j=0;j<200;j++)
+          {
+             udelay(100000);
+             bpi_status=dcfeb_bpi_status();
+             if((bpi_status&0x0080)==0x0080) { std::cout << "Finish at loop " << j << std::endl;  break; }
+          }          
+          if((bpi_status&0x0080)!=0x0080)
+          {
+             msg << "Error: BPI Status wrong after erasing!" << std::endl;
+             dcfeb_prom_log(&msg, &logFile);
+             logFile.close();
+             dumpFile.close();
+             return -1;
+          }
+
+             // udelay(5000000);
+	  }
+      }
+   }
+
+   dcfeb_bpi_disable();
+
+   msg << "Erase finished successfully" << std::endl;
+   dcfeb_prom_log(&msg, &logFile);
+
+   // readback and check
+
+   dcfeb_bpi_reset();
+   dcfeb_bpi_enable();
+   
+   int numErrors2 = 0;
+   for(int i=43; i <= 128; i++)
+   {
+       if (i == 48) continue; // leave this block alone - that has the DCFEB marke
+
+       int bitflips = dcfeb_prom_check_block(i, bufr, blankWord64, &dumpFile, fastCheck);
+
+       if (bitflips == 0)
+       {
+          msg << "Block " << i << ": OK" << std::endl;
+          dcfeb_prom_log(&msg, &logFile);
+       }
+       else 
+       {
+          msg << "Block " << i << ": BAD! number of bitflips = " << bitflips << " (block dumped to " << dumpFilename << ")" << std::endl;
+          dcfeb_prom_log(&msg, &logFile);
+          numErrors2++;
+       }
+
+   }
+   dcfeb_bpi_disable();
+
+   msg << ">>>>> Step 2 finished: number of blocks that were not blank after erase = " << numErrors2 << " <<<<<" << std::endl;
+   dcfeb_prom_log(&msg, &logFile);
+
+//######################################################################################
+// 3) Program all zero’s, readback, check for zeroed, count all blocks failing zero test
+//######################################################################################
+
+   msg << std::endl << ">>>>> Step 3: program the unused blocks with zeros and check if they are indeed zeros <<<<<" << std::endl << std::endl;
+   dcfeb_prom_log(&msg, &logFile);
+
+   blocks=PROM_SIZE/WRITE_SIZE - 0x10 * 2; // all prom except the last two 16K blocks
+   lastblock=PROM_SIZE%WRITE_SIZE;
+   int p1pct=blocks/100;
+   if(lastblock>0) blocks++;
+   else lastblock=WRITE_SIZE;
+   msg << "Programming with zeros..." << std::endl;
+   dcfeb_prom_log(&msg, &logFile);
+   fulladdr=0;
+   for(i=0x40 * 43; i<blocks; i++)  
+   {
+      if ((i >= 0x40 * 48) && (i < 0x40 * 49)) continue; // leave block 48 alone - that has the DCFEB marker
+
+      fulladdr = i * WRITE_SIZE;
+      uaddr = (fulladdr >> 16);
+      laddr = fulladdr &0xffff;
+
+      // if fastCheck is ture, then only write to the first and second 0x800 size block of each 64K and 16K PROM blocks
+      if (fastCheck && ((laddr != 0x0000) && (laddr != WRITE_SIZE) && !((uaddr == 0x7F) && (((laddr == 0x4000) || (laddr == 0x4400)) && (laddr<0x8000))))) {
+          continue;
+      }
+
+      dcfeb_bpi_disable();
+      udelay(1000);
+      dcfeb_bpi_reset();
+      dcfeb_bpi_enable();
+      dcfebprom_timerstop();
+      dcfebprom_timerreset();
+      dcfebprom_timerstart();
+      udelay(1000);
+      dcfebprom_clearstatus();
+
+      int nwords=WRITE_SIZE;
+      if(i==blocks-1) nwords=lastblock;
+      std::cout << "Writing to address " << std::hex << fulladdr << std::dec << " with " << nwords << " zero words" << std::endl;
+      // printf(" load address %04x%04x \n",(uaddr&0xFFFF),(laddr&0xFFFF));
+      dcfebprom_loadaddress(uaddr,laddr);
+      // program with new data from the beginning of the block
+      dcfebprom_bufferprogram(nwords,bufw);
+      udelay(120000);
+   }
+   msg << "Programming finished" << std::endl;
+   dcfeb_prom_log(&msg, &logFile);
+
+   uaddr = (fulladdr >> 16);
+   laddr = fulladdr &0xffff;
+   dcfebprom_loadaddress(uaddr,laddr);
+   dcfebprom_lock();
+   udelay(500000);
+   dcfeb_bpi_disable();
+
+   // readback and check
+
+   dcfeb_bpi_reset();
+   dcfeb_bpi_enable();
+   
+   int numErrors3 = 0;
+   for(int i=43; i <= 128; i++)
+   {
+       if (i == 48) continue; // leave this block alone - that has the DCFEB marker
+
+       int bitflips = dcfeb_prom_check_block(i, bufr, zeroWord64, &dumpFile, fastCheck);
+
+       if (bitflips == 0)
+       {
+          msg << "Block " << i << ": OK" << std::endl;
+          dcfeb_prom_log(&msg, &logFile);
+       }
+       else 
+       {
+          msg << "Block " << i << ": BAD! number of bitflips = " << bitflips << " (block dumped to " << dumpFilename << ")" << std::endl;
+          dcfeb_prom_log(&msg, &logFile);
+          numErrors3++;
+       }
+
+   }
+   dcfeb_bpi_disable();
+
+   msg << ">>>>> Step 3 finished: number of blocks that were not zero after programming = " << numErrors3 << " <<<<<" << std::endl;
+   dcfeb_prom_log(&msg, &logFile);
+
+//####################################################################################
+// 4) Erase blocks, readback, check for blank, count all failing erase after zeroed
+//####################################################################################
+
+   msg << std::endl << ">>>>> Step 4: erase all unused blocks again and check if they are blank <<<<<" << std::endl << std::endl;
+   dcfeb_prom_log(&msg, &logFile);
+
+   // erase prom
+
+   dcfeb_bpi_reset();
+   dcfeb_bpi_enable();
+   dcfebprom_timerstop();
+   dcfebprom_timerreset();
+   dcfebprom_timerstart();
+
+   blocks=PROM_SIZE/BLOCK_SIZE;
+   if((PROM_SIZE%BLOCK_SIZE)>0) blocks++;
+   msg << "Erasing..." << std::endl;
+   dcfeb_prom_log(&msg, &logFile);
+   for(i=43; i<blocks; i++)
+   {
+      if (i == 48) continue; // leave this block alone - that has the DCFEB marker
+
+      std::cout << "Erasing block " << i << " / " << blocks << std::endl;
+
+      // erase the 64K banks
+      if (i < blocks - 1) {
+          uaddr=i;
+          laddr=0;
+
+          dcfebprom_loadaddress(uaddr,laddr);
+          // unlock and erase the block
+          dcfebprom_unlockerase();
+
+          dcfebprom_clearstatus();
+          int bpi_status;
+          for(int j=0;j<200;j++)
+          {
+             udelay(100000);
+             bpi_status=dcfeb_bpi_status();
+             if((bpi_status&0x0080)==0x0080) { std::cout << "Finish at loop " << j << std::endl;  break; }
+          }          
+          if((bpi_status&0x0080)!=0x0080)
+          {
+             msg << "Error: BPI Status wrong after erasing!" << std::endl;
+             dcfeb_prom_log(&msg, &logFile);
+             logFile.close();
+             dumpFile.close();
+             return -1;
+          }
+          // udelay(5000000);
+      }
+      
+      // erase the 16K banks (except the last two where we have the DCFEB serial number and parameters)
+      if (i == blocks - 1) {
+          for (int j=0; j < 2; j++) {  // this should go up to 4, but I don't want to erase the last two 16K blocks where we have the DCFEB serial number and parameters
+	      std::cout << "Erasing parameter space block " << j << std::endl;
+              uaddr = i;
+              laddr = j * 0x4000;
+
+              dcfebprom_loadaddress(uaddr,laddr);
+              // unlock and erase the block
+              dcfebprom_unlockerase();
+
+          dcfebprom_clearstatus();
+          int bpi_status;
+          for(int j=0;j<200;j++)
+          {
+             udelay(100000);
+             bpi_status=dcfeb_bpi_status();
+             if((bpi_status&0x0080)==0x0080) { std::cout << "Finish at loop " << j << std::endl;  break; }
+          }          
+          if((bpi_status&0x0080)!=0x0080)
+          {
+             msg << "Error: BPI Status wrong after erasing!" << std::endl;
+             dcfeb_prom_log(&msg, &logFile);
+             logFile.close();
+             dumpFile.close();
+             return -1;
+          }
+
+             // udelay(5000000);
+	  }
+      }
+   }
+
+   dcfeb_bpi_disable();
+   
+   msg << "Erase finished successfully" << std::endl;
+   dcfeb_prom_log(&msg, &logFile);
+
+   // readback and check
+
+   dcfeb_bpi_reset();
+   dcfeb_bpi_enable();
+   
+   int numErrors4 = 0;
+   for(int i=43; i <= 128; i++)
+   {
+       if (i == 48) continue; // leave this block alone - that has the DCFEB marke
+
+       int bitflips = dcfeb_prom_check_block(i, bufr, blankWord64, &dumpFile, fastCheck);
+
+       if (bitflips == 0)
+       {
+          msg << "Block " << i << ": OK" << std::endl;
+          dcfeb_prom_log(&msg, &logFile);
+       }
+       else 
+       {
+          msg << "Block " << i << ": BAD! number of bitflips = " << bitflips << " (block dumped to " << dumpFilename << ")" << std::endl;
+          dcfeb_prom_log(&msg, &logFile);
+          numErrors4++;
+       }
+
+   }
+   dcfeb_bpi_disable();
+
+   msg << ">>>>> Step 4 finished: number of blocks that were not blank after the second erase = " << numErrors4 << " <<<<<" << std::endl;
+   dcfeb_prom_log(&msg, &logFile);
+
+//####################################################################################
+// Summary
+//####################################################################################
+
+   msg << std::endl << "=============================== Summary (number of errors) ===============================" << std::endl;
+   msg << "step1: " << numErrors1 << std::endl;
+   msg << "step2: " << numErrors2 << std::endl;
+   msg << "step3: " << numErrors3 << std::endl;
+   msg << "step4: " << numErrors4 << std::endl;
+   dcfeb_prom_log(&msg, &logFile);
+
+//####################################################################################
+// DONE
+//####################################################################################
+
+   logFile.close();
+   dumpFile.close();
+   free(bufw_char);
+   free(bufr_char);
+   std::cout << " Done testing the PROM!" << std::endl;
+   return numErrors1 + numErrors2 + numErrors3 + numErrors4;
+}
+
+// this function reads a block from the DCFEB PROM and checks if all 64bit words in that block match the given check word
+// note, BPI should be set enabled and ready before calling this function
+// blocks 0 - 126 are 64Kword blocks and 127 - 130 are 16Kword
+// it returns the number of bitflips found
+// if the number of bitflips is not zero, it dumps the block in the given dump file (in human readable ascii format)
+// if partialRead is true then only the beginning of the block is checked (1Kword)
+int DAQMB::dcfeb_prom_check_block(const int blockNum, unsigned short * readBuf, const long checkWord64, std::ofstream * dumpFile, const bool partialRead)
+{
+   const unsigned READ_SIZE=0x800; // in words 
+   const int READ_BLOCKS_64K=0x20; // in READ_SIZE
+   const int READ_BLOCKS_16K=0x8;  // in READ_SIZE
+   
+   unsigned int fulladdr;
+   unsigned int uaddr,laddr;
+   
+   if(readBuf==NULL) return -1;
+
+   // read the block
+  
+   int startChunk = blockNum < 127 ? blockNum * READ_BLOCKS_64K : (127 * READ_BLOCKS_64K) + ((blockNum - 127) * READ_BLOCKS_16K);
+   int readChunks = partialRead ? 1 : (blockNum < 127 ? READ_BLOCKS_64K : READ_BLOCKS_16K);
+
+   for(int i=0; i < readChunks; i++)
+   {
+       fulladdr = startChunk * READ_SIZE + i * READ_SIZE;
+       uaddr = (fulladdr >> 16);
+       laddr = fulladdr &0xffff;
+
+       //std::cout << "Reading address 0x" << std::hex << fulladdr << std::dec << std::endl;
+       
+       dcfebprom_loadaddress(uaddr, laddr);
+
+       dcfebprom_read(READ_SIZE, readBuf + i * READ_SIZE);
+
+   }
+
+   // check it
+
+   int bitflips = 0;
+   long readWord64 = 0;
+   char * bufChar = (char *) readBuf;
+   int blockLenBytes = (readChunks * READ_SIZE) * 2;
+   for (int i=0; i < blockLenBytes; i += 8)
+   {
+      memcpy(&readWord64, bufChar + i, 8);
+      if (readWord64 != checkWord64)
+      {
+         //std::cout << "bad word: " << std::hex << readWord64 << std::dec << std::endl;
+         long diff = readWord64 ^ checkWord64;
+         for (int j=0; j < 64; j++)
+         {
+            bitflips += (diff >> j) & 1;
+         }
+      }
+   }
+
+   // dump the block to a file if there are any bitflips
+
+   if (bitflips > 0)
+   {
+      (*dumpFile) << "===================== block " << blockNum << " =====================" << std::endl;
+      (*dumpFile) << std::hex;
+      (*dumpFile) << "Doesn't match this check word: 0x" << std::setw(16) << std::setfill('0') << checkWord64 << std::endl;
+      dumpFile->fill('0');
+      for (int i=0; i < blockLenBytes; i += 16)
+      {
+         memcpy(&readWord64, bufChar + i, 8);
+         (*dumpFile) << std::setw(16) << std::setfill('0') << readWord64;
+         memcpy(&readWord64, bufChar + i + 8, 8);
+         (*dumpFile) << std::setw(16) << std::setfill('0') << readWord64 << std::endl;
+      }
+      (*dumpFile) << std::dec << std::endl;
+   }
+
+   return bitflips;
+}
+
+// this function sends the given msgStream to the log file stream as well as std::cout
+void DAQMB::dcfeb_prom_log(std::stringstream * msgStream, std::ofstream * logFile)
+{
+   std::string s = msgStream->str();
+   std::cout << s;
+   (*logFile) << s;
+   msgStream->str(std::string());
+}
+
+// this function tests the DCFEB PROM by erasing unused blocks and writing special markers in every unused block
+// then it reads those addresses where the markers are expected to be and checks that they are indeed there
+void DAQMB::dcfeb_prom_test(CFEB & cfeb, const char *filename)
+{
+   unsigned int fulladdr;
+   unsigned int uaddr,laddr;
+   unsigned int i, blocks, lastblock;
+   unsigned short *buf;
+   int total_read_blocks=4096;//1335;
+
+   const int PROM_SIZE=16777216/2;//5464972/2; // in words
+
+   // each eprom block has 0x10000 words
+   const int BLOCK_SIZE=0x10000; // in words
+
+   // each write call takes 0x400 words
+   const int WRITE_SIZE=0x400;  // in words
+
+   const unsigned READ_SIZE=0x800; // in words
+
+   std::cout << "Starting DCFEB EEPROM test" << std::endl;
+
+// 1. prepare the data to be written
+   char *bufin;
+   bufin=(char *)malloc(16*1024*1024);
+   if(bufin==NULL)  return;
+   unsigned short *bufw= (unsigned short *)bufin;
+   // fill all prom with blanks
+   long blankWord64 = 0xFFFFFFFFFFFFFFFF;
+   for (i=0; i < 2097152; i++) {
+       memcpy(bufin + i*8, &blankWord64, 8);
+   }
+   
+   // insert special markers at certain positions of unused blocks
+   long marker64 = 0xbaadbeefdead1234;
+   for (i=0x62; i < 0xFE; i+=2) {
+     memcpy(bufin + (i << 16) + (((i - 0x60)/2) * 0x10), &marker64, 8);
+   }
+   memcpy(bufin + 0xFE0000, &marker64, 8);
+   memcpy(bufin + 0xFE8000, &marker64, 8);
+   memcpy(bufin + 0xFF0000, &marker64, 8);
+   //memcpy(bufin + 0xFF8000, &marker64, 8); // DCFEB parameters are stored here
+
+
+//###################
+
+//##################
+
+
+   write_cfeb_selector(cfeb.SelectorBit());
+
+   dcfeb_bpi_reset();
+   dcfeb_bpi_enable();
+   dcfebprom_timerstop();
+   dcfebprom_timerreset();
+   dcfebprom_timerstart();
+
+// 2. erase eprom
+   blocks=PROM_SIZE/BLOCK_SIZE;
+   if((PROM_SIZE%BLOCK_SIZE)>0) blocks++;
+   std::cout << "Erasing EPROM..." << std::endl;
+   for(i=0x31; i<blocks; i++)
+   {
+      std::cout << "Erasing block " << i << " / " << blocks << std::endl;
+
+      // erase the 64K banks
+      if (i < blocks - 1) {
+          uaddr=i;
+          laddr=0;
+
+          dcfebprom_loadaddress(uaddr,laddr);
+          // unlock and erase the block
+          dcfebprom_unlockerase();
+
+          dcfebprom_clearstatus();
+          int bpi_status;
+          for(int j=0;j<200;j++)
+          {
+             udelay(100000);
+             bpi_status=dcfeb_bpi_status();
+             if((bpi_status&0x0080)==0x0080) { std::cout << "Finish at loop " << j << std::endl;  break; }
+          }          
+          if((bpi_status&0x0080)!=0x0080)
+          {
+             std::cout << "Error: BPI Status wrong after erasing!" << std::endl;
+             return;
+          }
+          // udelay(5000000);
+      }
+      
+      // erase the 16K banks (except the last two where we have the DCFEB serial number and parameters)
+      if (i == blocks - 1) {
+          for (int j=0; j < 2; j++) {  // this should go up to 4, but I don't want to erase the last two 16K blocks where we have the DCFEB serial number and parameters
+	      std::cout << "Erasing parameter space block " << j << std::endl;
+              uaddr = i;
+              laddr = j * 0x4000;
+
+              dcfebprom_loadaddress(uaddr,laddr);
+              // unlock and erase the block
+              dcfebprom_unlockerase();
+
+          dcfebprom_clearstatus();
+          int bpi_status;
+          for(int j=0;j<200;j++)
+          {
+             udelay(100000);
+             bpi_status=dcfeb_bpi_status();
+             if((bpi_status&0x0080)==0x0080) { std::cout << "Finish at loop " << j << std::endl;  break; }
+          }          
+          if((bpi_status&0x0080)!=0x0080)
+          {
+             std::cout << "Error: BPI Status wrong after erasing!" << std::endl;
+             return;
+          }
+
+             // udelay(5000000);
+	  }
+      }
+   }
+
+// 3. write eprom
+   blocks=PROM_SIZE/WRITE_SIZE;
+   lastblock=PROM_SIZE%WRITE_SIZE;
+   int p1pct=blocks/100;
+   int j=0, pcnts=0;
+   if(lastblock>0) blocks++;
+   else lastblock=WRITE_SIZE;
+   std::cout << "Start programming EPROM..." << std::endl;
+   fulladdr=0;
+   for(i=0x40 * 0x31; i<blocks; i++)  
+   {
+
+      fulladdr = i * WRITE_SIZE;
+      uaddr = (fulladdr >> 16);
+      laddr = fulladdr &0xffff;
+
+      // only write to the first and second 0x800 size block of each 64K and 16K PROM blocks
+      if ((laddr != 0x0000) && (laddr != WRITE_SIZE) && !((uaddr == 0x7F) && ((laddr%0x4000==0) && (laddr<0xc000)))) {
+          continue;
+      }
+
+      dcfeb_bpi_disable();
+      udelay(1000);
+      dcfeb_bpi_reset();
+      dcfeb_bpi_enable();
+      dcfebprom_timerstop();
+      dcfebprom_timerreset();
+      dcfebprom_timerstart();
+      udelay(1000);
+      dcfebprom_clearstatus();
+
+      int nwords=WRITE_SIZE;
+      if(i==blocks-1) nwords=lastblock;
+      std::cout << "Writing to address " << std::hex << fulladdr << std::dec << " with " << nwords << std::endl;
+      // printf(" load address %04x%04x \n",(uaddr&0xFFFF),(laddr&0xFFFF));
+      dcfebprom_loadaddress(uaddr,laddr);
+      // program with new data from the beginning of the block
+      dcfebprom_bufferprogram(nwords,bufw+i*WRITE_SIZE);
+      udelay(120000);
+       j++;
+       if(j==p1pct)
+       {  pcnts++;
+          if(pcnts<100) std::cout << "Sending " << pcnts <<"%..." << std::endl;
+          j=0;
+       }   
+   }
+    std::cout << "Sending 100%..." << std::endl;
+   uaddr = (fulladdr >> 16);
+   laddr = fulladdr &0xffff;
+   // printf(" lock address %04x%04x \n",(uaddr&0xFFFF),(laddr&0xFFFF));
+   dcfebprom_loadaddress(uaddr,laddr);
+   dcfebprom_lock();
+   udelay(500000);
+   dcfeb_bpi_disable();
+
+// 4. read back
+   buf=(unsigned short *)malloc(16*1024*1024);
+   if(buf==NULL) return;
+   dcfeb_bpi_reset();
+   dcfeb_bpi_enable();
+   
+   for(int i=0x20 * 0x31; i< total_read_blocks; i++)
+   {
+//       std::cout << "Block " << i << " / " << total_read_blocks << std::endl;
+      
+       fulladdr = i * READ_SIZE;
+       uaddr = (fulladdr >> 16);
+       laddr = fulladdr &0xffff;
+
+       // only write to the first and second 0x800 size block of each 64K and 16K PROM blocks
+       if ((laddr != 0x0000) && (laddr != WRITE_SIZE) && !((uaddr >= 0x7F) && (laddr % 0x4000==0))) {
+           continue;
+       }
+
+       std::cout << "Reading address 0x" << std::hex << fulladdr << std::dec << std::endl;
+       
+       dcfebprom_loadaddress(uaddr, laddr);
+
+       dcfebprom_read(READ_SIZE, buf+i*READ_SIZE);
+
+   }
+   dcfeb_bpi_disable();
+
+   std::cout << "Done reading back the EEPROM" << std::endl << std::endl;
+   std::cout << "Checking if the markers are found in the readback data" << std::endl;
+   std::cout << "Checking 64K blocks" << std::endl;
+
+   char *bufread= (char *)buf;
+   long readWord64 = 0;
+   for (i=0x62; i < 0xFE; i+=2) {
+     memcpy(&readWord64, bufread + (i << 16) + (((i - 0x60)/2) * 0x10), 8);
+     if (readWord64 != marker64) {
+     	std::cout << "WARNING: Didn't find marker at address " << std::hex << ((i << 16) + (((i - 0x60)/2) * 0x10)) << std::dec << std::endl;
+	std::cout << "Was expecting " << std::hex << marker64 << " but got " << readWord64 << std::dec << std::endl;
+     }
+   }
+
+   std::cout << "Checking 16K blocks" << std::endl;
+
+   memcpy(&readWord64, bufread + 0xFE0000, 8);
+   if (readWord64 != marker64) {
+     std::cout << "WARNING: Didn't find marker at address " << std::hex << 0xFE0000 << std::dec << std::endl;
+   }
+   memcpy(&readWord64, bufread + 0xFE8000, 8);
+   if (readWord64 != marker64) {
+     std::cout << "WARNING: Didn't find marker at address " << std::hex << 0xFE8000 << std::dec << std::endl;
+   }
+//   memcpy(&readWord64, bufread + 0xFF0000, 8);
+//   if (readWord64 != marker64) {
+//     std::cout << "WARNING: Didn't find marker at address " << std::hex << 0xFF0000 << std::dec << std::endl;
+//   }
+
+
+   free(buf);
+   free(bufin);
+   std::cout << " Done reading back!" << std::endl;
+   return;
 }
   
 int DAQMB::cfeb_load_eprom(int ncfeb, const char  *svffile, int db, int verify )

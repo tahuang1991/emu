@@ -292,6 +292,7 @@ EmuPeripheralCrateConfig::EmuPeripheralCrateConfig(xdaq::ApplicationStub * s): E
   xgi::bind(this,&EmuPeripheralCrateConfig::MeasureALCTTMBRxTxForCrate,"MeasureALCTTMBRxTxForCrate");
   xgi::bind(this,&EmuPeripheralCrateConfig::SetTwoLayerTriggerForCrate, "SetTwoLayerTriggerForCrate");
   xgi::bind(this,&EmuPeripheralCrateConfig::ProgramOdmbEpromsForCrate, "ProgramOdmbEpromsForCrate");
+  xgi::bind(this,&EmuPeripheralCrateConfig::TestDcfebEpromsForCrate, "TestDcfebEpromsForCrate");
   xgi::bind(this,&EmuPeripheralCrateConfig::QuickScanForChamber,"QuickScanForChamber");
   xgi::bind(this,&EmuPeripheralCrateConfig::QuickScanForCrate,"QuickScanForCrate");
   xgi::bind(this,&EmuPeripheralCrateConfig::MeasureODMBDelaysForCrate,"MeasureODMBDelaysForCrate");
@@ -410,6 +411,9 @@ EmuPeripheralCrateConfig::EmuPeripheralCrateConfig(xdaq::ApplicationStub * s): E
   xgi::bind(this,&EmuPeripheralCrateConfig::CFEBUtils, "CFEBUtils");
   xgi::bind(this,&EmuPeripheralCrateConfig::CFEBFunction, "CFEBFunction");
   xgi::bind(this,&EmuPeripheralCrateConfig::DCFEBReadFirmware, "DCFEBReadFirmware");
+  xgi::bind(this,&EmuPeripheralCrateConfig::DCFEBPromTest, "DCFEBPromTest");
+  xgi::bind(this,&EmuPeripheralCrateConfig::DCFEBPromTestFast, "DCFEBPromTestFast");
+  xgi::bind(this,&EmuPeripheralCrateConfig::AllDCFEBsPromTestFast, "AllDCFEBsPromTestFast");
   xgi::bind(this,&EmuPeripheralCrateConfig::DCFEBProgramFpga, "DCFEBProgramFpga");
   xgi::bind(this,&EmuPeripheralCrateConfig::DCFEBProgramFpgaAll, "DCFEBProgramFpgaAll");
   xgi::bind(this,&EmuPeripheralCrateConfig::DCFEBProgramEprom, "DCFEBProgramEprom");
@@ -1890,6 +1894,14 @@ void EmuPeripheralCrateConfig::CrateConfiguration(xgi::Input * in, xgi::Output *
   std::string ProgramOdmbEpromsForCrate = toolbox::toString("/%s/ProgramOdmbEpromsForCrate",getApplicationDescriptor()->getURN().c_str());
   *out << cgicc::form().set("method","GET").set("action",ProgramOdmbEpromsForCrate) << std::endl ;
   *out << cgicc::input().set("type","submit").set("value","Program all ODMB EPROMs in this crate") << std::endl ;
+  *out << cgicc::form() << std::endl ;
+  *out << cgicc::td();
+  //
+  //
+  *out << cgicc::td();
+  std::string TestDcfebEpromsForCrate = toolbox::toString("/%s/TestDcfebEpromsForCrate",getApplicationDescriptor()->getURN().c_str());
+  *out << cgicc::form().set("method","GET").set("action",TestDcfebEpromsForCrate) << std::endl ;
+  *out << cgicc::input().set("type","submit").set("value","Test all DCFEB's EEPROMs in this crate") << std::endl ;
   *out << cgicc::form() << std::endl ;
   *out << cgicc::td();
   //
@@ -5028,6 +5040,75 @@ void EmuPeripheralCrateConfig::ProgramAllOdmbEproms(xgi::Input * in, xgi::Output
   SetCurrentCrate(initial_crate);
   //
   this->ExpertToolsPage(in,out);
+}
+//
+void EmuPeripheralCrateConfig::TestDcfebEpromsForCrate(xgi::Input * in, xgi::Output * out )
+  throw (xgi::exception::Exception) {
+  //  
+  std::cout << "Button: Test EEPROMs of all DCFEBs in one crate sequentially" << std::endl;
+
+  if ( crateVector[current_crate_]->IsAlive() ) {
+    //
+    for (unsigned int dmb=0; dmb < dmbVector.size() ; dmb++) {
+      //
+      Chamber * thisChamber = chamberVector[dmb];
+      DAQMB * thisDMB = dmbVector[dmb];
+      if (thisDMB->GetHardwareVersion() == 2) {
+
+        std::vector<CFEB> cfebs = thisDMB->cfebs() ;
+        typedef std::vector<CFEB>::iterator CFEBItr;
+        for(CFEBItr cfebItr = cfebs.begin(); cfebItr != cfebs.end(); ++cfebItr) {
+          int hversion = cfebItr->GetHardwareVersion();
+          int cfeb_index = (*cfebItr).number() + 1;
+          char cfeb_index_str[1];
+          sprintf(cfeb_index_str, "%d", cfeb_index);
+
+          if(hversion != 2) {
+            std::cout << "DMB " << dmb << " CFEB" + cfeb_index << " hardware version is not 2 (it's not a DCFEB).. Skipping.." << std::endl;
+            continue;
+          }
+
+          std::string chambername= thisCrate->GetChamber(thisDMB)->GetLabel();
+          unsigned t = chambername.find('/');
+          unsigned s = chambername.size();
+          while(t<=s )
+          { 
+            chambername.replace(t,1,"_");
+            t = chambername.find('/');        
+          } 
+          std::string logfile = "/tmp/DCFEB_prom_test_fast_" + chambername + "_DCFEB" + cfeb_index_str + ".log";
+          std::string dumpfile = "/tmp/DCFEB_prom_test_fast_" + chambername + "_DCFEB" + cfeb_index_str + "_bad_blocks.dump";
+
+          std::cout << getLocalDateTime() << " DCFEB fast EEPROM test on DMB " << dmb << " CFEB " << cfeb_index << std::endl;
+
+          int ret = thisDMB->dcfeb_prom_test2(*cfebItr, logfile.c_str(), dumpfile.c_str(), true);
+          if (ret < 0) continue;
+    
+          // do a CCB hard reset and check if the DCFEB is still alive
+          std::cout << "Hard reset..." << std::endl;
+          thisCCB->hardReset();
+          int donebits = thisDMB->read_cfeb_done();
+          int isConfigured = (donebits >> (cfeb_index - 1)) & 1;
+          if (!isConfigured)
+          {
+            std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
+            std::cout << "!!!!!!!!!!!!!!!!!! ERROR !!!!!!!!!!!!!!!!!!" << std::endl;
+            std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl << std::endl;
+            std::cout << "DMB " << dmb << " CFEB" + cfeb_index << " FPGA is not configured after the test!" << std::endl;
+            std::cout << "Terminating the test" << std::endl;
+            this->CFEBUtils(in,out);
+            return;
+          } else {
+            std::cout << "DMB " << dmb << " CFEB" + cfeb_index << " FPGA is still fine after the test" << std::endl;
+          }
+ 
+        } // close loop through CFEBs
+      } // close if hw version 2
+    } // close loop through DMBs
+    std::cout << getLocalDateTime() << " DCFEB fast EEPROM test finished." << std::endl;
+  } // close crate alive
+  //
+  this->CrateConfiguration(in,out);
 }
 //
 void EmuPeripheralCrateConfig::ProgramOdmbEpromsForCrate(xgi::Input * in, xgi::Output * out )

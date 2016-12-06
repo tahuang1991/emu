@@ -764,6 +764,10 @@ public:
 
   void dcfeb_loadparam(int paramblock,int nval,unsigned short int  *val);
   void dcfeb_readparam(int paramblock,int nval,unsigned short int  *val);         
+  void dcfeb_prom_test(CFEB & cfeb, const char *filename);
+  int dcfeb_prom_test2(CFEB & cfeb, const char *filename, const char * dumpFilename, const bool fastCheck=false);
+  int dcfeb_prom_check_block(const int blockNum, unsigned short * readBuf, const long checkWord64, std::ofstream * dumpFile, const bool partialRead=false);
+  void dcfeb_prom_log(std::stringstream * msgStream, std::ofstream * logFile);
   void dcfeb_readfirmware_mcs(CFEB & cfeb, const char *filename);
   void dcfeb_program_virtex6(CFEB & cfeb, const char *mcsfile, int broadcast=0);
   void dcfeb_program_eprom(CFEB & cfeb, const char *mcsfile, int broadcast=0);

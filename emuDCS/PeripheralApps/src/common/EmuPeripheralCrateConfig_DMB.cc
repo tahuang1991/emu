@@ -1135,6 +1135,76 @@ void EmuPeripheralCrateConfig::CFEBUtils(xgi::Input * in, xgi::Output * out )
 
   *out << cgicc::fieldset()<< cgicc::br() << std::endl;
 
+// DCFEB PROM tests
+  *out << cgicc::fieldset().set("style","font-size: 11pt; font-family: arial;") << std::endl;
+  *out << cgicc::legend("DCFEB EEPROM Tests").set("style","color:blue") << std::endl ;
+
+  // Single DCFEB PROM test
+  std::string CFEBpromtest =
+      toolbox::toString("/%s/DCFEBPromTest",getApplicationDescriptor()->getURN().c_str());
+  *out << cgicc::form().set("action", CFEBpromtest) << std::endl;
+  
+  *out << "Choose CFEB: " << std::endl;
+  *out << cgicc::select().set("name", "cfeb") << std::endl;
+  
+  for (unsigned i = 0; i < cfebs.size(); ++i) {
+    sprintf(sbuf,"%d",i);
+    if (i == 0) {
+      *out << cgicc::option()
+	.set("value", sbuf)
+	.set("selected", "");
+    } else {
+      *out << cgicc::option()
+	.set("value", sbuf);
+    }
+    *out << "CFEB " << cfebs[i].number()+1 << cgicc::option() << std::endl;
+  }
+
+  *out << cgicc::select() << std::endl;
+  *out << cgicc::input().set("type","hidden").set("name","dmb").set("value",dmbstring) << std::endl ;          
+  *out << cgicc::input().set("type", "submit")
+    .set("name", "command")
+    .set("value", "Test DCFEB PROM (slow read full blocks)") << std::endl;
+  *out << cgicc::form() << cgicc::br() << std::endl;
+  
+  // Single DCFEB fast PROM test (reading parts of each block)
+  std::string CFEBpromtestfast =
+      toolbox::toString("/%s/DCFEBPromTestFast",getApplicationDescriptor()->getURN().c_str());
+  *out << cgicc::form().set("action", CFEBpromtestfast) << std::endl;
+  
+  *out << "Choose CFEB: " << std::endl;
+  *out << cgicc::select().set("name", "cfeb") << std::endl;
+  
+  for (unsigned i = 0; i < cfebs.size(); ++i) {
+    sprintf(sbuf,"%d",i);
+    if (i == 0) {
+      *out << cgicc::option()
+	.set("value", sbuf)
+	.set("selected", "");
+    } else {
+      *out << cgicc::option()
+	.set("value", sbuf);
+    }
+    *out << "CFEB " << cfebs[i].number()+1 << cgicc::option() << std::endl;
+  }
+
+  *out << cgicc::select() << std::endl;
+  *out << cgicc::input().set("type","hidden").set("name","dmb").set("value",dmbstring) << std::endl ;          
+  *out << cgicc::input().set("type", "submit")
+    .set("name", "command")
+    .set("value", "Test DCFEB PROM (fast partial block read)") << std::endl;
+  *out << cgicc::form() << cgicc::br() << std::endl;
+
+  // All DCFEBs fast PROM test
+  std::string AllDCFEBsPromTestFast = toolbox::toString("/%s/AllDCFEBsPromTestFast",getApplicationDescriptor()->getURN().c_str());
+  *out << cgicc::form().set("method","GET").set("action",AllDCFEBsPromTestFast) << std::endl ;
+  *out << cgicc::input().set("type","hidden").set("name","dmb").set("value",dmbstring) << std::endl ;          
+  *out << cgicc::input().set("type","submit").set("value","All DCFEBs PROM test (fast version)") << std::endl ;
+  *out << cgicc::form() << std::endl ; 
+
+  *out << cgicc::fieldset()<< cgicc::br() << std::endl;
+
+// Firmware
   *out << cgicc::fieldset().set("style","font-size: 11pt; font-family: arial;") << std::endl;
   *out << cgicc::legend("DCFEB Firmware").set("style","color:blue") << std::endl ;
   //
@@ -1261,6 +1331,7 @@ void EmuPeripheralCrateConfig::CFEBUtils(xgi::Input * in, xgi::Output * out )
   *out << cgicc::form() << FirmwareDir_+"cfeb/me11_dcfeb.mcs" << cgicc::br() << cgicc::hr() << std::endl;
   *out << cgicc::fieldset()<< cgicc::br() << std::endl;
 
+// FPGA
   *out << cgicc::fieldset().set("style","font-size: 11pt; font-family: arial;") << std::endl;
   *out << cgicc::legend("DCFEB FPGA").set("style","color:blue") << std::endl ;
   
@@ -1467,6 +1538,221 @@ void EmuPeripheralCrateConfig::ReadDcfebVirtex6Reg(xgi::Input * in, xgi::Output 
      }
      this->CFEBUtils(in,out);                                    
 }
+
+void EmuPeripheralCrateConfig::AllDCFEBsPromTestFast(xgi::Input * in, xgi::Output * out )
+  throw (xgi::exception::Exception)
+{
+  
+  cgicc::Cgicc cgi(in);
+
+  cgicc::form_iterator name = cgi.getElement("dmb");
+  int dmb=0;
+  if(name != cgi.getElements().end()) {
+    dmb = cgi["dmb"]->getIntegerValue();
+    std::cout << "DMB " << dmb << std::endl;
+    DMB_ = dmb;
+  } else {
+    std::cout << "Not dmb" << std::endl ;
+    dmb = DMB_;
+  }
+  //
+  DAQMB * thisDMB = dmbVector[dmb];
+  std::vector<CFEB> cfebs = thisDMB->cfebs() ;
+  typedef std::vector<CFEB>::iterator CFEBItr;
+  for(CFEBItr cfebItr = cfebs.begin(); cfebItr != cfebs.end(); ++cfebItr) {
+     int hversion = cfebItr->GetHardwareVersion();
+     int cfeb_index = (*cfebItr).number() + 1;
+     char cfeb_index_str[1];
+     sprintf(cfeb_index_str, "%d", cfeb_index);
+
+     if(hversion != 2) {
+        std::cout << "DMB " << dmb << " CFEB" + cfeb_index << " hardware version is not 2 (it's not a DCFEB).. Skipping.." << std::endl;
+        continue;
+     }
+
+     std::string chambername= thisCrate->GetChamber(thisDMB)->GetLabel();
+     unsigned t = chambername.find('/');
+     unsigned s = chambername.size();
+     while(t<=s )
+     { 
+        chambername.replace(t,1,"_");
+        t = chambername.find('/');        
+     } 
+     std::string logfile = "/tmp/DCFEB_prom_test_fast_" + chambername + "_DCFEB" + cfeb_index_str + ".log";
+     std::string dumpfile = "/tmp/DCFEB_prom_test_fast_" + chambername + "_DCFEB" + cfeb_index_str + "_bad_blocks.dump";
+
+     std::cout << getLocalDateTime() << " DCFEB fast EEPROM test on DMB " << dmb << " CFEB " << cfeb_index << std::endl;
+
+     int ret = thisDMB->dcfeb_prom_test2(*cfebItr, logfile.c_str(), dumpfile.c_str(), true);
+     if (ret < 0) continue;
+    
+     // do a CCB hard reset and check if the DCFEB is still alive
+     std::cout << "Hard reset..." << std::endl;
+     thisCCB->hardReset();
+     int donebits = thisDMB->read_cfeb_done();
+     int isConfigured = (donebits >> (cfeb_index - 1)) & 1;
+     if (!isConfigured)
+     {
+        std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
+        std::cout << "!!!!!!!!!!!!!!!!!! ERROR !!!!!!!!!!!!!!!!!!" << std::endl;
+        std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl << std::endl;
+        std::cout << "DMB " << dmb << " CFEB" + cfeb_index << " FPGA is not configured after the test!" << std::endl;
+        std::cout << "Terminating the test" << std::endl;
+        this->CFEBUtils(in,out);
+        return;
+     } else {
+        std::cout << "DMB " << dmb << " CFEB" + cfeb_index << " FPGA is still fine after the test" << std::endl;
+     }
+ 
+   }
+
+   std::cout << getLocalDateTime() << " DCFEB fast EEPROM test finished." << std::endl;
+   this->CFEBUtils(in,out);           
+                    
+}
+
+void EmuPeripheralCrateConfig::DCFEBPromTestFast(xgi::Input * in, xgi::Output * out )
+  throw (xgi::exception::Exception)
+{
+
+  cgicc::Cgicc cgi(in);
+
+  cgicc::form_iterator name = cgi.getElement("dmb");
+  int dmb=0;
+  if(name != cgi.getElements().end()) {
+    dmb = cgi["dmb"]->getIntegerValue();
+    std::cout << "DMB " << dmb << std::endl;
+    DMB_ = dmb;
+  } else {
+    std::cout << "Not dmb" << std::endl ;
+    dmb = DMB_;
+  }
+  //
+  DAQMB * thisDMB = dmbVector[dmb];
+
+     std::string cfeb_value = cgi.getElement("cfeb")->getValue(); 
+     unsigned icfeb=atoi(cfeb_value.c_str());
+     std::vector<CFEB> cfebs = thisDMB->cfebs() ;
+     if(icfeb<0 || icfeb>cfebs.size()) icfeb=0;
+     if (cfebs[icfeb].GetHardwareVersion() != 2) {
+        std::cout << "DMB " << dmb << " CFEB" + cfebs[icfeb].number()+1 << " hardware version is not 2 (it's not a DCFEB).. Skipping.." << std::endl;
+        this->CFEBUtils(in,out);
+        return;
+     }
+     std::string chambername= thisCrate->GetChamber(thisDMB)->GetLabel();
+     unsigned t = chambername.find('/');
+     unsigned s = chambername.size();
+     while(t<=s )
+     { 
+        chambername.replace(t,1,"_");
+        t = chambername.find('/');        
+     } 
+     char cfeb_index_str[1];
+     sprintf(cfeb_index_str, "%d", cfebs[icfeb].number() + 1);
+
+     std::string logfile="/tmp/DCFEB_prom_test_fast_"+chambername+"_DCFEB"+cfeb_index_str+".log";
+     std::string dumpfile="/tmp/DCFEB_prom_test_fast_"+chambername+"_DCFEB"+cfeb_index_str+"_bad_blocks.dump";
+                
+
+     std::cout << getLocalDateTime() << " DCFEB fast EEPROM test on DMB " << dmb << " CFEB " << cfebs[icfeb].number()+1 << std::endl;
+
+     int ret = thisDMB->dcfeb_prom_test2(cfebs[icfeb], logfile.c_str(), dumpfile.c_str(), true);
+     if (ret < 0) {
+       this->CFEBUtils(in,out);
+       return; 
+     }
+    
+     // do a CCB hard reset and check if the DCFEB is still alive
+     std::cout << "Hard reset..." << std::endl;
+     thisCCB->hardReset();
+     int donebits = thisDMB->read_cfeb_done();
+     int isConfigured = (donebits >> cfebs[icfeb].number()) & 1;
+     if (!isConfigured)
+     {
+        std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
+        std::cout << "!!!!!!!!!!!!!!!!!! ERROR !!!!!!!!!!!!!!!!!!" << std::endl;
+        std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl << std::endl;
+        std::cout << "DMB " << dmb << " CFEB" + cfebs[icfeb].number()+1 << " FPGA is not configured after the test!" << std::endl;
+     } else {
+        std::cout << "DMB " << dmb << " CFEB" + cfebs[icfeb].number()+1 << " FPGA is still fine after the test" << std::endl;
+     }
+ 
+     std::cout << getLocalDateTime() << " DCFEB fast EEPROM test finished." << std::endl;
+     this->CFEBUtils(in,out);           
+                    
+}
+
+void EmuPeripheralCrateConfig::DCFEBPromTest(xgi::Input * in, xgi::Output * out )
+  throw (xgi::exception::Exception)
+{
+
+  cgicc::Cgicc cgi(in);
+
+  cgicc::form_iterator name = cgi.getElement("dmb");
+  int dmb=0;
+  if(name != cgi.getElements().end()) {
+    dmb = cgi["dmb"]->getIntegerValue();
+    std::cout << "DMB " << dmb << std::endl;
+    DMB_ = dmb;
+  } else {
+    std::cout << "Not dmb" << std::endl ;
+    dmb = DMB_;
+  }
+  //
+  DAQMB * thisDMB = dmbVector[dmb];
+
+     std::string cfeb_value = cgi.getElement("cfeb")->getValue(); 
+     unsigned icfeb=atoi(cfeb_value.c_str());
+     std::vector<CFEB> cfebs = thisDMB->cfebs() ;
+     if(icfeb<0 || icfeb>cfebs.size()) icfeb=0;
+     if (cfebs[icfeb].GetHardwareVersion() != 2) {
+        std::cout << "DMB " << dmb << " CFEB" + cfebs[icfeb].number()+1 << " hardware version is not 2 (it's not a DCFEB).. Skipping.." << std::endl;
+        this->CFEBUtils(in,out);
+        return;
+     }
+     std::string chambername= thisCrate->GetChamber(thisDMB)->GetLabel();
+     unsigned t = chambername.find('/');
+     unsigned s = chambername.size();
+     while(t<=s )
+     { 
+        chambername.replace(t,1,"_");
+        t = chambername.find('/');        
+     } 
+     char cfeb_index_str[1];
+     sprintf(cfeb_index_str, "%d", cfebs[icfeb].number() + 1);
+
+     std::string logfile="/tmp/DCFEB_prom_test_"+chambername+"_DCFEB"+cfeb_index_str+".log";
+     std::string dumpfile="/tmp/DCFEB_prom_test_"+chambername+"_DCFEB"+cfeb_index_str+"_bad_blocks.dump";
+                
+
+     std::cout << getLocalDateTime() << " DCFEB EEPROM test on DMB " << dmb << " CFEB " << cfebs[icfeb].number()+1 << std::endl;
+
+     int ret = thisDMB->dcfeb_prom_test2(cfebs[icfeb], logfile.c_str(), dumpfile.c_str(), false);
+     if (ret < 0) {
+       this->CFEBUtils(in,out);
+       return; 
+     }
+     
+     // do a CCB hard reset and check if the DCFEB is still alive
+     std::cout << "Hard reset..." << std::endl;
+     thisCCB->hardReset();
+     int donebits = thisDMB->read_cfeb_done();
+     int isConfigured = (donebits >> cfebs[icfeb].number()) & 1;
+     if (!isConfigured)
+     {
+        std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
+        std::cout << "!!!!!!!!!!!!!!!!!! ERROR !!!!!!!!!!!!!!!!!!" << std::endl;
+        std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl << std::endl;
+        std::cout << "DMB " << dmb << " CFEB" + cfebs[icfeb].number()+1 << " FPGA is not configured after the test!" << std::endl;
+     } else {
+        std::cout << "DMB " << dmb << " CFEB" + cfebs[icfeb].number()+1 << " FPGA is still fine after the test" << std::endl;
+     }
+
+     std::cout << getLocalDateTime() << " DCFEB EEPROM test finished." << std::endl;
+     this->CFEBUtils(in,out);           
+                    
+}
+ 
 
 void EmuPeripheralCrateConfig::DCFEBReadFirmware(xgi::Input * in, xgi::Output * out )
   throw (xgi::exception::Exception)
