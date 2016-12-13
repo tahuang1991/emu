@@ -1,6 +1,7 @@
 #include "emu/step/PeriodicDumper.h"
 
 #include "toolbox/task/TimerFactory.h"
+#include "log4cplus/loggingmacros.h"
 
 #include "emu/pc/Crate.h"
 #include "emu/pc/Chamber.h"
@@ -8,6 +9,7 @@
 
 #include <iomanip>
 #include <fstream>
+#include <sstream>
 
 using namespace std;
 
