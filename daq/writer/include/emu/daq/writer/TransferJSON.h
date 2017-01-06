@@ -15,6 +15,8 @@ public:
   , fileName_      ( ""          )
   , symbolicLink_  ( "CSCUXCEOS" )
   , runNumber_     ( 0           )
+  , streamName_    ( ""          )
+  , hostName_      ( ""          )
   , lsNumber_      ( 0           ){}
   TransferJSON& setNumberOfEvents( const unsigned long numberOfEvents ){ numberOfEvents_ = numberOfEvents; return *this; }
   TransferJSON& setDataFileSize  ( const unsigned long fileSize       ){ fileSize_       = fileSize      ; return *this; }

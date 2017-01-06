@@ -6,6 +6,7 @@
 #include "log4cplus/logger.h"
 #include "log4cplus/loggingmacros.h"
 
+#include "emu/utils/System.h"
 #include "emu/daq/writer/RawDataFile.h"
 
 using namespace std;
@@ -72,7 +73,7 @@ void emu::daq::writer::RawDataFile::close(){
 }
 
 void emu::daq::writer::RawDataFile::writeMetaFile(){
-  /// Writes a .sn file that's needed for the transfer to EOS.
+  /// Writes a .jsn file that's needed for the transfer to EOS.
   /// Also writes a <em>file_name_base</em>.<tt>meta</tt> metadata file that will
   /// contain the name of the .jsn file.
   if ( fs_->is_open() ) fs_->close(); // just in case...
@@ -85,13 +86,17 @@ void emu::daq::writer::RawDataFile::writeMetaFile(){
   ostringstream stream;
   stream << appName_ << setfill('0') << setw(2) << appInstance_;
   if (  runType_ == "BadEvents" ) stream << "Bad";
-  // TODO: Have EOS synlinks created.
+  // Use the hostname shell command instead of the HOSTNAME environment variable, which may not be set.
+  string hostname( "" );
+  vector<string> hostname_reply = emu::utils::execShellCommand( "hostname -s" );
+  if ( hostname_reply.size() > 0 ) hostname = hostname_reply.at(0);
+  // Set the parameters for the JSON metafile.
   tjson_
     .setLSNumber      ( filesInRunCounter_ >= 1 ? filesInRunCounter_-1 : 0 )
     .setNumberOfEvents( eventsInFileCounter_ )
     .setDataFileName  ( fileName_.substr( pathToFile_.length()+1 ) ) // Remove the path to file, only the file name is needed.
     .setStreamName    ( stream.str() )
-    .setHostName      ( getenv( "HOSTNAME" ) )
+    .setHostName      ( hostname )
     .setSymbolicLink  ( chooseEOSSymLink() );
   // Write the JSON file.
   fs_->open( ( pathToFile_ + "/" + tjson_.getJSONFileName() ).c_str() , ios::out );
@@ -140,6 +145,7 @@ unsigned long int emu::daq::writer::RawDataFile::toDecimalTime( const std::strin
 
 std::string emu::daq::writer::RawDataFile::chooseEOSSymLink() const {
   /// Picks the symlink, which determines the destination dir on EOS.
+  /// Be sure these symlinks have been created by the Storage Manager Group.
   string symlink;
   if      ( runType_.substr(0,5) == "Calib"  ) symlink = "CSCUXCCALEOS";
   else if ( appName_.substr(0,6) == "EmuRUI" ) symlink = "CSCUXCLOCEOS";
