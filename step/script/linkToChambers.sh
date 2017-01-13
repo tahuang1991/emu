@@ -70,7 +70,7 @@ IFS=$OLDIFS
 
 # Tests 27 (Cosmics) and 40 (Beam) are special in that runEmuCSCAnalyzer.exe creates a web page for their results. We just need to link to it.
 for TESTNAME in Test_27_Cosmics Test_40_Beam; do
-    for CHAMBERLISTFILE in $1/$TESTNAME/csc_*.plots/chambers.txt; do
+    for CHAMBERLISTFILE in $1/$TESTNAME/csc_*.plots/chambers.txt(N); do
 	for CHAMBERNAME in $( cat $CHAMBERLISTFILE ); do
 	    CHAMBER=${CHAMBERNAME//\//.} # replace slashes with dots
 	    mkdir -p $2/$CHAMBER/$TESTNAME
