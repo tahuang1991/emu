@@ -1901,7 +1901,7 @@ void EmuPeripheralCrateConfig::DCFEBProgramEprom(xgi::Input * in, xgi::Output * 
      std::cout << getLocalDateTime() << " DCFEB program EPROM on DMB " << dmb << " CFEB " << cfebs[icfeb].number()+1 << std::endl;
      std::cout << "Use mcs file: " << mcsfile << std::endl;
 
-     thisDMB->dcfeb_program_eprom(cfebs[icfeb], mcsfile.c_str());
+     thisDMB->dcfeb_program_eprom(cfebs[icfeb], mcsfile.c_str(), 0);
      
      std::cout << getLocalDateTime() << " DCFEB program EPROM finished." << std::endl;
      this->CFEBUtils(in,out);                    
@@ -2052,7 +2052,7 @@ void EmuPeripheralCrateConfig::DCFEBProgramEpromAll(xgi::Input * in, xgi::Output
        std::cout << getLocalDateTime() << " DCFEB program EPROM on DMB " << dmb << " CFEB " << cfebs[icfeb].number()+1 << std::endl;
        std::cout << "Use mcs file: " << mcsfile << std::endl;
        
-       thisDMB->dcfeb_program_eprom(cfebs[icfeb], mcsfile.c_str());
+       thisDMB->dcfeb_program_eprom(cfebs[icfeb], mcsfile.c_str(), 0);
        
        std::cout << getLocalDateTime() << " DCFEB program EPROM finished." << std::endl;
      }
@@ -2060,7 +2060,7 @@ void EmuPeripheralCrateConfig::DCFEBProgramEpromAll(xgi::Input * in, xgi::Output
        std::cout << getLocalDateTime() << " Program all DCFEB EPROMs via broadcast on DMB " << dmb << std::endl;
        std::cout << "Use mcs file: " << mcsfile << std::endl;
        
-       thisDMB->dcfeb_program_eprom(cfebs[0], mcsfile.c_str(), 1); // broadcast
+       thisDMB->dcfeb_program_eprom(cfebs[0], mcsfile.c_str(), 0, 1); // broadcast
        std::cout << getLocalDateTime() << " DCFEB program EPROM finished." << std::endl;
      
      this->CFEBUtils(in,out);                    

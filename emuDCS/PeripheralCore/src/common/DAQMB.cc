@@ -888,9 +888,7 @@ void DAQMB::configure() {
 // Write DCFEB cofiguration parameters into EPROM
    for(unsigned lfeb=0; lfeb<cfebs_.size();lfeb++)
    {
-// LIU 2016-09-16, temporarily disabled DCFEB PROM writing. 
-// === This does affect Power-Up-Init process. ===
-//         dcfeb_configure(cfebs_[lfeb]);   
+         dcfeb_configure(cfebs_[lfeb]);   
    }
    restoreCFEBIdle();
 }
@@ -8380,7 +8378,7 @@ unsigned  DAQMB::dcfeb_readreg_virtex6(CFEB & cfeb,int test){
   return out;         
 }
 
-void DAQMB::dcfeb_program_eprom(CFEB & cfeb, const char *mcsfile, int broadcast)
+void DAQMB::dcfeb_program_eprom(CFEB & cfeb, const char *mcsfile, int offset, int broadcast)
 {
    unsigned int fulladdr;
    unsigned int uaddr,laddr;
@@ -8393,6 +8391,12 @@ void DAQMB::dcfeb_program_eprom(CFEB & cfeb, const char *mcsfile, int broadcast)
 
    // each write call takes 0x400 words
    const int WRITE_SIZE=0x400;  // in words
+
+   if(offset<0 || offset>76) 
+   {
+      std::cout << "ERROR: Invalid block address offset :" << offset << std::endl;
+      offset = 0;
+   }
 
 // 1. read mcs file
    char *bufin;
@@ -8442,7 +8446,8 @@ void DAQMB::dcfeb_program_eprom(CFEB & cfeb, const char *mcsfile, int broadcast)
 // 2. erase eprom
    blocks=FIRMWARE_SIZE/BLOCK_SIZE;
    if((FIRMWARE_SIZE%BLOCK_SIZE)>0) blocks++;
-   std::cout << "Erasing EPROM..." << std::endl;
+   blocks += offset;
+   std::cout << "Erasing EPROM...total blocks: " << blocks  << std::endl;
    for(i=0; i<blocks; i++)
    {
       uaddr=i;
@@ -8453,7 +8458,7 @@ void DAQMB::dcfeb_program_eprom(CFEB & cfeb, const char *mcsfile, int broadcast)
       // unlock and erase the block
       dcfebprom_unlockerase();
 
-      udelay(2000000);
+      udelay(4000000);
    }
 
 // 3. write eprom
@@ -8464,7 +8469,7 @@ void DAQMB::dcfeb_program_eprom(CFEB & cfeb, const char *mcsfile, int broadcast)
    if(lastblock>0) blocks++;
    else lastblock=WRITE_SIZE;
    std::cout << "Start programming EPROM..." << std::endl;
-   fulladdr=0;
+   fulladdr=offset*0x10000;
    for(i=0; i<blocks; i++)  
    {
    dcfeb_bpi_disable();

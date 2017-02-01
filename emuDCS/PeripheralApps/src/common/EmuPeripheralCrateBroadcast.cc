@@ -625,7 +625,7 @@ void EmuPeripheralCrateBroadcast::LoadDCFEBEPROM(xgi::Input * in, xgi::Output * 
     std::cout << "Using mcs file: " << DCFEBFirmwareFile_ << std::endl;
     
     std::vector<CFEB> cfebs = broadcastODMB->cfebs();
-    broadcastODMB->dcfeb_program_eprom(cfebs[0], DCFEBFirmwareFile_.c_str(), 1); // broadcast
+    broadcastODMB->dcfeb_program_eprom(cfebs[0], DCFEBFirmwareFile_.c_str(), 0,  1); // broadcast
     std::cout << getLocalDateTime() << " Finished programming all DCFEB EPROMs." << std::endl;
   this->LoadDMBCFEBFPGAFirmware(in, out);
 }
