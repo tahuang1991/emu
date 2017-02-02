@@ -764,6 +764,7 @@ public:
 
   void dcfeb_loadparam(int paramblock,int nval,unsigned short int  *val);
   void dcfeb_readparam(int paramblock,int nval,unsigned short int  *val);         
+  void dcfeb_erase_param(CFEB & cfeb);
   void dcfeb_prom_test(CFEB & cfeb, const char *filename);
   int dcfeb_prom_test2(CFEB & cfeb, const char *filename, const char * dumpFilename, const bool fastCheck=false);
   int dcfeb_prom_check_block(const int blockNum, unsigned short * readBuf, const long checkWord64, std::ofstream * dumpFile, const bool partialRead=false);

@@ -8179,21 +8179,26 @@ void DAQMB::dcfebprom_read(unsigned nwords, unsigned short *pdata)
 void DAQMB::dcfeb_loadparam(int paramblock, int nwords, unsigned short int  *val)
 {
   /*  The highest four blocks in the eprom are parameter banks of
-      length 16k 16 bit words. the starting
+      length 16k 16 bit words. The starting
       addresses are:
 
-           block 0  007f 0000
-           block 1  007f 4000
-           block 2  007f 8000
-           block 3  007f c000
+           block 0  007f c000        <-- default parameter block 
+           block 1  007f 8000        <-- used for serial number
+           block 2  007f 4000
+           block 3  007f 0000
 
-     the config program takes up the range
-                    0000 0000
-                    0005 4000
+      The next highest 7 blocks in the eprom are parameter banks of regular size with
+      length 64k 16 bit words. The starting
+
+           block 4  007e 0000
+           block 5  007d 0000
+           ...
 
       ref: http://www.xilinx.com/support/documentation/data_sheets/ds617.pdf
 
-                   2-byte words       bytes
+      Other useful numbers:
+
+                     16-bit words      bytes
       eprom size     0x00800000        0x01000000
       mcs size       0x002A0000        0x00540000
       params addr    0x007f0000        0x00fe0000
@@ -8205,6 +8210,7 @@ void DAQMB::dcfeb_loadparam(int paramblock, int nwords, unsigned short int  *val
   unsigned int uaddr,laddr;
   unsigned int nxt_blk_addr;
 
+  if(paramblock<0 || paramblock>10) return;
   if(nwords>2048){
     printf(" Catastrophy:parameter space large rewrite program %d \n",nwords);
     return;
@@ -8213,8 +8219,16 @@ void DAQMB::dcfeb_loadparam(int paramblock, int nwords, unsigned short int  *val
   dcfeb_bpi_enable();
   dcfebprom_timerstop();
   dcfebprom_timerreset();
-  uaddr=0x007f;  // segment address for parameter blocks
-  laddr=paramblock*0x4000;
+  if(paramblock<4)
+  {
+     uaddr=0x007f;  // segment address for parameter blocks
+     laddr=(3-paramblock)*0x4000;
+  }
+  else
+  {
+     uaddr=0x007E - (paramblock-4);
+     laddr=0;
+  }
   fulladdr = (uaddr<<16) + laddr;
 //  printf(" parameter_write fulladdr %04x%04x \n",(uaddr&0xFFFF),(laddr&0xFFFF));
   dcfebprom_timerstart();
@@ -8223,7 +8237,7 @@ void DAQMB::dcfeb_loadparam(int paramblock, int nwords, unsigned short int  *val
   // unlock and erase the block
   dcfebprom_unlockerase();
 
-  udelay(400000);
+  udelay((paramblock<4)?1000000:3000000);
 
   // program with new data from the beginning of the block
   dcfebprom_bufferprogram(nwords,val);
@@ -8249,16 +8263,23 @@ void DAQMB::dcfeb_readparam(int paramblock,int nwords,unsigned short int  *val)
       length 16k 16 bit words. The starting
       addresses are:
 
-           block 0  007f 0000
-           block 1  007f 4000
-           block 2  007f 8000
-           block 3  007f c000
+           block 0  007f c000        <-- default parameter block 
+           block 1  007f 8000        <-- used for serial number
+           block 2  007f 4000
+           block 3  007f 0000
+
+      The next highest 7 blocks in the eprom are parameter banks of regular size with
+      length 64k 16 bit words. The starting
+
+           block 4  007e 0000
+           block 5  007d 0000
+           ...
 
       ref: http://www.xilinx.com/support/documentation/data_sheets/ds617.pdf 
    */
   
   unsigned int uaddr,laddr;
-  if(paramblock<0 || paramblock>3) return;
+  if(paramblock<0 || paramblock>10) return;
   
   if(nwords>2048){
     printf(" Catastrophy: parameter space too large: %d\n",nwords);
@@ -8266,12 +8287,79 @@ void DAQMB::dcfeb_readparam(int paramblock,int nwords,unsigned short int  *val)
   }
   dcfeb_bpi_reset();
   dcfeb_bpi_enable();
-  uaddr=0x007f;  // segment address for parameter blocks
-  laddr=paramblock*0x4000;
-  printf(" parameter_read fulladdr %04x%04x \n",(uaddr&0xFFFF),(laddr&0xFFFF));
+  if(paramblock<4)
+  {
+     uaddr=0x007f;  // segment address for parameter blocks
+     laddr=(3-paramblock)*0x4000;
+  }
+  else
+  {
+     uaddr=0x007E - (paramblock-4);
+     laddr=0;
+  }
+//  printf(" parameter_read fulladdr %04x%04x; first word: %04x \n",(uaddr&0xFFFF),(laddr&0xFFFF), val[0]&0xFFFF);
   dcfebprom_loadaddress(uaddr,laddr);
   dcfebprom_read(nwords,val);
   dcfeb_bpi_disable();
+}
+
+void DAQMB::dcfeb_erase_param(CFEB & cfeb)
+{
+  // erase all parameter blocks searched by the firmware
+
+  /*  The highest four blocks in the eprom are parameter banks of
+      length 16k 16 bit words. The starting
+      addresses are:
+
+           block 0  007f c000        <-- default parameter block 
+           block 1  007f 8000        <-- used for serial number
+           block 2  007f 4000
+           block 3  007f 0000
+
+      The next highest 7 blocks in the eprom are parameter banks of regular size with
+      length 64k 16 bit words. The starting
+
+           block 4  007e 0000
+           block 5  007d 0000
+           ...
+
+      ref: http://www.xilinx.com/support/documentation/data_sheets/ds617.pdf
+
+*/
+  unsigned int fulladdr;
+  unsigned int uaddr,laddr;
+
+  std::cout << "Erasing all parameter blocks on DCFEB #" << cfeb.number()+1 << "..." << std::endl;
+  write_cfeb_selector(cfeb.SelectorBit());
+
+  dcfeb_bpi_reset();
+  dcfeb_bpi_enable();
+  dcfebprom_timerstop();
+  dcfebprom_timerreset();
+  dcfebprom_timerstart();
+  for(int paramblock=0; paramblock<11; paramblock++)
+  {
+     if(paramblock==1) continue;
+     if(paramblock<4)
+     {
+        uaddr=0x007f;  // segment address for parameter blocks
+        laddr=(3-paramblock)*0x4000;
+     }
+     else
+     {
+        uaddr=0x007E - (paramblock-4);
+        laddr=0;
+     }
+     fulladdr = (uaddr<<16) + laddr;
+
+     dcfebprom_loadaddress(uaddr,laddr);
+     // unlock and erase the block
+     dcfebprom_unlockerase();
+
+     udelay((paramblock<4)?1000000:3000000);
+  }
+  dcfeb_bpi_disable();
+  udelay(10);
 }
 
 void DAQMB::dcfeb_readfirmware_mcs(CFEB & cfeb, const char *filename)
@@ -8322,26 +8410,40 @@ void DAQMB::dcfeb_readfirmware_mcs(CFEB & cfeb, const char *filename)
 
 void DAQMB::dcfeb_configure(CFEB & cfeb) 
 {
+   // For each DCFEB, try to find a good parameter block with lowest block number and then use it.
+   // block 0 has the highest address.
+
    const int DCFEB_PARAMETERS=34;
    int number_ = cfeb.number();
+   int real_block=-1;
    bool changed=false;
    unsigned short int bufload[34], oldbuf[34];
 
    write_cfeb_selector(cfeb.SelectorBit());
    if(cfeb.GetHardwareVersion() == 2)
    {
-      dcfeb_readparam(3, DCFEB_PARAMETERS, oldbuf);
-
       set_dcfeb_parambuffer(cfeb, bufload);  
-      for(int i=0; i<DCFEB_PARAMETERS;i++)
+      for(int b=0; b<11; b++)
       {
-          if(bufload[i]!=oldbuf[i]) changed=true;
+          if(b==1) continue;
+          dcfeb_readparam(b, DCFEB_PARAMETERS, oldbuf);
+          for(int i=0; i<DCFEB_PARAMETERS;i++)
+          {
+             if(bufload[i]!=oldbuf[i]) changed=true;
+          }
+          if(changed)
+          {  
+             std::cout << "Write configuration parameters to EPROM on DCFEB #" << number_+1 << " in block " << b << std::endl;
+             dcfeb_loadparam(b, DCFEB_PARAMETERS, bufload);
+             ::usleep(1);
+             // verify if the parameters are in place 
+             dcfeb_readparam(b, DCFEB_PARAMETERS, oldbuf);
+             if(oldbuf[0]==0x4321) { real_block=b; break; }
+          }
+          else { real_block=b; break; }
       }
-      if(changed)
-      {  
-          std::cout << "Write configuration parameters to EPROM on DCFEB #" << number_+1 << std::endl;
-          dcfeb_loadparam(3, DCFEB_PARAMETERS, bufload);
-      }
+      if(real_block==-1) std::cout << "ERROR: Failed to write DCFEB parameters to any block. " << std::endl; 
+      else if(real_block<6) std::cout << "DCFEB #" << number_+1 << " parameters are in block " << real_block << std::endl;
    }
 }
 
@@ -8354,11 +8456,15 @@ void DAQMB::dcfeb_print_parameters(CFEB & cfeb)
    write_cfeb_selector(cfeb.SelectorBit());
    if(cfeb.GetHardwareVersion() == 2)
    {
-      dcfeb_readparam(3, DCFEB_PARAMETERS, bufload);
       std::cout << "Configuration Parameters for DCFEB #" << number+1 << std::endl;
-      for(int i=0; i<DCFEB_PARAMETERS;i++)
+      for(int block=0; block<11; block++)
       {
-          std::cout << i << "   " << bufload[i] << std::endl;
+         std::cout << "---- From parameter block #" << block << " ----" << std::endl;
+         dcfeb_readparam(block, DCFEB_PARAMETERS, bufload);
+         for(int i=0; i<DCFEB_PARAMETERS;i++)
+         {
+            std::cout << i << "   " << std::hex << "0x" << bufload[i] << std::dec  << std::endl;
+         }
       }
    }
 }
@@ -8458,7 +8564,7 @@ void DAQMB::dcfeb_program_eprom(CFEB & cfeb, const char *mcsfile, int offset, in
       // unlock and erase the block
       dcfebprom_unlockerase();
 
-      udelay(4000000);
+      udelay(3000000);
    }
 
 // 3. write eprom
