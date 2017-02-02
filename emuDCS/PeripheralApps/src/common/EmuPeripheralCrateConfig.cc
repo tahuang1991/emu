@@ -134,7 +134,7 @@ EmuPeripheralCrateConfig::EmuPeripheralCrateConfig(xdaq::ApplicationStub * s): E
   //
   DisplayRatio_ = false;
   AutoRefresh_  = true;
-  write_dcfeb_prom_allowed_ = false;
+  write_dcfeb_prom_allowed_ = true;
   //thisTMB = 0;
   //thisDMB = 0;
   thisCCB = 0;
@@ -414,6 +414,7 @@ EmuPeripheralCrateConfig::EmuPeripheralCrateConfig(xdaq::ApplicationStub * s): E
   xgi::bind(this,&EmuPeripheralCrateConfig::DCFEBPromTest, "DCFEBPromTest");
   xgi::bind(this,&EmuPeripheralCrateConfig::DCFEBPromTestFast, "DCFEBPromTestFast");
   xgi::bind(this,&EmuPeripheralCrateConfig::AllDCFEBsPromTestFast, "AllDCFEBsPromTestFast");
+  xgi::bind(this,&EmuPeripheralCrateConfig::DCFEBParaPrint, "DCFEBParaPrint");
   xgi::bind(this,&EmuPeripheralCrateConfig::DCFEBProgramFpga, "DCFEBProgramFpga");
   xgi::bind(this,&EmuPeripheralCrateConfig::DCFEBProgramFpgaAll, "DCFEBProgramFpgaAll");
   xgi::bind(this,&EmuPeripheralCrateConfig::DCFEBProgramEprom, "DCFEBProgramEprom");

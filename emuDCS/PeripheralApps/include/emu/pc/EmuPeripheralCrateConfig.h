@@ -438,6 +438,7 @@ private:
   void DCFEBPromTest(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void DCFEBPromTestFast(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void AllDCFEBsPromTestFast(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
+  void DCFEBParaPrint(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void DCFEBReadFirmware(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void DCFEBProgramFpga(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void DCFEBProgramFpgaAll(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
