@@ -12000,6 +12000,63 @@ void TMB::otmb_program_eprom(const char *mcsfile)
     comd=VTX6_BYPASS;
     scan(0, (char *)&comd, 10, rcvbuf, 0);
 }
+
+void TMB::new_scan(int reg, char *snd,int cnt,char *rcv,int ird, int chain)
+{
+   // same interface as regular scan() but with chain seletion
+   // chain=0  --> not used
+   //       1  TMB Mez (FPGA+PROM) 
+   //       2  TMB User PROMs
+   //       3  RAT
+   //       4  ALCT Slow Control
+   //       5  ALCT Slow (FPGA+PROM)
+   //       6  ALCT Fast Control
+   //       7  ALCT Mez (FPGA+PROM)
+   //   +0xT0  T= chip selection, depends on the chain:
+   //          T=0  don't select chip; or only one chip in the chain
+   //          T=1  1st chip in the chain;
+   //          T=2  2nd chip in the chain;
+   //          ......
+   //  +0x100  use bootstrap register instead of FPGA as JTAG source
+   //          chain 1 always use bootstrap register
+           
+   int jchain=chain & 0xF;
+   int chip=(chain >> 4) & 0xF;
+   if(jchain<1 || jchain>7 || chip>5) return;
+   bool useboot=false;
+   if( jchain==1 || ((chain>>8) & 0xF)==1) useboot=true;   
+   unsigned long TDI=0, TMS=1, TCK=2, TDO=15; 
+   int TIR[6]={0,0,0,0,0,0}, HIR[6]={0,0,0,0,0,0}, HDR[6]={0,0,0,0,0,0}, TDR[6]={0,0,0,0,0,0}; 
+   unsigned short lowb=0,  highb=chain;
+   if(chain>=4)
+   { 
+       lowb=chain & 3;  
+       highb=0; 
+   }
+   unsigned long vmeaddr = 0x10;
+   unsigned long regV = (lowb << 3) + (highb << 5);
+   if(useboot)
+   {
+      vmeaddr = 0x70000;
+      regV += 0x80;
+   }
+   unsigned long handle=(TDI)+(TMS<<4)+(TCK<<8)+(TDO<<12) + (regV<<16) + (vmeaddr<<32);
+   char buff[4200];
+   int ncnt=cnt;
+   if(cnt>0) memcpy(buff, snd, (cnt+7)/8);
+   if(chip>0 && reg==1)
+   {
+      add_headtail(buff, cnt, TDR[chip], HDR[chip]);
+      ncnt += HDR[chip]+TDR[chip];
+   }
+   else if (chip>0 && reg==0 && cnt>0) 
+   { 
+      add_headtail(buff, cnt, TIR[chip], HIR[chip]); 
+      ncnt += HIR[chip]+TIR[chip];
+   }
+   Jtag_Norm(handle, reg, buff, ncnt, rcv, ird, NOW);
+   if(chip>0 && reg==1) cut_headtail(rcv, ncnt, TDR[chip], HDR[chip]);
+}
   
 } // namespace emu::pc
 } // namespace emu

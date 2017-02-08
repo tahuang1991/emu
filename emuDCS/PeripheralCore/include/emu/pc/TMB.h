@@ -2678,6 +2678,8 @@ public:
 
   void clear_mpc_tx_delay();   // clear the mpc_tx_delay field in register ADR_TMBTIM; used by TMB-MPC test
   //
+  void new_scan(int reg, char *snd,int cnt,char *rcv,int ird, int chain); // new unified JTAG routine
+  
 protected:
   void new_clk_delays(unsigned short int time, int cfeb_id);
   //
