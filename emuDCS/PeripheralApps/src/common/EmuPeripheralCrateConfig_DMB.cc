@@ -1123,7 +1123,7 @@ void EmuPeripheralCrateConfig::CFEBUtils(xgi::Input * in, xgi::Output * out )
   *out << cgicc::fieldset()<< cgicc::br() << std::endl;
   // ================================================
   
-  // DCFEB configuration
+// DCFEB configuration
   *out << cgicc::fieldset().set("style","font-size: 11pt; font-family: arial;") << std::endl;
   *out << cgicc::legend("DCFEB Configuration").set("style","color:blue") << std::endl ;
 
@@ -1131,8 +1131,63 @@ void EmuPeripheralCrateConfig::CFEBUtils(xgi::Input * in, xgi::Output * out )
         *out << cgicc::form().set("method","GET").set("action",ConfigDCFEBs) << std::endl ;
         *out << cgicc::input().set("type","hidden").set("name","dmb").set("value",dmbstring) << std::endl ;          
         *out << cgicc::input().set("type","submit").set("value","Configure All DCFEBs") << std::endl ;
-        *out << cgicc::form() << std::endl ; 
+        *out << cgicc::form() << cgicc::br()<< cgicc::hr() << std::endl ; 
 
+  // print DCFEB parameter blocks
+  std::string PrintDCFEBparam =
+      toolbox::toString("/%s/DCFEBParaPrint",getApplicationDescriptor()->getURN().c_str());
+  *out << cgicc::form().set("action", PrintDCFEBparam) << std::endl;
+  
+  *out << "Choose CFEB: " << std::endl;
+  *out << cgicc::select().set("name", "cfeb") << std::endl;
+  
+  for (unsigned i = 0; i < cfebs.size(); ++i) {
+    sprintf(sbuf,"%d",i);
+    if (i == 0) {
+      *out << cgicc::option()
+	.set("value", sbuf)
+	.set("selected", "");
+    } else {
+      *out << cgicc::option()
+	.set("value", sbuf);
+    }
+    *out << "CFEB " << cfebs[i].number()+1 << cgicc::option() << std::endl;
+  }
+
+  *out << cgicc::select() << std::endl;
+  *out << cgicc::input().set("type","hidden").set("name","dmb").set("value",dmbstring) << std::endl ;          
+  *out << cgicc::input().set("type", "submit")
+    .set("name", "command")
+    .set("value", "Print DCFEB parameters (all blocks)") << std::endl;
+  *out << cgicc::form() << cgicc::br() << cgicc::hr() << std::endl;
+
+  // erase DCFEB parameter blocks
+  std::string EraseDCFEBparam =
+      toolbox::toString("/%s/DCFEBParaErase",getApplicationDescriptor()->getURN().c_str());
+  *out << cgicc::form().set("action", EraseDCFEBparam) << std::endl;
+  
+  *out << "Choose CFEB: " << std::endl;
+  *out << cgicc::select().set("name", "cfeb") << std::endl;
+  
+  for (unsigned i = 0; i < cfebs.size(); ++i) {
+    sprintf(sbuf,"%d",i);
+    if (i == 0) {
+      *out << cgicc::option()
+	.set("value", sbuf)
+	.set("selected", "");
+    } else {
+      *out << cgicc::option()
+	.set("value", sbuf);
+    }
+    *out << "CFEB " << cfebs[i].number()+1 << cgicc::option() << std::endl;
+  }
+
+  *out << cgicc::select() << std::endl;
+  *out << cgicc::input().set("type","hidden").set("name","dmb").set("value",dmbstring) << std::endl ;          
+  *out << cgicc::input().set("type", "submit")
+    .set("name", "command")
+    .set("value", "Erase DCFEB parameters (all blocks)") << std::endl;
+  *out << cgicc::form() << cgicc::br() << std::endl;
   *out << cgicc::fieldset()<< cgicc::br() << std::endl;
 
 // Firmware
@@ -1194,62 +1249,6 @@ void EmuPeripheralCrateConfig::CFEBUtils(xgi::Input * in, xgi::Output * out )
     .set("value", "Program DCFEB EPROM") << std::endl;
   *out << cgicc::form() << FirmwareDir_+"cfeb/me11_dcfeb.mcs" << std::endl;
   *out << cgicc::br() << cgicc::hr() << std::endl;
-  //
-  std::string CFEBwritefirmXilinx =
-      toolbox::toString("/%s/DCFEBProgramEpromXilinx",getApplicationDescriptor()->getURN().c_str());
-  *out << cgicc::form().set("action", CFEBwritefirmXilinx) << std::endl;
-  
-  *out << "Choose CFEB: " << std::endl;
-  *out << cgicc::select().set("name", "cfeb") << std::endl;
-  
-  for (unsigned i = 0; i < cfebs.size(); ++i) {
-    sprintf(sbuf,"%d",i);
-    if (i == 0) {
-      *out << cgicc::option()
-	.set("value", sbuf)
-	.set("selected", "");
-    } else {
-      *out << cgicc::option()
-	.set("value", sbuf);
-    }
-    *out << "CFEB " << cfebs[i].number()+1 << cgicc::option() << std::endl;
-  }
-
-  *out << cgicc::select() << std::endl;
-  *out << cgicc::input().set("type","hidden").set("name","dmb").set("value",dmbstring) << std::endl ;          
-  *out << cgicc::input().set("type", "submit")
-    .set("name", "command")
-    .set("value", "Program DCFEB EPROM using Xilinx core (slow)") << std::endl;
-  *out << cgicc::form() << FirmwareDir_+"cfeb/me11_dcfeb.mcs" << std::endl;
-  *out << cgicc::br() << cgicc::hr() << std::endl;
-  //
-  std::string CFEBwritefirmsvf =
-      toolbox::toString("/%s/DCFEBProgramEpromSVF",getApplicationDescriptor()->getURN().c_str());
-  *out << cgicc::form().set("action", CFEBwritefirmsvf) << std::endl;
-  
-  *out << "Choose CFEB: " << std::endl;
-  *out << cgicc::select().set("name", "cfeb") << std::endl;
-  
-  for (unsigned i = 0; i < cfebs.size(); ++i) {
-    sprintf(sbuf,"%d",i);
-    if (i == 0) {
-      *out << cgicc::option()
-	.set("value", sbuf)
-	.set("selected", "");
-    } else {
-      *out << cgicc::option()
-	.set("value", sbuf);
-    }
-    *out << "CFEB " << cfebs[i].number()+1 << cgicc::option() << std::endl;
-  }
-
-  *out << cgicc::select() << std::endl;
-  *out << cgicc::input().set("type","hidden").set("name","dmb").set("value",dmbstring) << std::endl ;          
-  *out << cgicc::input().set("type", "submit")
-    .set("name", "command")
-    .set("value", "Program (D)CFEB EPROM with SVF file (very slow)") << std::endl;
-  *out << cgicc::form() << FirmwareDir_+"cfeb/me11_dcfeb.svf (cfeb_pro.svf for CFEB)" << std::endl;
-  *out << cgicc::br() << cgicc::hr() << std::endl;
   
   std::string CFEBwritefirmall =
       toolbox::toString("/%s/DCFEBProgramEpromAll",getApplicationDescriptor()->getURN().c_str());
@@ -1301,15 +1300,15 @@ void EmuPeripheralCrateConfig::CFEBUtils(xgi::Input * in, xgi::Output * out )
   *out << cgicc::input().set("type","hidden").set("name","dmb").set("value",dmbstring) << std::endl ;          
   *out << cgicc::input().set("type", "submit")
     .set("name", "command")
-    .set("value", "Program FPGA on all DCFEBs (broadcast)") << std::endl;
+    .set("value", "Broadcast Program FPGA - All DCFEBs") << std::endl;
   *out << cgicc::form() << FirmwareDir_+"cfeb/me11_dcfeb.mcs" << cgicc::br() << cgicc::hr() << std::endl;
   //
   *out << cgicc::fieldset()<< cgicc::br() << std::endl;
   //
 
-// DCFEB PROM tests
+// DCFEB EPROM tests and alternative firmware downloading methods
   *out << cgicc::fieldset().set("style","font-size: 11pt; font-family: arial;") << std::endl;
-  *out << cgicc::legend("DCFEB EEPROM Tests").set("style","color:blue") << std::endl ;
+  *out << cgicc::legend("DCFEB EPROM Tests and Alternative Firmware Downloading Methods").set("style","color:blue") << std::endl ;
 
   // Single DCFEB PROM test
   std::string CFEBpromtest =
@@ -1371,13 +1370,13 @@ void EmuPeripheralCrateConfig::CFEBUtils(xgi::Input * in, xgi::Output * out )
   std::string AllDCFEBsPromTestFast = toolbox::toString("/%s/AllDCFEBsPromTestFast",getApplicationDescriptor()->getURN().c_str());
   *out << cgicc::form().set("method","GET").set("action",AllDCFEBsPromTestFast) << std::endl ;
   *out << cgicc::input().set("type","hidden").set("name","dmb").set("value",dmbstring) << std::endl ;          
-  *out << cgicc::input().set("type","submit").set("value","All DCFEBs PROM test (fast version)") << std::endl ;
-  *out << cgicc::form() << cgicc::br() << std::endl ; 
+  *out << cgicc::input().set("type","submit").set("value","All DCFEBs EPROM test (fast version)") << std::endl ;
+  *out << cgicc::form() << cgicc::br() << cgicc::hr() << std::endl ; 
 
-  // DCFEB parameter blocks
-  std::string PrintDCFEBparam =
-      toolbox::toString("/%s/DCFEBParaPrint",getApplicationDescriptor()->getURN().c_str());
-  *out << cgicc::form().set("action", PrintDCFEBparam) << std::endl;
+  //
+  std::string CFEBwritefirmXilinx =
+      toolbox::toString("/%s/DCFEBProgramEpromXilinx",getApplicationDescriptor()->getURN().c_str());
+  *out << cgicc::form().set("action", CFEBwritefirmXilinx) << std::endl;
   
   *out << "Choose CFEB: " << std::endl;
   *out << cgicc::select().set("name", "cfeb") << std::endl;
@@ -1399,8 +1398,69 @@ void EmuPeripheralCrateConfig::CFEBUtils(xgi::Input * in, xgi::Output * out )
   *out << cgicc::input().set("type","hidden").set("name","dmb").set("value",dmbstring) << std::endl ;          
   *out << cgicc::input().set("type", "submit")
     .set("name", "command")
-    .set("value", "Print DCFEB parameters (all blocks)") << std::endl;
-  *out << cgicc::form() << cgicc::br() << std::endl;
+    .set("value", "Program DCFEB EPROM using Xilinx core (slow)") << std::endl;
+  *out << cgicc::form() << FirmwareDir_+"cfeb/me11_dcfeb.mcs" << std::endl;
+  *out << cgicc::br() << cgicc::hr() << std::endl;
+  //
+  std::string CFEBwritefirmsvf =
+      toolbox::toString("/%s/DCFEBProgramEpromSVF",getApplicationDescriptor()->getURN().c_str());
+  *out << cgicc::form().set("action", CFEBwritefirmsvf) << std::endl;
+  
+  *out << "Choose CFEB: " << std::endl;
+  *out << cgicc::select().set("name", "cfeb") << std::endl;
+  
+  for (unsigned i = 0; i < cfebs.size(); ++i) {
+    sprintf(sbuf,"%d",i);
+    if (i == 0) {
+      *out << cgicc::option()
+	.set("value", sbuf)
+	.set("selected", "");
+    } else {
+      *out << cgicc::option()
+	.set("value", sbuf);
+    }
+    *out << "CFEB " << cfebs[i].number()+1 << cgicc::option() << std::endl;
+  }
+
+  *out << cgicc::select() << std::endl;
+  *out << cgicc::input().set("type","hidden").set("name","dmb").set("value",dmbstring) << std::endl ;          
+  *out << cgicc::input().set("type", "submit")
+    .set("name", "command")
+    .set("value", "Program (D)CFEB EPROM with SVF file (very slow)") << std::endl;
+  *out << cgicc::form() << FirmwareDir_+"cfeb/me11_dcfeb.svf (cfeb_pro.svf for CFEB)" << std::endl;
+  *out << cgicc::br() << cgicc::hr() << std::endl;
+  //
+  std::string DCFEBEPROMoffset =
+      toolbox::toString("/%s/DCFEBProgramEpromOffset",getApplicationDescriptor()->getURN().c_str());
+  *out << cgicc::form().set("action", DCFEBEPROMoffset) << std::endl;
+
+  *out << "Choose CFEB: " << std::endl;
+  *out << cgicc::select().set("name", "cfeb") << std::endl;
+  
+  for (unsigned i = 0; i < cfebs.size(); ++i) {
+    sprintf(sbuf,"%d",i);
+    if (i == 0) {
+      *out << cgicc::option()
+	.set("value", sbuf)
+	.set("selected", "");
+    } else {
+      *out << cgicc::option()
+	.set("value", sbuf);
+    }
+    *out << "CFEB " << cfebs[i].number()+1 << cgicc::option() << std::endl;
+  }
+  *out << cgicc::select() << std::endl;
+
+  *out << "EPROM block offset (dec) " << std::endl;
+  sprintf(sbuf, "%d", CFEBDataIn_);
+  *out << cgicc::input().set("type","text").set("value",sbuf).set("name","CFEBDataIn") << std::endl ;
+  *out << cgicc::input().set("type","hidden").set("name","dmb").set("value",dmbstring) << std::endl ;          
+  *out << cgicc::input().set("type", "submit")
+    .set("name", "command")
+    .set("value", "Program EPROM with offset") << cgicc::br() << std::endl;
+    
+  *out << cgicc::form() <<  FirmwareDir_+"cfeb/me11_dcfeb.mcs" << cgicc::br() << std::endl;
+
   *out << cgicc::fieldset()<< cgicc::br() << std::endl;
 
 }
@@ -1814,10 +1874,45 @@ void EmuPeripheralCrateConfig::DCFEBParaPrint(xgi::Input * in, xgi::Output * out
      thisDMB->dcfeb_print_parameters(cfebs[icfeb]);
     
      this->CFEBUtils(in,out);           
-                    
+}
+
+void EmuPeripheralCrateConfig::DCFEBParaErase(xgi::Input * in, xgi::Output * out )
+  throw (xgi::exception::Exception)
+{
+
+  cgicc::Cgicc cgi(in);
+
+  cgicc::form_iterator name = cgi.getElement("dmb");
+  int dmb=0;
+  if(name != cgi.getElements().end()) {
+    dmb = cgi["dmb"]->getIntegerValue();
+    std::cout << "DMB " << dmb << std::endl;
+    DMB_ = dmb;
+  } else {
+    std::cout << "Not dmb" << std::endl ;
+    dmb = DMB_;
+  }
+  //
+  DAQMB * thisDMB = dmbVector[dmb];
+
+     std::string cfeb_value = cgi.getElement("cfeb")->getValue(); 
+     unsigned icfeb=atoi(cfeb_value.c_str());
+     std::vector<CFEB> cfebs = thisDMB->cfebs() ;
+     if(icfeb<0 || icfeb>cfebs.size()) icfeb=0;
+     if (cfebs[icfeb].GetHardwareVersion() != 2) {
+        std::cout << "DMB " << dmb << " CFEB" + cfebs[icfeb].number()+1 << " hardware version is not 2 (it's not a DCFEB).. Skipping.." << std::endl;
+        this->CFEBUtils(in,out);
+        return;
+     }
+
+     std::cout << getLocalDateTime() << " Erase all parameter blocks in EEPROM on DMB " << dmb << " CFEB " << cfebs[icfeb].number()+1 << std::endl;
+
+     thisDMB->dcfeb_erase_param(cfebs[icfeb]);
+    
+     std::cout << getLocalDateTime() << " Done" << std::endl;
+     this->CFEBUtils(in,out);                               
 }
  
-
 void EmuPeripheralCrateConfig::DCFEBReadFirmware(xgi::Input * in, xgi::Output * out )
   throw (xgi::exception::Exception)
 {
@@ -1966,6 +2061,51 @@ void EmuPeripheralCrateConfig::DCFEBProgramEprom(xgi::Input * in, xgi::Output * 
      std::cout << "Use mcs file: " << mcsfile << std::endl;
 
      thisDMB->dcfeb_program_eprom(cfebs[icfeb], mcsfile.c_str(), 0);
+     
+     std::cout << getLocalDateTime() << " DCFEB program EPROM finished." << std::endl;
+     this->CFEBUtils(in,out);                    
+}
+  
+void EmuPeripheralCrateConfig::DCFEBProgramEpromOffset(xgi::Input * in, xgi::Output * out )
+  throw (xgi::exception::Exception)
+{
+    if(!write_dcfeb_prom_allowed_)
+    {
+       std::cout << "Write to DCFEB's PROM disabled!" << std::endl;
+       this->CFEBUtils(in,out);
+       return;
+    }
+
+  cgicc::Cgicc cgi(in);
+
+  cgicc::form_iterator name = cgi.getElement("dmb");
+  int dmb=0;
+  if(name != cgi.getElements().end()) {
+    dmb = cgi["dmb"]->getIntegerValue();
+    std::cout << "DMB " << dmb << std::endl;
+    DMB_ = dmb;
+  } else {
+    std::cout << "Not dmb" << std::endl ;
+    dmb = DMB_;
+  }
+  //
+  DAQMB * thisDMB = dmbVector[dmb];
+
+     std::string cfeb_value = cgi.getElement("cfeb")->getValue(); 
+     unsigned icfeb=atoi(cfeb_value.c_str());
+     std::vector<CFEB> cfebs = thisDMB->cfebs() ;
+     if(icfeb<0 || icfeb>cfebs.size()) icfeb=0;
+     cgicc::form_iterator value2 = cgi.getElement("CFEBDataIn");
+     if(value2 != cgi.getElements().end())
+        CFEBDataIn_ = atoi(cgi["CFEBDataIn"]->getValue().c_str());
+     if(CFEBDataIn_<0 || CFEBDataIn_>78) CFEBDataIn_ = 0;
+
+     std::string mcsfile= FirmwareDir_+ "cfeb/me11_dcfeb.mcs";
+                
+     std::cout << getLocalDateTime() << " DCFEB program EPROM on DMB " << dmb << " CFEB " << cfebs[icfeb].number()+1 << " with block offset: " << CFEBDataIn_ << std::endl;
+     std::cout << "Use mcs file: " << mcsfile << std::endl;
+
+     thisDMB->dcfeb_program_eprom(cfebs[icfeb], mcsfile.c_str(), CFEBDataIn_);
      
      std::cout << getLocalDateTime() << " DCFEB program EPROM finished." << std::endl;
      this->CFEBUtils(in,out);                    

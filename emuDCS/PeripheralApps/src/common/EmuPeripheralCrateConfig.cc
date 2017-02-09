@@ -415,9 +415,11 @@ EmuPeripheralCrateConfig::EmuPeripheralCrateConfig(xdaq::ApplicationStub * s): E
   xgi::bind(this,&EmuPeripheralCrateConfig::DCFEBPromTestFast, "DCFEBPromTestFast");
   xgi::bind(this,&EmuPeripheralCrateConfig::AllDCFEBsPromTestFast, "AllDCFEBsPromTestFast");
   xgi::bind(this,&EmuPeripheralCrateConfig::DCFEBParaPrint, "DCFEBParaPrint");
+  xgi::bind(this,&EmuPeripheralCrateConfig::DCFEBParaErase, "DCFEBParaErase");
   xgi::bind(this,&EmuPeripheralCrateConfig::DCFEBProgramFpga, "DCFEBProgramFpga");
   xgi::bind(this,&EmuPeripheralCrateConfig::DCFEBProgramFpgaAll, "DCFEBProgramFpgaAll");
   xgi::bind(this,&EmuPeripheralCrateConfig::DCFEBProgramEprom, "DCFEBProgramEprom");
+  xgi::bind(this,&EmuPeripheralCrateConfig::DCFEBProgramEpromOffset, "DCFEBProgramEpromOffset");
   xgi::bind(this,&EmuPeripheralCrateConfig::DCFEBProgramEpromSVF, "DCFEBProgramEpromSVF");
   xgi::bind(this,&EmuPeripheralCrateConfig::DCFEBProgramEpromXilinx, "DCFEBProgramEpromXilinx");
   xgi::bind(this,&EmuPeripheralCrateConfig::DCFEBProgramEpromAll, "DCFEBProgramEpromAll");
