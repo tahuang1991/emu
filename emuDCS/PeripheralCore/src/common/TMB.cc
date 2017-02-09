@@ -10025,18 +10025,24 @@ void TMB::CheckTMBConfiguration(int max_number_of_reads) {
     config_ok &= compareValues("TMB match_trig_alct_delay"         ,read_alct_vpf_delay_        ,alct_vpf_delay_        , print_errors);
     config_ok &= compareValues("TMB match_trig_window_size"        ,read_alct_match_window_size_,alct_match_window_size_, print_errors);
     config_ok &= compareValues("TMB mpc_tx_delay"                  ,read_mpc_tx_delay_          ,mpc_tx_delay_          , print_errors);
+/* disable checking the following new parameters for now, wait until all OTMBs have the new firmwware. Feb. 9, 2017, Liu */
+/*
     config_ok &= compareValues("TMB clct_match_window_size"        ,read_clct_match_window_size_,clct_match_window_size_, print_errors);
     //
     //---------------------------------------------------------------------
     // 0X198 = ADR_NEWALGO_CTRL:  Controls parameters of new trigger algorithm (Yuriy, 2016)
     //---------------------------------------------------------------------
-    config_ok &= compareValues("TMB use_dead_time_zone"        ,read_use_dead_time_zone_        ,use_dead_time_zone_        , print_errors);
-    config_ok &= compareValues("TMB dead_time_zone_size"       ,read_dead_time_zone_size_       ,dead_time_zone_size_       , print_errors);
-    config_ok &= compareValues("TMB use_dynamic_dead_time_zone",read_use_dynamic_dead_time_zone_,use_dynamic_dead_time_zone_, print_errors);
-    config_ok &= compareValues("TMB clct_to_alct"              ,read_clct_to_alct_              ,clct_to_alct_              , print_errors);
-    config_ok &= compareValues("TMB drop_used_clcts"           ,read_drop_used_clcts_           ,drop_used_clcts_           , print_errors);
-    config_ok &= compareValues("TMB cross_bx_algorithm"        ,read_cross_bx_algorithm_        ,cross_bx_algorithm_        , print_errors);
-    config_ok &= compareValues("TMB clct_use_corrected_bx"     ,read_clct_use_corrected_bx_     ,clct_use_corrected_bx_     , print_errors);
+    if(hardware_version_>=2)
+    {
+       config_ok &= compareValues("TMB use_dead_time_zone"        ,read_use_dead_time_zone_        ,use_dead_time_zone_        , print_errors);
+       config_ok &= compareValues("TMB dead_time_zone_size"       ,read_dead_time_zone_size_       ,dead_time_zone_size_       , print_errors);
+       config_ok &= compareValues("TMB use_dynamic_dead_time_zone",read_use_dynamic_dead_time_zone_,use_dynamic_dead_time_zone_, print_errors);
+       config_ok &= compareValues("TMB clct_to_alct"              ,read_clct_to_alct_              ,clct_to_alct_              , print_errors);
+       config_ok &= compareValues("TMB drop_used_clcts"           ,read_drop_used_clcts_           ,drop_used_clcts_           , print_errors);
+       config_ok &= compareValues("TMB cross_bx_algorithm"        ,read_cross_bx_algorithm_        ,cross_bx_algorithm_        , print_errors);
+       config_ok &= compareValues("TMB clct_use_corrected_bx"     ,read_clct_use_corrected_bx_     ,clct_use_corrected_bx_     , print_errors);
+    }
+*/
     //
     //------------------------------------------------------------------
     //0XB6 = ADR_RPC_CFG:  RPC Configuration
