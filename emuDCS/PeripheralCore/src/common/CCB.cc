@@ -1171,6 +1171,9 @@ void CCB::configure() {
   if((rx&0xff) != 0xB3) 
      std::cout << "ERROR: TTCrx Control register readback " << std::hex << (rx&0xff) << std::endl; 
 
+  // initialize GEM interface
+  if(hardware_version_>1) gem_set_MUX_bit(1);
+
   // write a special tag to CSRB4
   WriteRegister(CSRB4, 0xCCB0+(TTCrxID_&0xF)); 
   // Set the CCB mode  
