@@ -1826,6 +1826,7 @@ void VMEModule::Jtag_Norm(long dev, int reg, const char *snd, int cnt, char *rcv
   unsigned char *rcv2, bdata, *data, mytmp[MAXLINE];
   int buff_mode;
   unsigned short TDI_, TMS_, TCK_, TDO_, *mytmp2;
+  unsigned short vmesleep=0;
 
   TDI_= dev & 0xF;
   TMS_= (dev >> 4) & 0xF;
@@ -1843,6 +1844,8 @@ void VMEModule::Jtag_Norm(long dev, int reg, const char *snd, int cnt, char *rcv
   data=(unsigned char *)snd;
   mytmp2=(unsigned short *)mytmp;
  
+  if(get_flag(4)) vmesleep += 2;
+  if(get_flag(5)) vmesleep += 8;
  //cout << "ptr = " << ptr << std::endl;
  //cout << "TCK= " << TCK << std::endl;
  //cout << "TMS= " << TMS << std::endl;
@@ -1873,6 +1876,7 @@ void VMEModule::Jtag_Norm(long dev, int reg, const char *snd, int cnt, char *rcv
          dd=d;
          if(j==1) dd |= TCK;
          theController->VME_controller((i<5 || j<2)?1:3,ptr,&dd,rcv);        
+         if(vmesleep) vme_delay(vmesleep);
        }
      }
      return;
@@ -1890,6 +1894,7 @@ void VMEModule::Jtag_Norm(long dev, int reg, const char *snd, int cnt, char *rcv
          dd=d;
          if(j==1) dd |= TCK;
          theController->VME_controller((j<2)?1:3,ptr,&dd,rcv);        
+         if(vmesleep) vme_delay(vmesleep);
        }
 //        vme_delay(1);
      }
@@ -1910,6 +1915,7 @@ void VMEModule::Jtag_Norm(long dev, int reg, const char *snd, int cnt, char *rcv
         if(j==1) dd |= TCK;
 	//std::cout << " dd = " << dd << std::endl;
         theController->VME_controller(1,ptr,&dd,rcv);        
+         if(vmesleep) vme_delay(vmesleep);
      }
    }
 
@@ -1932,6 +1938,7 @@ void VMEModule::Jtag_Norm(long dev, int reg, const char *snd, int cnt, char *rcv
      if(ird){
        // read out one bit, the last argument is just a dummy.
        theController->VME_controller(0,ptr,&dd,rcv);
+         if(vmesleep) vme_delay(vmesleep);
      }
      
      // data bit to write (ival) is in the lowest bit (TDI)
@@ -1945,6 +1952,7 @@ void VMEModule::Jtag_Norm(long dev, int reg, const char *snd, int cnt, char *rcv
         // buff_mode could be either 3 (send and READ!!!) or 1 (buffered):
 	//std::cout << " dd = " << dd << std::endl;
         theController->VME_controller((j==2)?buff_mode:1,ptr,&dd,(char *)(mytmp+2*i));
+         if(vmesleep) vme_delay(vmesleep);
      }
   }
   
@@ -1963,6 +1971,7 @@ void VMEModule::Jtag_Norm(long dev, int reg, const char *snd, int cnt, char *rcv
         // In the last VME WRITE send the packets. And READ back all data 
         // in the case of fully buffered mode (buff_mode=1).
         theController->VME_controller((i==1 && j==2)?3:1,ptr,&dd,(char *)mytmp);        
+         if(vmesleep) vme_delay(vmesleep);
      }
   }
 
