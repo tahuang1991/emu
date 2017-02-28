@@ -11267,22 +11267,8 @@ void EmuPeripheralCrateConfig::LoadALCTSlowFirmware(xgi::Input * in, xgi::Output
     thisTMB->disableALCTClock();
     ::sleep(1);
 
-    //power cycle ALCT
-    DAQMB * thisDMB = dmbVector[tmb];  // TMB and DMB in a pair should have the the same number
-
-    std::cout << "DMB Turn Off and then On ALCT: DMB " << tmb << std::endl;
-    if (thisDMB)
-    {
-        int D_hversion=thisDMB->GetHardwareVersion();
-        int alct_on=((D_hversion<=1)?0x20:0x80);
-        int alct_off=((D_hversion<=1)?0x1F:0x7F);
-        int old_powermask=thisDMB->lowv_rdpwrreg();
-        // turn off
-        thisDMB->lowv_onoff(old_powermask & alct_off);
-        ::sleep(2);
-        //turn on
-        thisDMB->lowv_onoff(old_powermask | alct_on);
-    }
+    //hard reset ALCT
+    thisTMB->tmb_hard_reset_alct_fpga();
 
     ALCTController * thisALCT = thisTMB->alctController();
     thisALCT->ReadSlowControlId();
