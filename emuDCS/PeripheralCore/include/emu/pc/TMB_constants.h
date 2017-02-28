@@ -3858,10 +3858,6 @@ const int ALCT_CLCT_coincidence_trigger =  5;
 #define TMB_USER_PROM   0x8     // TMB User PROMs JTAG Chain
 #define TMB_FPGA_USER   0xc     // TMB FPGA User JTAG Chain
 //
-#define TMB_JTAG_SRC    0x08    // Hardware Bootstrap Register JTAG Source Bit
-#define JTAG_SOFT_SRC   0x0     // JTAG Sourced by FPGA (TMB_ADR_USR_JTAG VME Register)
-#define JTAG_HARD_SRC   0x1     // JTAG Sourced by Bootstrap Register
-//
 #define ALCT_HARD_RESET 0x0100  // Hardware ALCT FPGA Hard Reset
 #define TMB_HARD_RESET  0x0200  // Hardware TMB FPGA Hard Reset
 #define TMB_ENABLE_ALCT_RESET 0x0400 // Enable ALCT Hard Reset

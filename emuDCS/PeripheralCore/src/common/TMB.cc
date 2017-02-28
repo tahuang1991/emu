@@ -1885,16 +1885,6 @@ void TMB::DecodeAndPrintMPCFrames(unsigned int event_n = 0) {
   return;
 }
 //
-int TMB::FmState(){
-  //
-  tmb_vme(VME_READ,ccb_cmd_adr,sndbuf,rcvbuf,NOW);
-  //
-  int fm_state = (rcvbuf[1]&0xf0)>>4;
-  //
-  return fm_state;
-  //
-}
-//
 void TMB::PrintCounters(int counter){
   //
   // if (counter < 0) { print all counters }
@@ -4286,99 +4276,6 @@ char sndx[2];
     theController->send_last();
   }
   VMEModule::end();
-}
-//
-int TMB::tmb_get_id(struct tmb_id_regs* tmb_id) {
-  //
-  unsigned short int value;
-  //
-  tmb_get_reg(vme_idreg0_adr, &value);
-  tmb_id->fw_type = value & 0x000f;
-  tmb_id->fw_version = (value >> 4) & 0x000f;
-  tmb_id->brd_geo_addr = (value >> 8) & 0x000f;
-  //
-  tmb_get_reg(vme_idreg1_adr, &value);
-  tmb_id->fw_day = value & 0x00ff;
-  tmb_id->fw_month = (value >> 8) & 0x00ff;
-  //
-  tmb_get_reg(vme_idreg2_adr, &value);
-  tmb_id->fw_year = value & 0xffff;
-  //
-  tmb_get_reg(vme_idreg3_adr, &value);
-  tmb_id->fpga_type = value & 0xffff;
-
-  return 0;
-}
-//
-int TMB::tmb_set_jtag_src(unsigned short int jtag_src) { 
-  //
-  unsigned short int value;
-  //
-  tmb_get_boot_reg(&value);
-  //printf("0x%04x\n", value);
-  value = (value & ~TMB_JTAG_SRC) | ((jtag_src & 0x01) << 7); // JTAG Source selection bit at position 7
-  //printf("0x%04x\n", value);
-  // tmb_set_boot_reg(value);
-  //
-  return 0;
-} 
-//
-int TMB::tmb_get_jtag_src(unsigned short int* jtag_src) {
-  //
-  unsigned short int value = 0;
-  //
-  tmb_get_boot_reg(&value);
-  *jtag_src = ((value & TMB_JTAG_SRC) > 0) ? JTAG_HARD_SRC : JTAG_SOFT_SRC; 
-  //
-  return 0;
-}
-//
-int TMB::tmb_set_jtag_chain(unsigned int jchain) {
-  //
-   unsigned short int chain;
-   unsigned short int jtag_src = 0;
-   
-   tmb_get_jtag_src(&jtag_src);
-
-   if (jtag_src == JTAG_SOFT_SRC) {
-     tmb_get_reg(vme_usr_jtag_adr, &chain);
-     chain = (chain & 0xff0f) | ((jchain & 0x0f) << 4);
-     tmb_set_reg(vme_usr_jtag_adr, chain);
-   } else {
-     tmb_get_boot_reg(&chain);
-     chain = (chain & 0xff87) | ( (jchain & 0x0f) << 3);
-     tmb_set_boot_reg(chain);
-   }
-   //
-   return 0;
-}
-//
-int TMB::tmb_set_reg(unsigned int vmereg, unsigned short int value ) {
-  //
-   char sndbuf[2];
-   char rcvbuf[2];
-   sndbuf[0]=value & 0xff;
-   sndbuf[1]=(value >> 8) & 0xff;
-   tmb_vme(VME_WRITE, vmereg, sndbuf, rcvbuf, NOW );
-   return 0;	
-}
-//
-int TMB::tmb_get_reg(unsigned int vmereg, unsigned short int* value )
-{
-   char sndbuf[2];
-   char rcvbuf[2];
-   sndbuf[0]=0;
-   sndbuf[1]=0;
-   tmb_vme(VME_READ, vmereg, sndbuf, rcvbuf, NOW );
-   *value = (rcvbuf[1]&0xff) | (rcvbuf[0]<<8);
-   return 0;
-}  
-//
-int TMB::tmb_vme_reg(unsigned int vmereg, unsigned short int* value) {
-  //
-   tmb_set_reg(vmereg, *value);
-   tmb_get_reg(vmereg, value);
-   return 0;
 }
 //
 int TMB::tmb_get_boot_reg(unsigned short int* value) {
@@ -12032,7 +11929,7 @@ void TMB::new_scan(int reg, char *snd,int cnt,char *rcv,int ird, int chain)
    bool useboot=false;
    if( jchain==1 || ((chain>>8) & 0xF)==1) useboot=true;   
    unsigned long TDI=0, TMS=1, TCK=2, TDO=15; 
-   int TIR[6]={0,0,0,0,0,0}, HIR[6]={0,0,0,0,0,0}, HDR[6]={0,0,0,0,0,0}, TDR[6]={0,0,0,0,0,0}; 
+   int TIR[6]={0,0,8,0,0,0}, HIR[6]={0,8,0,0,0,0}, HDR[6]={0,1,0,0,0,0}, TDR[6]={0,0,1,0,0,0}; 
    unsigned short lowb=0,  highb=chain;
    if(chain>=4)
    { 

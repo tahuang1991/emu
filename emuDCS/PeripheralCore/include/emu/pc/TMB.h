@@ -640,14 +640,6 @@ public:
   ALCTController * alctController() const {return alctController_;}
   RAT * getRAT() const {return rat_;}
   //      
-  int tmb_get_id(struct tmb_id_regs* tmb_id);
-  int tmb_set_jtag_src(unsigned short int jtag_src);
-  int tmb_get_jtag_src(unsigned short int* jtag_src);
-  int tmb_set_jtag_chain(unsigned int jchain);
-  //
-  int tmb_set_reg(unsigned int vmereg, unsigned short int value );
-  int tmb_get_reg(unsigned int vmereg, unsigned short int* value );
-  int tmb_vme_reg(unsigned int vmereg, unsigned short int* value);
   int tmb_get_boot_reg(unsigned short int* value);
   int tmb_set_boot_reg(unsigned short int value);
   int tmb_hard_reset_alct_fpga();
@@ -660,8 +652,6 @@ public:
   //
   //  int GetCLCT0Cfeb() { return -999; }  //does not exist in TMB firmware anymore
   //  int GetCLCT1Cfeb() { return -999; }  //does not exist in TMB firmware anymore
-  //
-  int FmState();
   //
   void enableAllClocks();
   void disableAllClocks();
