@@ -6,7 +6,7 @@
 #include <sys/file.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-
+#include <unistd.h>
 
 
 emu::fed::VMELock::VMELock(const std::string &fileName)

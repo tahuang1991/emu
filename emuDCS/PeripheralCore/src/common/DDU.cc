@@ -6,6 +6,7 @@
 #include <cmath>
 #include <iomanip>
 #include <sstream>
+#include <unistd.h>
 
 namespace emu {
   namespace pc {
