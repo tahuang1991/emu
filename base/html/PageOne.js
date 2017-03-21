@@ -1,6 +1,7 @@
 var panels = null;
 var tmbPanel = null;
 var whoIsInControl = 'global';
+var TCDS_system = 'pri'; // TODO: switch automatically between 'pri' and 'sec'
 
 function onLoad() {
 
@@ -678,20 +679,20 @@ function Panel( name, refreshPeriod, dataURL ) {
 	$.getJSON( self.DataURL+'?fmt=json&flash=urn:xdaq-flashlist:tcds_common', function(json){
 	    var combinedState = null;
 	    $.each( json.table.rows, function(i,row){
-		if ( row.service.search('i-csc') >= 0 ){
+		if ( row.service.search('i-csc[^ ]*-'+TCDS_system) >= 0 ){
 		    if ( combinedState && combinedState != row.state_name ) combinedState = 'INDEFINITE';
 		    else                                                    combinedState = row.state_name;
-		    //console.log( row.service+' '+row.state_name+' '+combinedState );
+		    // console.log( row.service+' '+row.state_name+' '+combinedState );
 		}
-		else if ( row.service == 'lpm-csc' ){
+		else if ( row.service == 'lpm-csc-'+TCDS_system ){
 		    $('#'+self.name+'-td_value_LPMState').attr( 'class', row.state_name );
 		    $('#'+self.name+'-a_value_LPMState').text( row.state_name );
 		    $('#'+self.name+'-a_value_LPMState').attr( 'title', 'The LPM (Local Partition Manager) Controller application is '+row.state_name);
 		}
-		else if ( row.service == 'cpm-pri' ){
-		    $('#'+self.name+'-td_value_CPMPriState').attr( 'class', row.state_name );
-		    $('#'+self.name+'-a_value_CPMPriState').text( row.state_name );
-		    $('#'+self.name+'-a_value_CPMPriState').attr( 'title', 'The CPM (Central Partition Manager) Controller application is '+row.state_name);
+		else if ( row.service == 'cpm-'+TCDS_system ){
+		    $('#'+self.name+'-td_value_CPMState').attr( 'class', row.state_name );
+		    $('#'+self.name+'-a_value_CPMState').text( row.state_name );
+		    $('#'+self.name+'-a_value_CPMState').attr( 'title', 'The CPM (Central Partition Manager) Controller application is '+row.state_name);
 		}
 	    });
 	    $('#'+self.name+'-td_value_State').attr( 'class', combinedState );
@@ -705,9 +706,9 @@ function Panel( name, refreshPeriod, dataURL ) {
 	      	  $('#'+self.name+'-td_localDateTime').text( timeToString( time ) );
 	      	  var totalTriggerRate = 0;
 	      	  $.each( json.table.rows, function(i,row){
-	      	      if ( row.service == 'cpm-pri' ) totalTriggerRate = row.trg_rate_total;
+	      	      if ( row.service == 'cpm-'+TCDS_system ) totalTriggerRate = row.trg_rate_total;
 	      	    });
-	    	  var graphPoint = { name:'Total primary CPM trigger [Hz]', time:time, value:totalTriggerRate };
+	    	  var graphPoint = { name:'Total '+(TCDS_system=='pri'?'primary':'secondary')+' CPM trigger [Hz]', time:time, value:totalTriggerRate };
 	    	  self.appendPoint( graphPoint );
 	    	  // }).success( function(){
 	    	  clearTimeout(self.Clock);
@@ -715,7 +716,7 @@ function Panel( name, refreshPeriod, dataURL ) {
 	    	});
 	    }
 	    else{
-		$.getJSON('http://tcds-control-csc-pri.cms:2104/urn:xdaq-application:service=lpm-csc/update', function(json){
+		$.getJSON('http://tcds-control-csc-'+TCDS_system+'.cms:2104/urn:xdaq-application:service=lpm-csc-'+TCDS_system+'/update', function(json){
 		    var time = toUnixTime( json["Application state"]["Latest monitoring update time"] );
 		    $('#'+self.name+'-td_localDateTime').text( timeToString( time ) );
 		    var L1As = json["itemset-trigger-counter"]["# L1As"];
@@ -729,7 +730,7 @@ function Panel( name, refreshPeriod, dataURL ) {
 			  
 	});
  	// Get TCDS PI spy log
-	$.getJSON('http://tcds-control-csc-pri.cms:2104/urn:xdaq-application:service=pi-cscm/update', function(json){
+	$.getJSON('http://tcds-control-csc-'+TCDS_system+'.cms:2104/urn:xdaq-application:service=pi-cscm-'+TCDS_system+'/update', function(json){
 	    // var msg='';
 	    var time = toUnixTime( json["Application state"]["Latest monitoring update time"] );
 	    var nHardResets=0;
