@@ -13,7 +13,7 @@ function onLoad() {
 	PCMonM:   "http://csc-dcs-pc2.cms:20040/urn:xdaq-application:lid=30/ForEmuPage1",
 	DAQDisks: "http://pc-c2e11-25-01.cms:8845/urn:xdaq-application:lid=16/retrieveCollection",
 	CSCTF:    "http://l1ts-csctf.cms:5005/urn:xdaq-application:service=las/retrieveCollection",
-	TCDS:     "http://pc-c2e11-23-01.cms:9945/urn:xdaq-application:lid=16/retrieveCollection",
+	TCDS:     "http://kvm-s3562-1-ip151-95.cms:9945/urn:xdaq-application:lid=16/retrieveCollection",
 	FED:      "http://csc-sv.cms:20101/urn:xdaq-application:lid=66/ForEmuPage1",
 	DAQ:      "http://csc-daq00.cms:20200/urn:xdaq-application:class=emu::daq::manager::Application,instance=0/ForEmuPage1",
 	DQM:      "http://csc-dqm.cms:20550/urn:xdaq-application:lid=1450/ForEmuPage1"
