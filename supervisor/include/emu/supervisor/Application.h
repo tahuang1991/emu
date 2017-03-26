@@ -162,6 +162,7 @@ private: // XDAQ parameters
 	xdata::String          TFCellOpName_;
 	xdata::String          TFCellClass_;
 	xdata::UnsignedInteger TFCellInstance_;
+	xdata::Boolean         isUsingLegacyTF_;
 
 	toolbox::task::WorkLoop *wl_;
 	toolbox::BSem wl_semaphore_;
@@ -195,6 +196,7 @@ private: // XDAQ parameters
 
         xdaq::ApplicationDescriptor* findAppDescriptor( const string& klass, const string& service );
         void getAppDescriptors();
+        void getTFAppDescriptor();
         void getTCDSAppDescriptors();
         bool getTCDSAppDescriptors( bool useSystemSwitchTag );
 
@@ -254,7 +256,8 @@ private: // XDAQ parameters
 
         xdata::Boolean localDAQWriteBadEventsOnly_;
 
-        xdata::String tf_key_;       // Track Finder Key
+        xdata::String tf_key_;          // Track Finder Key
+        xdata::String tf_run_settings_; // Track Finder Run Settings (needed for EMTF)
 	
 	emu::supervisor::RunInfo *runInfo_;         // communicates with run database
 	xdata::String runDbBookingCommand_; // e.g. "java -jar runnumberbooker.jar"

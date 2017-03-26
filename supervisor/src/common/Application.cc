@@ -105,7 +105,7 @@ emu::supervisor::Application::Application(xdaq::ApplicationStub *stub)
   run_type_("UNKNOWN"), run_number_(1), runSequenceNumber_(0),
   daq_mode_("UNKNOWN"), ttc_source_(""),
   rcmsStateNotifier_(getApplicationLogger(), getApplicationDescriptor(), getApplicationContext()),
-  TFCellOpState_(""), TFCellOpName_("Configuration"), TFCellClass_("Cell"), TFCellInstance_(8), 
+  TFCellOpState_(""), TFCellOpName_("Run Control"), TFCellClass_("emtf::Cell"), TFCellInstance_(21), isUsingLegacyTF_(false),
   wl_semaphore_(toolbox::BSem::EMPTY), quit_calibration_(false),
   daq_descr_(NULL), tf_descr_(NULL), ttc_descr_(NULL), 
   ci_plus_descr_(NULL), ci_minus_descr_(NULL), ci_tf_descr_(NULL), pm_descr_(NULL),
@@ -147,10 +147,11 @@ emu::supervisor::Application::Application(xdaq::ApplicationStub *stub)
 
   i->fireItemAvailable("usePrimaryTCDS", &usePrimaryTCDS_);
   
-  i->fireItemAvailable("TFCellOpState",  &TFCellOpState_);
-  i->fireItemAvailable("TFCellOpName",   &TFCellOpName_);
-  i->fireItemAvailable("TFCellClass",    &TFCellClass_);
-  i->fireItemAvailable("TFCellInstance", &TFCellInstance_);
+  i->fireItemAvailable("TFCellOpState",   &TFCellOpState_  );
+  i->fireItemAvailable("TFCellOpName",    &TFCellOpName_   );
+  i->fireItemAvailable("TFCellClass",     &TFCellClass_    );
+  i->fireItemAvailable("TFCellInstance",  &TFCellInstance_ );
+  i->fireItemAvailable("isUsingLegacyTF", &isUsingLegacyTF_);
 
   i->fireItemAvailable("ttsID", &tts_id_);
   i->fireItemAvailable("ttsBits", &tts_bits_);
@@ -165,6 +166,9 @@ emu::supervisor::Application::Application(xdaq::ApplicationStub *stub)
   // Track Finder Key
   tf_key_ = "310309";   // default key as of 31/03/2009
   i->fireItemAvailable("TrackFinderKey", &tf_key_);  
+  // Track Finder Run Settings (needed for EMTF)
+  tf_run_settings_ = "";
+  i->fireItemAvailable("TrackFinderRunSettings", &tf_run_settings_);
 
   i->fireItemAvailable( "runDbBookingCommand", &runDbBookingCommand_ );
   i->fireItemAvailable( "runDbWritingCommand", &runDbWritingCommand_ );
@@ -306,19 +310,44 @@ void emu::supervisor::Application::getAppDescriptors(){
     this->notifyQualified( "error", eObj );
   }
 
-  try {
-    tf_descr_ = getApplicationContext()->getDefaultZone()
-      ->getApplicationDescriptor( TFCellClass_.toString(), TFCellInstance_.value_ );
-  } catch (xdaq::exception::ApplicationDescriptorNotFound& e) {
-    stringstream ss;
-    ss << "No Track Finder application \"" << TFCellClass_.toString() 
-       << "\" of instance " << TFCellInstance_.value_ << " found.";
-    LOG4CPLUS_ERROR(getApplicationLogger(), ss.str() << xcept::stdformat_exception_history(e));
-    XCEPT_DECLARE_NESTED( emu::supervisor::exception::Exception, eObj, ss.str(), e );
-    this->notifyQualified( "error", eObj );
-  }  
+  // try {
+  //   tf_descr_ = getApplicationContext()->getDefaultZone()
+  //     ->getApplicationDescriptor( TFCellClass_.toString(), TFCellInstance_.value_ );
+  // } catch (xdaq::exception::ApplicationDescriptorNotFound& e) {
+  //   stringstream ss;
+  //   ss << "No Track Finder application \"" << TFCellClass_.toString() 
+  //      << "\" of instance " << TFCellInstance_.value_ << " found.";
+  //   LOG4CPLUS_ERROR(getApplicationLogger(), ss.str() << xcept::stdformat_exception_history(e));
+  //   XCEPT_DECLARE_NESTED( emu::supervisor::exception::Exception, eObj, ss.str(), e );
+  //   this->notifyQualified( "error", eObj );
+  // }  
   
+  getTFAppDescriptor();
+
   getTCDSAppDescriptors();
+}
+
+void emu::supervisor::Application::getTFAppDescriptor(){
+  std::set<xdaq::ApplicationDescriptor *> tfs;
+  // First try to find emtf::Cell
+  isUsingLegacyTF_.value_ = false;
+  TFCellOpName_ = "Run Control";
+  tfs = getApplicationContext()->getDefaultZone()->getApplicationDescriptors( "emtf::Cell" );
+  if ( tfs.size() == 0 ){
+    // Try to find legacy CSCTF Cell
+    tfs = getApplicationContext()->getDefaultZone()->getApplicationDescriptors( "Cell" );
+    isUsingLegacyTF_.value_ = true;
+    TFCellOpName_ = "Configuration";
+  }
+  if ( tfs.size() == 0 ){
+    LOG4CPLUS_WARN( getApplicationLogger(), "Failed to find any TF Cell application." );
+    return;
+  }
+  // Take one
+  tf_descr_       = *tfs.begin();
+  TFCellClass_    = tf_descr_->getClassName();
+  TFCellInstance_ = tf_descr_->getInstance();
+  LOG4CPLUS_INFO( getApplicationLogger(), "Found " << TFCellClass_.toString() << " of instance " << TFCellInstance_.toString() );
 }
 
 void emu::supervisor::Application::getTCDSAppDescriptors(){
@@ -1393,33 +1422,54 @@ void emu::supervisor::Application::configureAction(toolbox::Event::Reference evt
     m.resetResponseTimeout(); // Reset response timeout to default value.
        
     // Configure TF Cell operation
-    if ( tf_descr_ != NULL && controlTFCellOp_.value_ && !skipTFCellConfig ){
-      if ( !ignoreTFCell() && waitForTFCellOpToReach("halted",5) ){
-	if ( !ignoreTFCell() ){ 
-	  m.setResponseTimeout( 180 ); // Allow TF ample time to be configured.
-	  LOG4CPLUS_INFO( getApplicationLogger(), "Sending 'configure' to CSC TF Cell." );
-	  // For some reason, 'configure' SOAP to TF Cell times out after 30s despite m.setResponseTimeout( 180 )
-	  sendCommandCell("configure");
-	  LOG4CPLUS_INFO( getApplicationLogger(), "Sent 'configure' to CSC TF Cell." );
-	  m.resetResponseTimeout(); // Reset response timeout to default value.
+    if ( isUsingLegacyTF_.value_ ){
+      if ( tf_descr_ != NULL && controlTFCellOp_.value_ && !skipTFCellConfig ){
+	if ( !ignoreTFCell() && waitForTFCellOpToReach("halted",5) ){
+	  if ( !ignoreTFCell() ){ 
+	    m.setResponseTimeout( 180 ); // Allow TF ample time to be configured.
+	    LOG4CPLUS_INFO( getApplicationLogger(), "Sending 'configure' to CSC TF Cell." );
+	    // For some reason, 'configure' SOAP to TF Cell times out after 30s despite m.setResponseTimeout( 180 )
+	    sendCommandCell("configure");
+	    LOG4CPLUS_INFO( getApplicationLogger(), "Sent 'configure' to CSC TF Cell." );
+	    m.resetResponseTimeout(); // Reset response timeout to default value.
+	  }
+	  // Allow more time for 'configure' after key change. With a new key, it may take a couple of minutes.
+	  // if ( !ignoreTFCell() ) waitForTFCellOpToReach("configured",5);
+	  waitForTFCellOpToReach("configured",5); // This will time out max 5 times, each time after 30s.
 	}
-	// Allow more time for 'configure' after key change. With a new key, it may take a couple of minutes.
-	// if ( !ignoreTFCell() ) waitForTFCellOpToReach("configured",5);
-	waitForTFCellOpToReach("configured",5); // This will time out max 5 times, each time after 30s.
+	LOG4CPLUS_INFO( getApplicationLogger(), "isTFCellResponsive after 'configure' and wait? " << isTFCellResponsive_.toString() );
+	if ( TFCellOpState_.toString() != "configured" ){
+	  isTFCellResponsive_ =false;
+	  stringstream ss;
+	  ss << "TF Cell Operation \"" << TFCellOpName_.toString() 
+	     << "\" failed to reach configured state. Aborting.";
+	  LOG4CPLUS_ERROR( getApplicationLogger(), ss.str() );
+	  XCEPT_DECLARE( emu::supervisor::exception::Exception, eObj, ss.str() );
+	  this->notifyQualified( "error", eObj );
+	  // Don't throw if we're in global. Since the transition to EMTF, CSCTF has been running parasitically in global runs. 
+	  if ( ! bool( isGlobalInControl ) ) throw eObj;
+	} 
       }
-      LOG4CPLUS_INFO( getApplicationLogger(), "isTFCellResponsive after 'configure' and wait? " << isTFCellResponsive_.toString() );
-      if ( TFCellOpState_.toString() != "configured" ){
-	isTFCellResponsive_ =false;
-	stringstream ss;
-	ss << "TF Cell Operation \"" << TFCellOpName_.toString() 
-	   << "\" failed to reach configured state. Aborting.";
-	LOG4CPLUS_ERROR( getApplicationLogger(), ss.str() );
-	XCEPT_DECLARE( emu::supervisor::exception::Exception, eObj, ss.str() );
-	this->notifyQualified( "error", eObj );
-	// Don't throw if we're in global. Since the transition to EMTF, CSCTF has been running parasitically in global runs. 
-	if ( ! bool( isGlobalInControl ) ) throw eObj;
-      } 
-    }
+    } // if ( isUsingLegacyTF_.value_ )
+    else{
+      if ( tf_descr_ != NULL && controlTFCellOp_.value_ ){
+	if ( waitForTFCellOpToReach("halted",5) ){
+	    LOG4CPLUS_INFO( getApplicationLogger(), "Sending 'engage' to TF Cell." );
+	    sendCommandCell("engage");
+	    LOG4CPLUS_INFO( getApplicationLogger(), "Sent 'engage' to TF Cell." );
+	    if ( waitForTFCellOpToReach("engaged",5) ){
+	      LOG4CPLUS_INFO( getApplicationLogger(), "Sending 'setup' to TF Cell." );
+	      sendCommandCell("setup");
+	      LOG4CPLUS_INFO( getApplicationLogger(), "Sent 'setup' to TF Cell." );
+	      if ( waitForTFCellOpToReach("synchronized",5) ){
+		LOG4CPLUS_INFO( getApplicationLogger(), "Sending 'configure' to TF Cell." );
+		sendCommandCell("configure");
+		LOG4CPLUS_INFO( getApplicationLogger(), "Sent 'configure' to TF Cell." );
+	      }
+	    }
+	}
+      }
+    } // if ( isUsingLegacyTF_.value_ ) else
 
     xdata::String runType( toolbox::tolower( run_type_.toString() ) );
     if ( isCalibrationMode() ) runType = "calibration";
@@ -1541,9 +1591,28 @@ void emu::supervisor::Application::startAction(toolbox::Event::Reference evt)
     }
 
     // Enable TF Cell operation
-    if ( tf_descr_ != NULL && controlTFCellOp_.value_ ){
-      if ( !ignoreTFCell() ) sendCommandCell("start");
-      if ( !ignoreTFCell() ) waitForTFCellOpToReach("running",5);
+    // Configure TF Cell operation
+    if ( isUsingLegacyTF_.value_ ){
+      if ( tf_descr_ != NULL && controlTFCellOp_.value_ ){
+	if ( !ignoreTFCell() ) sendCommandCell("start");
+	if ( !ignoreTFCell() ) waitForTFCellOpToReach("running",5);
+      }
+    }
+    else{
+      if ( tf_descr_ != NULL && controlTFCellOp_.value_ ){
+	if ( waitForTFCellOpToReach("configured",5) ){
+	    LOG4CPLUS_INFO( getApplicationLogger(), "Sending 'align' to TF Cell." );
+	    sendCommandCell("align");
+	    LOG4CPLUS_INFO( getApplicationLogger(), "Sent 'align' to TF Cell." );
+	    if ( waitForTFCellOpToReach("aligned",5) ){
+	      LOG4CPLUS_INFO( getApplicationLogger(), "Sending 'start' to TF Cell." );
+	      sendCommandCell("start");
+	      LOG4CPLUS_INFO( getApplicationLogger(), "Sent 'start' to TF Cell." );
+	      // if ( waitForTFCellOpToReach("running",5) ){
+	      // }
+	    }
+	}
+      }
     }
 
     if ( isUsingTCDS_ ){
@@ -1605,10 +1674,21 @@ void emu::supervisor::Application::stopAction(toolbox::Event::Reference evt)
     }
 
     // Stop TF Cell operation
-    if ( tf_descr_ != NULL && controlTFCellOp_.value_ ){
-      if ( !ignoreTFCell() ) sendCommandCell("stop");
-      if ( !ignoreTFCell() ) waitForTFCellOpToReach("configured",5);
-      cout << "    stop TFCellOp: " << sw.read() << endl;
+    if ( isUsingLegacyTF_.value_ ){
+      if ( tf_descr_ != NULL && controlTFCellOp_.value_ ){
+	if ( !ignoreTFCell() ) sendCommandCell("stop");
+	if ( !ignoreTFCell() ) waitForTFCellOpToReach("configured",5);
+	cout << "    stop TFCellOp: " << sw.read() << endl;
+      }
+    }
+    else{
+      if ( tf_descr_ != NULL && controlTFCellOp_.value_ ){
+	LOG4CPLUS_INFO( getApplicationLogger(), "Sending 'stop' to TF Cell." );
+	sendCommandCell("stop");
+	LOG4CPLUS_INFO( getApplicationLogger(), "Sent 'stop' to TF Cell." );
+	waitForTFCellOpToReach("configured",5);
+	cout << "    stop TFCellOp: " << sw.read() << endl;
+      }      
     }
 
     if ( ! isUsingTCDS_ ){
@@ -1715,18 +1795,27 @@ void emu::supervisor::Application::haltAction(toolbox::Event::Reference evt)
     }
 
     // Reset TF Cell operation
-    if ( tf_descr_ != NULL && controlTFCellOp_.value_ ){
-      if ( bool(forceTFCellConf_) ){
-	if ( !ignoreTFCell() ) OpResetCell();
-	cout << "    reset TFCellOp: " << sw.read() << endl;
+    if ( isUsingLegacyTF_.value_ ){
+      if ( tf_descr_ != NULL && controlTFCellOp_.value_ ){
+	if ( bool(forceTFCellConf_) ){
+	  if ( !ignoreTFCell() ) OpResetCell();
+	  cout << "    reset TFCellOp: " << sw.read() << endl;
+	}
+	else{
+	  LOG4CPLUS_WARN( getApplicationLogger(), "\"forceTFCellConf\" is set to FALSE, therefore the TF Cell will not be 'reset' (to 'halted' state). Instead, it will be 'stopped' (to 'configured' state) so that it can be ready to start without being (re)configured if the correct key is already active." );
+	  if ( !ignoreTFCell() ) sendCommandCell("stop");
+	  if ( !ignoreTFCell() ) waitForTFCellOpToReach("configured",5);
+	  cout << "    stop TFCellOp: " << sw.read() << endl;
+	}
       }
-      else{
-	 LOG4CPLUS_WARN( getApplicationLogger(), "\"forceTFCellConf\" is set to FALSE, therefore the TF Cell will not be 'reset' (to 'halted' state). Instead, it will be 'stopped' (to 'configured' state) so that it can be ready to start without being (re)configured if the correct key is already active." );
-	if ( !ignoreTFCell() ) sendCommandCell("stop");
-	if ( !ignoreTFCell() ) waitForTFCellOpToReach("configured",5);
-	cout << "    stop TFCellOp: " << sw.read() << endl;
+    } // if ( isUsingLegacyTF_.value_ )
+    else{
+      if ( tf_descr_ != NULL && controlTFCellOp_.value_ ){
+	LOG4CPLUS_INFO( getApplicationLogger(), "Resetting the TF Cell." );
+	OpResetCell();
+	LOG4CPLUS_INFO( getApplicationLogger(), "Reset the TF Cell." );
       }
-    }
+    } // if ( isUsingLegacyTF_.value_ ) else
 
     if ( ! isUsingTCDS_ ){
       if (state_table_.getState("ttc::LTCControl", 0) != "halted") {
@@ -1938,6 +2027,39 @@ void emu::supervisor::Application::transitionFailed(toolbox::Event::Reference ev
 //////////////////////////////////////////////////////////////////////
 
 
+// void emu::supervisor::Application::sendCommandCell(string command){
+//   if ( tf_descr_ == NULL ) return;
+//   emu::soap::Messenger m( this );
+
+//   xdata::String async( "false" ); 
+//   xdata::String cid( "10" );
+//   xdata::String sid( "73" ); 
+//   xdata::String paramName( "KEY" );
+//   xdata::String commandName( command );
+
+//   try{
+//     emu::soap::Attributes paramAttr;
+//     paramAttr.setUsePrefixOfParent( false ).add( "name", &paramName );
+//     m.sendCommand( tf_descr_, 
+// 		   emu::soap::QualifiedName( "OpSendCommand", "urn:ts-soap:3.0", "ts-soap" ),
+// 		   emu::soap::Parameters()
+// 		   .add( "operation", &TFCellOpName_ )
+// 		   .add( "command"  , &commandName   )
+// 		   .add( "param"    , &tf_key_       , &paramAttr ),
+// 		   emu::soap::Attributes()
+// 		   .setUsePrefixOfParent( false )
+// 		   .add( "async", &async )
+// 		   .add( "cid"  , &cid   )
+// 		   .add( "sid"  , &sid   )
+// 		   );
+//     isTFCellResponsive_ = true;
+//   } 
+//   catch( xcept::Exception& e ){
+//     isTFCellResponsive_ = false;
+//     LOG4CPLUS_ERROR( getApplicationLogger(), "Failed to send command '" << command << "' to TF Cell " << xcept::stdformat_exception_history(e) );
+//   }
+// }
+ 
 void emu::supervisor::Application::sendCommandCell(string command){
   if ( tf_descr_ == NULL ) return;
   emu::soap::Messenger m( this );
@@ -1945,24 +2067,36 @@ void emu::supervisor::Application::sendCommandCell(string command){
   xdata::String async( "false" ); 
   xdata::String cid( "10" );
   xdata::String sid( "73" ); 
-  xdata::String paramName( "KEY" );
+  xdata::String param1Name( "KEY" ); // for legacy CSCTF
+  xdata::String param2Name( "Configuration Key" ), param3Name( "Run Settings Key" ); // for EMTF (see cactus/cactuscore/ts/runcontrol/src/common/ConfigurationBase.cc for their names)
   xdata::String commandName( command );
 
+  xdata::String warningMessage( "" );
+
   try{
-    emu::soap::Attributes paramAttr;
-    paramAttr.setUsePrefixOfParent( false ).add( "name", &paramName );
-    m.sendCommand( tf_descr_, 
-		   emu::soap::QualifiedName( "OpSendCommand", "urn:ts-soap:3.0", "ts-soap" ),
-		   emu::soap::Parameters()
-		   .add( "operation", &TFCellOpName_ )
-		   .add( "command"  , &commandName   )
-		   .add( "param"    , &tf_key_       , &paramAttr ),
-		   emu::soap::Attributes()
-		   .setUsePrefixOfParent( false )
-		   .add( "async", &async )
-		   .add( "cid"  , &cid   )
-		   .add( "sid"  , &sid   )
-		   );
+    emu::soap::Attributes param1Attr, param2Attr, param3Attr;
+    param1Attr.setUsePrefixOfParent( false ).add( "name", &param1Name );
+    param2Attr.setUsePrefixOfParent( false ).add( "name", &param2Name );
+    param3Attr.setUsePrefixOfParent( false ).add( "name", &param3Name );
+    emu::soap::extractParameters( m.sendCommand( tf_descr_, 
+						 emu::soap::QualifiedName( "OpSendCommand", "urn:ts-soap:3.0", "ts-soap" ),
+						 emu::soap::Parameters()
+						 .add( "operation", &TFCellOpName_ )
+						 .add( "command"  , &commandName   )
+						 .add( "param"    , &tf_key_         , &param1Attr )
+						 .add( "param"    , &tf_key_         , &param2Attr )
+						 .add( "param"    , &tf_run_settings_, &param3Attr ),
+						 emu::soap::Attributes()
+						 .setUsePrefixOfParent( false )
+						 .add( "async", &async )
+						 .add( "cid"  , &cid   )
+						 .add( "sid"  , &sid   )
+						 ),
+				  emu::soap::Parameters().add( "warningMessage", &warningMessage )
+				  );
+    if ( warningMessage.toString().length() > 0 ){
+      LOG4CPLUS_ERROR( getApplicationLogger(), "Command '" << commandName.toString() << "' returned with warning message from TF Cell: " << warningMessage.toString() );
+    }
     isTFCellResponsive_ = true;
   } 
   catch( xcept::Exception& e ){
@@ -2037,7 +2171,10 @@ void emu::supervisor::Application::OpResetCell(){
 //////////////////////////////////////////////////////////////////////
 
 bool emu::supervisor::Application::skipTFCellConfiguration(){
-  // Find out if the TF Cell is already configured with the current TF configuration key, and we can skip
+  // The EMTF Cell is always to be configured.
+  if ( ! isUsingLegacyTF_.value_ ) return false;
+
+  // Find out if the legacy TF Cell is already configured with the current TF configuration key, and we can skip
   // (re)configuring it.
 
   LOG4CPLUS_INFO( getApplicationLogger(), "Checking whether or not we have to configure the TF Cell." );
@@ -2401,10 +2538,30 @@ void emu::supervisor::Application::StateTable::addApplication(string klass)
 
 	// add to the table
         bSem_.take();
-	std::set<xdaq::ApplicationDescriptor *>::iterator i = apps.begin();
-	for (; i != apps.end(); ++i) {
-		table_.push_back(
-				pair<xdaq::ApplicationDescriptor *, string>(*i, "NULL"));
+	for (std::set<xdaq::ApplicationDescriptor *>::iterator i = apps.begin(); i != apps.end(); ++i) {
+	  if ( (*i)->getClassName().substr( 0, 6 ) == "tcds::" ){
+	    // Apparently, a TCDS app...
+	    if( app_->isUsingTCDS_ ){
+	      // ...and we're supposed to use TCDS...
+	      std::string service = (*i)->getAttribute( "service" );
+	      if ( service.substr( service.length()-4 ) == "-pri" ){
+		// ...and it's the primary system, and we're to use the primary system...
+		if ( (bool)(app_->usePrimaryTCDS_) ) table_.push_back(pair<xdaq::ApplicationDescriptor *, string>(*i, "NULL"));
+	      }
+	      else if ( service.substr( service.length()-4 ) == "-sec" ){
+		// ...or it's the secondary system, and we're to use the secondary system...
+		if ( ! (bool)(app_->usePrimaryTCDS_) ) table_.push_back(pair<xdaq::ApplicationDescriptor *, string>(*i, "NULL"));
+	      }
+	      else{
+		// ...or it's without system designation, in which case we take it.
+		table_.push_back(pair<xdaq::ApplicationDescriptor *, string>(*i, "NULL"));
+	      }
+	    }
+	  }
+	  else{
+	    // Apparently, it's not a TCDS app, so we take it without further checks.
+	    table_.push_back(pair<xdaq::ApplicationDescriptor *, string>(*i, "NULL"));
+	  }
 	}
         bSem_.give();
 }
@@ -2433,17 +2590,17 @@ void emu::supervisor::Application::StateTable::refresh( bool forceRefresh )
 		try {
 			xdata::String state;
 			if ( klass == "tcds::pi::PIController" ){
-			  if ( service == "pi-cscp"  && app_->pi_plus_   ) state = app_->pi_plus_ ->getSteadyState();
-			  if ( service == "pi-cscm"  && app_->pi_minus_  ) state = app_->pi_minus_->getSteadyState();
-			  if ( service == "pi-csctf" && app_->pi_tf_     ) state = app_->pi_tf_   ->getSteadyState();
+			  if ( service.substr( 0, 7 ) == "pi-cscp"  && app_->pi_plus_   ) state = app_->pi_plus_ ->getSteadyState();
+			  if ( service.substr( 0, 7 ) == "pi-cscm"  && app_->pi_minus_  ) state = app_->pi_minus_->getSteadyState();
+			  if ( service.substr( 0, 8 ) == "pi-csctf" && app_->pi_tf_     ) state = app_->pi_tf_   ->getSteadyState();
 			}
 			else if ( klass == "tcds::ici::ICIController" ){
-			  if ( service == "ici-cscp"  && app_->ci_plus_  ) state = app_->ci_plus_ ->getSteadyState();
-			  if ( service == "ici-cscm"  && app_->ci_minus_ ) state = app_->ci_minus_->getSteadyState();
-			  if ( service == "ici-csctf" && app_->ci_tf_    ) state = app_->ci_tf_   ->getSteadyState();
+			  if ( service.substr( 0, 8 ) == "ici-cscp"  && app_->ci_plus_  ) state = app_->ci_plus_ ->getSteadyState();
+			  if ( service.substr( 0, 8 ) == "ici-cscm"  && app_->ci_minus_ ) state = app_->ci_minus_->getSteadyState();
+			  if ( service.substr( 0, 9 ) == "ici-csctf" && app_->ci_tf_    ) state = app_->ci_tf_   ->getSteadyState();
 			}
 			else if ( klass == "tcds::lpm::LPMController" ){
-			  if ( service == "lpm-csc"   && app_->pm_       ) state = app_->pm_      ->getSteadyState();
+			  if ( service.substr( 0, 7 ) == "lpm-csc"   && app_->pm_       ) state = app_->pm_      ->getSteadyState();
 			}
 			else if ( klass == "emu::daq::manager::Application" ){
 			  if ( bool( app_->isDAQResponsive_ ) ){
