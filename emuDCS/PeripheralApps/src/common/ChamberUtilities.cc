@@ -1111,9 +1111,9 @@ inline void ChamberUtilities::CFEBTiming_ConfigureLevel(CFEBTiming_Configuration
   //(*MyOutput_) << "CFEBTiming Configure Level " << level << std::endl;
   
   if(level < 0 || level == 0 || (after && level <= 0)) {
-    thisCCB_->setCCBMode(CCB::VMEFPGA);
+//    thisCCB_->setCCBMode(CCB::VMEFPGA);
     thisCCB_->hardReset();
-    thisCCB_->setCCBMode(CCB::DLOG);
+//    thisCCB_->setCCBMode(CCB::DLOG);
     
     SetDCFEBsPipelineDepth(config.cfeb_pipeline_depth); // Set pipeline depth, does not have to be exact (~60)
     usleep(100);
@@ -1138,7 +1138,7 @@ inline void ChamberUtilities::CFEBTiming_ConfigureLevel(CFEBTiming_Configuration
     usleep(100);
   }
   if(level < 0 || level == 1 || (after && level <= 1)) {
-    thisCCB_->setCCBMode(CCB::DLOG);
+//    thisCCB_->setCCBMode(CCB::DLOG);
     ConfigureTMB(config);
     usleep(1000);
   }
@@ -1557,6 +1557,8 @@ void ChamberUtilities::CFEBTiming_with_Posnegs_simple_routine(int time_delay, in
     config.cfeb_mask = 0x7f;
   else
     config.cfeb_mask = 0x1 << cfeb_num;
+
+  thisCCB_->setCCBMode(CCB::VMEFPGA);
   
   CFEBTiming_PrintConfiguration(config);
   
@@ -1566,8 +1568,8 @@ void ChamberUtilities::CFEBTiming_with_Posnegs_simple_routine(int time_delay, in
     usleep(1000000);
     CFEBTiming_ConfigureLevel(config);
     usleep(1000000);
-    CFEBTiming_CheckConfiguration(config);
-    
+    CFEBTiming_CheckConfiguration(config);    
+    web_backup << "ME1/1 DCFEB RX scan on " << thisTMB->GetLabel() << std::endl;
     for(int cfeb=0, ncfebs=thisDMB->cfebs_.size(); cfeb<ncfebs; ++cfeb) {	
       
       char tmp[2];
@@ -1650,9 +1652,9 @@ void ChamberUtilities::CFEBTiming_with_Posnegs_simple_routine(int time_delay, in
     
   }
   else { //not is_me11_
-    thisCCB_->setCCBMode(CCB::VMEFPGA);
+//    thisCCB_->setCCBMode(CCB::VMEFPGA);
     thisCCB_->hardReset();
-    thisCCB_->setCCBMode(CCB::DLOG);
+//    thisCCB_->setCCBMode(CCB::DLOG);
     ConfigureTMB(config);
     
     thisTMB->ReadRegister(vme_ddd1_adr); // Get phase and TOF delay from hardware
@@ -1790,9 +1792,9 @@ void ChamberUtilities::CFEBTiming_with_Posnegs_simple_routine(int time_delay, in
 	      std::ostream * temp_os = MyOutput_;
 	      //MyOutput_ = &out_file;
 	      
-	      thisCCB_->setCCBMode(CCB::VMEFPGA);
+//	      thisCCB_->setCCBMode(CCB::VMEFPGA);
 	      thisCCB_->syncReset();
-	      thisCCB_->setCCBMode(CCB::DLOG);
+//	      thisCCB_->setCCBMode(CCB::DLOG);
 
 	      thisCCB_->bc0(); // Start triggering
 	      
@@ -2376,7 +2378,8 @@ void ChamberUtilities::CFEBTiming_with_Posnegs_simple_routine(int time_delay, in
   
   
   web_backup.close();
-  
+  thisCCB_->setCCBMode(CCB::DLOG);
+    
 }
     //
 int ChamberUtilities::me11_wraparound_best_center(int errors[25]) {
@@ -2637,9 +2640,9 @@ void ChamberUtilities::CFEBTiming_with_Posnegs(CFEBTiming_scanType scanType) {
   //
   // Get initial values, so we can go back to them at the end if we want....  
   // -> Hard Reset to put all the values from the userPROM onto the TMB
-  thisCCB_->setCCBMode(CCB::VMEFPGA);
+//  thisCCB_->setCCBMode(CCB::VMEFPGA);
   thisCCB_->hardReset(); 
-  thisCCB_->setCCBMode(CCB::DLOG);
+//  thisCCB_->setCCBMode(CCB::DLOG);
   //
   thisTMB->ReadRegister(vme_ddd1_adr);
   thisTMB->ReadRegister(vme_ddd2_adr);
@@ -7692,7 +7695,7 @@ void ChamberUtilities::LoadCFEB(int HalfStrip, int CLCTInputs, bool enableL1aEmu
   //
   // Inject it (pulse the CFEBs)
   //
-  thisCCB_->setCCBMode(CCB::VMEFPGA);
+//  thisCCB_->setCCBMode(CCB::VMEFPGA);
   thisCCB_->WriteRegister(0x28,0x7878);  //4Aug05 DM changed 0x789b to 0x7862
   //
   return;
@@ -7765,7 +7768,7 @@ void ChamberUtilities::PulseHalfstrips(int * hs_normal, bool enableL1aEmulator) 
   //
   // Inject it (pulse the CFEBs)
   //
-  thisCCB_->setCCBMode(CCB::VMEFPGA);
+  // thisCCB_->setCCBMode(CCB::VMEFPGA);
   //thisCCB_->WriteRegister(0x28,0x7878);  //4Aug05 DM changed 0x789b to 0x7862
   //
   if(is_me11_) {
