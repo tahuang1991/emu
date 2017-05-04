@@ -441,6 +441,8 @@ public:
   void buck_shift_out();
   int buck_shift_test();
   //
+  inline std::string GetLabel(){return label_;}
+  //
   void set_cal_tim_pulse(int ntim);
   void set_cal_tim_inject(int ntim);
   //
@@ -999,6 +1001,8 @@ public:
   int fwyear_, fwmonth_, fwday_, fwvers_, fwrv_;
 
   Chamber * csc_;
+  /// chamber name
+  std::string label_;
   /// CFEB Data Available delay adjustment (25ns per step); 
   int feb_dav_delay_;
   /// TMB Data Available delay adjustment (25ns per step); 

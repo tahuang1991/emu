@@ -577,6 +577,7 @@ namespace emu {
   ucla_ldev = 1;
   //
   theChamber->SetTMB(this);
+  label_ = theChamber->GetLabel();
   //
 #ifdef debugV
   std::cout << "Inside TMB" << std::endl;

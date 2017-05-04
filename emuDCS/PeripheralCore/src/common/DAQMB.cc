@@ -610,6 +610,7 @@ DAQMB::DAQMB(Crate * theCrate, Chamber * theChamber, int newslot):
   dmb_smoking_gun_status_ = false;
   //
   theChamber->SetDMB(this);
+  label_ = theChamber->GetLabel();
   //
   cfebs_.clear();
   std::cout << "DMB: crate=" << this->crate() << " slot=" << this->slot() << std::endl;
@@ -1028,6 +1029,7 @@ bool DAQMB::checkDAQMBXMLValues() {
     cfeb_name.push_back("DCFEB 7 ");
     int cfeb_index, cfebdone=0;
     int donebits = read_cfeb_done();
+    if(!confmatch) std::cout << "ODMB check return false!" << std::endl;
     for(CFEBItr cfebItr = cfebs_.begin(); cfebItr != cfebs_.end(); ++cfebItr)
     {
        cfeb_index = (*cfebItr).number();
@@ -1052,8 +1054,11 @@ bool DAQMB::checkDAQMBXMLValues() {
        confmatch &= compareValues(cfeb_name[cfeb_index]+"Pipeline Depth", pipeline, cfebItr->GetPipelineDepth(), print_errors); 
        int nsample=dcfeb_read_config(*cfebItr, 8);
        confmatch &= compareValues(cfeb_name[cfeb_index]+"Number of Samples", nsample, GetNSamplesCfeb(cfeb_index), print_errors);          
+       if(!confmatch) std::cout << cfeb_name[cfeb_index] << " check return false!" << std::endl;
 
     }
+    if(!confmatch) std::cout << " ODMB+DCFEB check return false!" << std::endl;
+
     return confmatch;
   }
   else return true;
