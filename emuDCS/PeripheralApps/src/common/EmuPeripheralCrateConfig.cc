@@ -945,7 +945,7 @@ void EmuPeripheralCrateConfig::MainPage(xgi::Input * in, xgi::Output * out )
 	*out << "ALCT: " ;
 	for (unsigned chamber_index=0; chamber_index<(tmbVector.size()<9?tmbVector.size():9) ; chamber_index++) {
 	  if (alct_check_ok[current_crate_][chamber_index] > 0) {
-	    *out << thisCrate->GetChamber(tmbVector[chamber_index]->slot())->GetLabel().c_str() << ", ";
+	    *out << thisCrate->GetChamber(tmbVector[chamber_index]->slot())->GetLabel().c_str() << " ( " << alct_check_ok[current_crate_][chamber_index] << " ), ";
 	  }
 	}
 	*out << "... not OK" << cgicc::br() << std::endl ;
@@ -963,7 +963,7 @@ void EmuPeripheralCrateConfig::MainPage(xgi::Input * in, xgi::Output * out )
 	*out << "TMB: " ;
 	for (unsigned chamber_index=0; chamber_index<(tmbVector.size()<9?tmbVector.size():9) ; chamber_index++) {
 	  if (tmb_check_ok[current_crate_][chamber_index] > 0) {
-	    *out << thisCrate->GetChamber(tmbVector[chamber_index]->slot())->GetLabel().c_str() << ", ";
+	    *out << thisCrate->GetChamber(tmbVector[chamber_index]->slot())->GetLabel().c_str() << " ( " << tmb_check_ok[current_crate_][chamber_index] << " ), ";
 	  }
 	}
 	*out << "... not OK" << cgicc::br() << std::endl ;
@@ -981,7 +981,7 @@ void EmuPeripheralCrateConfig::MainPage(xgi::Input * in, xgi::Output * out )
 	*out << "DMB: " ;
 	for (unsigned chamber_index=0; chamber_index<(tmbVector.size()<9?tmbVector.size():9) ; chamber_index++) {
 	  if (dmb_check_ok[current_crate_][chamber_index] > 0) {
-	    *out << thisCrate->GetChamber(tmbVector[chamber_index]->slot())->GetLabel().c_str() << ", ";
+	    *out << thisCrate->GetChamber(tmbVector[chamber_index]->slot())->GetLabel().c_str() << " ( " << dmb_check_ok[current_crate_][chamber_index] << " ), ";
 	  }
 	}
 	*out << "... not OK" << cgicc::br() << std::endl ;
@@ -2651,7 +2651,7 @@ void EmuPeripheralCrateConfig::CheckPeripheralCrateConfiguration(int full_check)
   }
   //
   // in the following loop, change check_ok values to match the TYPE of configuration error...
-  // = 0 = read configuration not OK
+  // = 0 = read configuration OK
   // = 1 = read configuration not OK
   // = 2 = read configuration not OK (or FPGA not programmed), and this has been masked in the problem_mask as such
   // = 3 = read configuration OK, but this has been masked in the problem_mask as a problem
@@ -10135,16 +10135,7 @@ void EmuPeripheralCrateConfig::TMBUtils(xgi::Input * in, xgi::Output * out )
     std::string CheckAbilityToLoadALCT = toolbox::toString("/%s/CheckAbilityToLoadALCT",getApplicationDescriptor()->getURN().c_str());
     *out << cgicc::form().set("method","GET").set("action",CheckAbilityToLoadALCT) << std::endl ;
     //
-    int track_checked = -1;
-    //
-    for (unsigned int i=0; i<(tmbVector.size()<9?tmbVector.size():9) ; i++)
-      if (able_to_load_alct[i] == 0) 
-	track_checked = 0;
-    //
-    for (unsigned int i=0; i<(tmbVector.size()<9?tmbVector.size():9) ; i++)
-      if (able_to_load_alct[i] > 0) 
-	track_checked++;
-    //
+    int track_checked = able_to_load_alct[tmb]; 
     //
     if ( track_checked < 0 ) {
       *out << cgicc::input().set("type","submit").set("value","Step 2) ALCT firmware loading check").set("style","color:blue");
