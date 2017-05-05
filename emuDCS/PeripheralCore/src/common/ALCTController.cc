@@ -2170,6 +2170,10 @@ void ALCTController::SetExpectedFastControlMonth(int firmware_month) {
 //
 void ALCTController::ReadFastControlMezzIDCodes() {
   //
+  // Liu 2017-05-05:
+  // for new Spartan-6 FPGA, skip the following to avoid sending junk bits to the JTAG chain.
+  //
+  if(hardware_version_ <=1 ) {
   tmb_->setup_jtag(ChainAlctFastMezz);
   //
   tmb_->ShfIR_ShfDR(ChipLocationAlctFastMezzFpga,
@@ -2189,6 +2193,8 @@ void ALCTController::ReadFastControlMezzIDCodes() {
 		    RegSizeAlctFastMezzFpga_PROMidCode);  
   //
   alct_prom1_idcode_ = (tmb_->bits_to_int(tmb_->GetDRtdo(),tmb_->GetRegLength(),0) ) & 0xfffffff;
+  }
+  else alct_fpga_idcode_ = ID_288384;  // fake id to pass the fpga_id check, not necessary but...
   //
   return;
 }
