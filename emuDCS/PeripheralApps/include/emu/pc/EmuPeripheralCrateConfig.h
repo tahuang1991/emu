@@ -482,6 +482,7 @@ private:
   void TMBResetSyncError(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);  
   void TMBRawHits(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void ALCTRawHits(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
+  void GEMRawHits(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
   void DisableALCTTestPulse(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void TMBPrintCounters(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void TMBResetCounters(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
@@ -607,10 +608,14 @@ private:
   void CfebDavCableDelay(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void PrintDmbValuesAndScopes(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void RatTmbTiming(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
+  void ScanOTMBFiberDelays(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
   void RpcRatTiming(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void ALCT_TMB_communication(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void ALCT_TMB_Loopback(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void TMB_to_ALCT_walking_ones(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
+  void SetGEMPhase (xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
+  void SetGEMPosneg (xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
+  void SetGEMIntDelay (xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
   //
   // synchronization functions looping over CSC's
   void MeasureL1AsAndDAVsForCrate(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 

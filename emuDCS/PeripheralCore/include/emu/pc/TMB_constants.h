@@ -377,6 +377,17 @@ static const unsigned long int  gem_gtx_rx1_adr          = 0x000302;  //ADR_GEM_
 static const unsigned long int  gem_gtx_rx2_adr          = 0x000304;  //ADR_GEM_GTX_RX2
 static const unsigned long int  gem_gtx_rx3_adr          = 0x000306;  //ADR_GEM_GTX_RX3
 
+static const unsigned long int  phaser_gem_rxd_adr  = 0x000308;  // ADR_GEM_PHASER
+static const unsigned long int  phaser_gemA_rxd_adr = 0x000308;  // ADR_GEMA_PHASER
+static const unsigned long int  phaser_gemB_rxd_adr = 0x00030A;  // ADR_GEMB_PHASER
+
+static const unsigned long int gem_debug_fifo_ctrl_adr   = 0x00030c; // GEM Debug FIFO Control Address
+static const unsigned long int gem_debug_fifo_data_adr   = 0x00030e; // GEM Debug FIFO Data Address
+static const unsigned long int gem_tbins_adr             = 0x000310; // GEM Time Bin Readout Control Address
+static const unsigned long int gem_cfg_adr               = 0x000312; // GEM Configuration Address
+static const unsigned long int gem_cnt_ctrl_adr          = 0x000314; // GEM Counter Register Control Address
+static const unsigned long int gem_cnt_rdata_adr         = 0x000316; // GEM Counter Register Data Address
+
 //
 static const int LARGEST_VME_ADDRESS = badbits445_adr;
 static const int OTMB_LARGEST_VME_ADDRESS = algo2016_ctrl_adr;
@@ -2522,6 +2533,7 @@ const int alct_tx_posneg_default       =  0;
 //--------------------------------------------------------------
 const int cfeb0_rx_clock_delay_vmereg   =  phaser_cfeb0_rxd_adr;
 const int cfeb0_rx_clock_delay_default  =  3;                   //default value in nanoseconds (not the VME register values) 
+const int cfeb0_rx_fine_delay_default   =  0;
 const int cfeb0_rx_posneg_default       =  0; 
 //
 //--------------------------------------------------------------
@@ -2529,6 +2541,7 @@ const int cfeb0_rx_posneg_default       =  0;
 //--------------------------------------------------------------
 const int cfeb1_rx_clock_delay_vmereg   =  phaser_cfeb1_rxd_adr;
 const int cfeb1_rx_clock_delay_default  =  3;                   //default value in nanoseconds (not the VME register values) 
+const int cfeb1_rx_fine_delay_default   =  0;
 const int cfeb1_rx_posneg_default       =  0; 
 //
 //--------------------------------------------------------------
@@ -2536,6 +2549,7 @@ const int cfeb1_rx_posneg_default       =  0;
 //--------------------------------------------------------------
 const int cfeb2_rx_clock_delay_vmereg   =  phaser_cfeb2_rxd_adr;
 const int cfeb2_rx_clock_delay_default  =  3;                   //default value in nanoseconds (not the VME register values) 
+const int cfeb2_rx_fine_delay_default   =  0;
 const int cfeb2_rx_posneg_default       =  0; 
 //
 //--------------------------------------------------------------
@@ -2543,6 +2557,7 @@ const int cfeb2_rx_posneg_default       =  0;
 //--------------------------------------------------------------
 const int cfeb3_rx_clock_delay_vmereg   =  phaser_cfeb3_rxd_adr;
 const int cfeb3_rx_clock_delay_default  =  3;                   //default value in nanoseconds (not the VME register values) 
+const int cfeb3_rx_fine_delay_default   =  0;
 const int cfeb3_rx_posneg_default       =  0; 
 //
 //--------------------------------------------------------------
@@ -2550,6 +2565,7 @@ const int cfeb3_rx_posneg_default       =  0;
 //--------------------------------------------------------------
 const int cfeb4_rx_clock_delay_vmereg   =  phaser_cfeb4_rxd_adr;
 const int cfeb4_rx_clock_delay_default  =  3;                   //default value in nanoseconds (not the VME register values) 
+const int cfeb4_rx_fine_delay_default   =  0;
 const int cfeb4_rx_posneg_default       =  0; 
 //
 //--------------------------------------------------------------
@@ -2557,6 +2573,7 @@ const int cfeb4_rx_posneg_default       =  0;
 //--------------------------------------------------------------
 const int cfeb5_rx_clock_delay_vmereg   =  phaser_cfeb5_rxd_adr; // for compatibility, will be removed
 const int cfeb5_rx_clock_delay_default  =  3;                   //default value in nanoseconds (not the VME register values) 
+const int cfeb5_rx_fine_delay_default  = 0;
 const int cfeb5_rx_posneg_default       =  0; 
 //
 //--------------------------------------------------------------
@@ -2564,6 +2581,7 @@ const int cfeb5_rx_posneg_default       =  0;
 //--------------------------------------------------------------
 const int cfeb6_rx_clock_delay_vmereg   =  phaser_cfeb6_rxd_adr; // for compatibility, will be removed
 const int cfeb6_rx_clock_delay_default  =  3;                   //default value in nanoseconds (not the VME register values) 
+const int cfeb6_rx_fine_delay_default  = 0;         
 const int cfeb6_rx_posneg_default       =  0; 
 //
 //--------------------------------------------------------------
@@ -2571,6 +2589,7 @@ const int cfeb6_rx_posneg_default       =  0;
 //--------------------------------------------------------------
 const int cfeb0123_rx_clock_delay_vmereg   =  phaser_cfeb0123_rxd_adr;
 const int cfeb0123_rx_clock_delay_default  =  3;                   //default value in nanoseconds (not the VME register values) 
+const int cfeb0123_rx_fine_delay_default  = 0;                  
 const int cfeb0123_rx_posneg_default       =  0; 
 //
 //--------------------------------------------------------------
@@ -2578,7 +2597,32 @@ const int cfeb0123_rx_posneg_default       =  0;
 //--------------------------------------------------------------
 const int cfeb456_rx_clock_delay_vmereg   =  phaser_cfeb456_rxd_adr;
 const int cfeb456_rx_clock_delay_default  =  3;                   //default value in nanoseconds (not the VME register values) 
+const int cfeb456_rx_fine_delay_default  = 0;                   
 const int cfeb456_rx_posneg_default       =  0; 
+//
+//--------------------------------------------------------------
+//[0X308] = ADR_PHASER9:  values in the xml file for gem_rxd
+//--------------------------------------------------------------
+const int gem_rx_clock_delay_vmereg   =  phaser_gem_rxd_adr;
+const int gem_rx_clock_delay_default  =  3; // default value in nanoseconds (not the VME register values)
+const int gem_rx_posneg_default       =  0;
+const int gem_rx_fine_delay_default   =  0;
+//
+//--------------------------------------------------------------
+//[0X308] = ADR_PHASER9:  values in the xml file for gemA_rxd
+//--------------------------------------------------------------
+const int gemA_rx_clock_delay_vmereg   =  phaser_gemA_rxd_adr;
+const int gemA_rx_clock_delay_default  =  3; // default value in nanoseconds (not the VME register values)
+const int gemA_rx_posneg_default       =  0;
+const int gemA_rx_fine_delay_default   =  0;
+//
+//--------------------------------------------------------------
+//[0X30A] = ADR_PHASER10:  values in the xml file for gemB_rxd
+//--------------------------------------------------------------
+const int gemB_rx_clock_delay_vmereg   =  phaser_gemB_rxd_adr;
+const int gemB_rx_clock_delay_default  =  3; // default value in nanoseconds (not the VME register values)
+const int gemB_rx_posneg_default       =  0;
+const int gemB_rx_fine_delay_default   =  0;
 //
 //---------------------------------------------------------------------
 // 0X11C = ADR_DELAY0_INT:  CFEB to TMB "interstage" delays
@@ -3146,7 +3190,8 @@ const int mpc_frames_fifo_ctrl_sditter_vmereg            = mpc_frames_fifo_ctrl_
 const int mpc_frames_fifo_ctrl_sditter_bitlo             = 8;
 const int mpc_frames_fifo_ctrl_sditter_bithi             = 8;
 const int mpc_frames_fifo_ctrl_sditter_default           = 0;
-
+//
+//
 //------------------------------------------------------------------
 //0X198 = ADR_NEWALGO_CTRL:  Controls parameters of new trigger algorithm  (Yuriy, 2016)
 //------------------------------------------------------------------
@@ -3190,7 +3235,68 @@ const int clct_use_corrected_bx_vmereg  = algo2016_ctrl_adr;
 const int clct_use_corrected_bx_bitlo   = 10;
 const int clct_use_corrected_bx_bithi   = 10;
 const int clct_use_corrected_bx_default = 1; // for now this improvement is switched off by default because it is not fully functional in firmware
-
+//
+//
+//-----------------------------------------------------------------------------
+// 0X310 ADR_GEM_TBINS
+//-----------------------------------------------------------------------------
+const int gem_fifo_tbins_vmereg           = gem_tbins_adr;
+const int gem_fifo_tbins_bitlo            = 0;
+const int gem_fifo_tbins_bithi            = 4;
+const int gem_fifo_tbins_default          = 7;
+//
+//
+const int gem_fifo_pretrig_vmereg         = gem_tbins_adr;
+const int gem_fifo_pretrig_bitlo          = 5;
+const int gem_fifo_pretrig_bithi          = 9;
+const int gem_fifo_pretrig_default        = 2;
+//
+//
+const int gem_fifo_decouple_vmereg        = gem_tbins_adr;
+const int gem_fifo_decouple_bitlo         = 10;
+const int gem_fifo_decouple_bithi         = 10;
+const int gem_fifo_decouple_default       = 0;
+//
+//
+const int gem_read_enable_vmereg          = gem_tbins_adr;
+const int gem_read_enable_bitlo           = 11;
+const int gem_read_enable_bithi           = 11;
+const int gem_read_enable_default         = 0;
+//
+//
+const int gem_zero_supress_enable_vmereg  = gem_tbins_adr;
+const int gem_zero_supress_enable_bitlo   = 12;
+const int gem_zero_supress_enable_bithi   = 12;
+const int gem_zero_supress_enable_default = 0;
+//
+//
+//-----------------------------------------------------------------------------
+// 0X312 ADR_GEM_CFG
+//-----------------------------------------------------------------------------
+//
+const int gemA_rxd_int_delay_vmereg          = gem_cfg_adr;
+const int gemA_rxd_int_delay_bitlo           = 0;
+const int gemA_rxd_int_delay_bithi           = 3;
+const int gemA_rxd_int_delay_default         = 0;
+//
+//
+const int gemB_rxd_int_delay_vmereg          = gem_cfg_adr;
+const int gemB_rxd_int_delay_bitlo           = 4;
+const int gemB_rxd_int_delay_bithi           = 7;
+const int gemB_rxd_int_delay_default         = 0;
+//
+//
+const int decouple_gem_rxd_int_delay_vmereg  = gem_cfg_adr;
+const int decouple_gem_rxd_int_delay_bitlo   = 8;
+const int decouple_gem_rxd_int_delay_bithi   = 8;
+const int decouple_gem_rxd_int_delay_default = 0;
+//
+//
+const int gem_readout_mask_vmereg            = gem_cfg_adr;
+const int gem_readout_mask_bitlo             = 9;
+const int gem_readout_mask_bithi             = 12;
+const int gem_readout_mask_default           = 0xf;
+//
 //
 //////////////////////////////////////////////
 // Bit mapping for TMB Raw Hits
