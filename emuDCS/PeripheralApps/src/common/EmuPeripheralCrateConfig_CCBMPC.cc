@@ -28,9 +28,6 @@ void EmuPeripheralCrateConfig::CCBStatus(xgi::Input * in, xgi::Output * out )
   //
   MyHeader(in,out,Name);
   //
-  *out << cgicc::h1(Name);
-  *out << cgicc::br();
-  //
   *out << cgicc::fieldset().set("style","font-size: 11pt; font-family: arial;");
   *out << std::endl;
   //
@@ -208,9 +205,6 @@ void EmuPeripheralCrateConfig::CCBUtils(xgi::Input * in, xgi::Output * out )
   sprintf(Name,"CCB utilities, crate=%s, slot=%d",ThisCrateID_.c_str(),thisCCB->slot());
   //
   MyHeader(in,out,Name);
-  //
-  *out << cgicc::h1(Name);
-  *out << cgicc::br();
   //
   *out << cgicc::fieldset().set("style","font-size: 11pt; font-family: arial;");
   *out << std::endl;
@@ -465,9 +459,6 @@ void EmuPeripheralCrateConfig::MPCStatus(xgi::Input * in, xgi::Output * out )
   //
   MyHeader(in,out,Name);
   //
-  *out << cgicc::h1(Name);
-  *out << cgicc::br();
-  //
   *out << cgicc::fieldset().set("style","font-size: 11pt; font-family: arial;") << std::endl;
   //
   *out << cgicc::legend("MPC Info").set("style","color:blue") << std::endl ;
@@ -525,9 +516,6 @@ void EmuPeripheralCrateConfig::MPCUtils(xgi::Input * in, xgi::Output * out )
 	  ThisCrateID_.c_str(),thisMPC->slot());
   //
   MyHeader(in,out,Name);
-  //
-  *out << cgicc::h1(Name);
-  *out << cgicc::br();
   //
   *out << cgicc::fieldset().set("style","font-size: 11pt; font-family: arial;") << std::endl ;
   //

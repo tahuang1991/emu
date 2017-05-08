@@ -127,8 +127,6 @@ public:
   void VMECCTestBcast(xgi::Input * in, xgi::Output * out )throw (xgi::exception::Exception);
   void VMECCTestSkewClear(xgi::Input * in, xgi::Output * out )throw (xgi::exception::Exception);
   //
-  void MyHeader(xgi::Input * in, xgi::Output * out, std::string title ) throw (xgi::exception::Exception);
-  //
   xoap::MessageReference onConfigure (xoap::MessageReference message) throw (xoap::exception::Exception);
   xoap::MessageReference onEnable (xoap::MessageReference message) throw (xoap::exception::Exception);
   xoap::MessageReference onDisable (xoap::MessageReference message) throw (xoap::exception::Exception);

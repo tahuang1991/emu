@@ -243,7 +243,7 @@ void EmuPeripheralCrateConfig::VMECCGUI_GoTo_General(xgi::Input * in, xgi::Outpu
       this->ControllerUtils(in,out);
     }
     else if(gt_ypg_name != cgi.getElements().end()) {
-      this->MainPage(in,out);
+      this->Default(in,out);
     }
     else if(gt_crc_name != cgi.getElements().end()) {
       this->CrateConfiguration(in,out);

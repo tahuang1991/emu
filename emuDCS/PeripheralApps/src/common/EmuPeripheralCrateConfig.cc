@@ -14,6 +14,8 @@
 #include <time.h>
 #include <stdlib.h>
 
+#include "xgi/framework/Method.h"
+
 namespace emu {
   namespace pc {
 
@@ -194,7 +196,7 @@ EmuPeripheralCrateConfig::EmuPeripheralCrateConfig(xdaq::ApplicationStub * s): E
   number_of_hard_resets_ = number_of_checks_ - 1;
   //
   xgi::bind(this,&EmuPeripheralCrateConfig::Default, "Default");
-  xgi::bind(this,&EmuPeripheralCrateConfig::MainPage, "MainPage");
+  xgi::framework::deferredbind(this,this,&EmuPeripheralCrateConfig::MainPage, "MainPage");
   xgi::bind(this,&EmuPeripheralCrateConfig::setConfFile, "setConfFile");
   //
   xgi::bind(this,&EmuPeripheralCrateConfig::ConfigOneCrate, "ConfigOneCrate");
@@ -687,7 +689,7 @@ void EmuPeripheralCrateConfig::MainPage(xgi::Input * in, xgi::Output * out )
   //
   LOG4CPLUS_INFO(getApplicationLogger(), "EmuPeripheralCrate ready");
   //
-  MyHeader(in,out,"EmuPeripheralCrateConfig");
+  EmuPeripheralCrateBase::MyHeader(in,out,"EmuPeripheralCrateConfig");
 
   if(!parsed) 
   {  
@@ -1032,22 +1034,17 @@ void EmuPeripheralCrateConfig::MainPage(xgi::Input * in, xgi::Output * out )
   *out << cgicc::br();
   //
 }
+void EmuPeripheralCrateConfig::MyHeader(xgi::Input * in, xgi::Output * out, std::string title )
+  throw (xgi::exception::Exception) 
+{
+      std::string GoToMain =  toolbox::toString("/%s/Default",getApplicationDescriptor()->getURN().c_str());
+      *out << " <form action=\"" << GoToMain << "\" method=\"GET\">" << std::endl;
+      *out << " <input type=\"submit\" value=\"Back to Yellow Page\" name=\"gt_ypg\" style=\"background-color: #FFFF00;\">"  << std::endl;
+      *out << " </form>" << std::endl;
+ 
+      EmuPeripheralCrateBase::MyHeader(in, out, title);
+}  
 
-// 
-void EmuPeripheralCrateConfig::MyHeader(xgi::Input * in, xgi::Output * out, std::string title ) 
-  throw (xgi::exception::Exception) {
-  //
-  *out << cgicc::HTMLDoctype(cgicc::HTMLDoctype::eStrict) << std::endl;
-  *out << cgicc::html().set("lang", "en").set("dir","ltr") << std::endl;
-  //
-  //*out << cgicc::title(title) << std::endl;
-  //*out << "<a href=\"/\"><img border=\"0\" src=\"/daq/xgi/images/XDAQLogo.gif\" title=\"XDAQ\" alt=\"\" style=\"width: 145px; height: 89px;\"></a>" << std::endl;
-  //
-  std::string myUrn = getApplicationDescriptor()->getURN().c_str();
-  xgi::Utils::getPageHeader(out,title,myUrn,"","");
-  //
-}
-//
 void EmuPeripheralCrateConfig::Default(xgi::Input * in, xgi::Output * out ) 
   throw (xgi::exception::Exception) {
   *out << "<head> <meta HTTP-EQUIV=\"Refresh\" CONTENT=\"0; URL=/" <<getApplicationDescriptor()->getURN()<<"/"<<"MainPage"<<"\"> </head>" <<std::endl;
@@ -1873,7 +1870,7 @@ void EmuPeripheralCrateConfig::CrateConfiguration(xgi::Input * in, xgi::Output *
   std::string PipelineDepthScanForCrate = toolbox::toString("/%s/PipelineDepthScanForCrate",getApplicationDescriptor()->getURN().c_str());
   *out << cgicc::form().set("method","GET").set("action",PipelineDepthScanForCrate) << std::endl ;
   *out << cgicc::input().set("type","submit").set("value","Crate-wide pipeline depth scan").set("title","Scan pipeline depth for all DCFEBs of the selected crate, and analyze them with the unpacker.")
-       << " from " << cgicc::input().set("type","text").set("size","3").set("value","55").set("name","from")
+       << cgicc::br() << " from " << cgicc::input().set("type","text").set("size","3").set("value","55").set("name","from")
        << " to "   << cgicc::input().set("type","text").set("size","3").set("value","75").set("name","to"  ) << std::endl ;
   *out << pipelineDepthScanResults_ << std::endl;
   *out << cgicc::form() << std::endl ;
@@ -9239,6 +9236,11 @@ void EmuPeripheralCrateConfig::TMBStatus(xgi::Input * in, xgi::Output * out )
   alct = thisTMB->alctController();
   rat  = thisTMB->getRAT();
   //
+  char Name[100];
+  sprintf(Name,"%s TMB status, crate=%s, slot=%d", thisTMB->GetLabel().c_str(),ThisCrateID_.c_str(),thisTMB->slot());
+  //
+  MyHeader(in,out,Name);
+  //
   if (alct) {
     std::string ALCTStatus =
       toolbox::toString("/%s/ALCTStatus?tmb=%d",getApplicationDescriptor()->getURN().c_str(),tmb);
@@ -9254,17 +9256,6 @@ void EmuPeripheralCrateConfig::TMBStatus(xgi::Input * in, xgi::Output * out )
     *out << cgicc::a("RAT Status").set("href",RATStatus) << std::endl;
     //
   }
-  //
-  Chamber * thisChamber = chamberVector[tmb];
-  //
-  char Name[100];
-  sprintf(Name,"%s TMB status, crate=%s, slot=%d",
-	  (thisChamber->GetLabel()).c_str(), ThisCrateID_.c_str(),thisTMB->slot());
-  //
-  MyHeader(in,out,Name);
-  //
-  //*out << cgicc::h1(Name);
-  //*out << cgicc::br();
   //
   char buf[200] ;
   //

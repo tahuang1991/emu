@@ -71,6 +71,9 @@ protected:
   bool CommonParser(std::string XML_or_DB, std::string xmlFile);
   inline EmuEndcap *GetEmuEndcap() { return activeEndcap_; }
   emu::db::TStoreReadWriter *GetEmuTStore();
+  void MyHeader(xgi::Input * in, xgi::Output * out, std::string title )
+    throw (xgi::exception::Exception);
+
   inline int Xml_or_Db() { return xml_or_db_; }
   inline std::string GetRealKey() { return real_key_; }
   //

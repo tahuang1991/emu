@@ -288,18 +288,6 @@ void EmuPeripheralCrateService::MainPage(xgi::Input * in, xgi::Output * out )
   *out << cgicc::br() << std::endl; 
 }
 
-// 
-void EmuPeripheralCrateService::MyHeader(xgi::Input * in, xgi::Output * out, std::string title ) 
-  throw (xgi::exception::Exception) {
-  //
-  *out << cgicc::HTMLDoctype(cgicc::HTMLDoctype::eStrict) << std::endl;
-  *out << cgicc::html().set("lang", "en").set("dir","ltr") << std::endl;
-  //
-  std::string myUrl = getApplicationDescriptor()->getContextDescriptor()->getURL();
-  std::string myUrn = getApplicationDescriptor()->getURN().c_str();
-  xgi::Utils::getPageHeader(out,title,myUrn,"","");
-  //
-}
 //
 void EmuPeripheralCrateService::Default(xgi::Input * in, xgi::Output * out ) 
   throw (xgi::exception::Exception) {

@@ -162,8 +162,6 @@ public:
   EmuPeripheralCrateMonitor(xdaq::ApplicationStub * s);
   void Default(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
   void MainPage(xgi::Input * in, xgi::Output * out );
-  void MyHeader(xgi::Input * in, xgi::Output * out, std::string title ) throw (xgi::exception::Exception); 
-
 
 private:
 

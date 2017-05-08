@@ -2497,9 +2497,6 @@ void EmuPeripheralCrateConfig::DMBUtils(xgi::Input * in, xgi::Output * out )
   //
   MyHeader(in,out,Name);
   //
-  *out << cgicc::h1(Name);
-
-  //
   if( thisDMB->cfebs().size() > 0 ) {
     std::string CFEBUtils =
       toolbox::toString("/%s/CFEBUtils?dmb=%d",getApplicationDescriptor()->getURN().c_str(),dmb);

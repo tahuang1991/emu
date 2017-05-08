@@ -73,7 +73,9 @@ void EmuCompareMcsFiles::MainPage(xgi::Input * in, xgi::Output * out )
   *out << cgicc::html().set("lang", "en").set("dir","ltr") << std::endl;
   //
   std::string myUrn = "By_Jinghua_Liu";
-  xgi::Utils::getPageHeader(out,"Compare MCS (PROM Image) Files",myUrn,"", "");
+
+  *out << "<h1 style=\"text-align: center\"> " << "Compare MCS (PROM Image) Files" << "</h1>" << std::endl;
+  *out << "<h5 style=\" font-weight: regular; text-align: center\"> " << myUrn << " </h5> <br>" << std::endl;
 
   //
   *out << cgicc::fieldset().set("style","font-size: 11pt; font-family: arial;") << std::endl;

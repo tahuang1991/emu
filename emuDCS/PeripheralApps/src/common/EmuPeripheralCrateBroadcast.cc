@@ -1023,25 +1023,6 @@ void EmuPeripheralCrateBroadcast::DmbTurnOffPower(xgi::Input * in, xgi::Output *
   //
 }
 //
-void EmuPeripheralCrateBroadcast::MyHeader(xgi::Input * in, xgi::Output * out, std::string title ) 
-  throw (xgi::exception::Exception) {
-  //
-  *out << cgicc::HTMLDoctype(cgicc::HTMLDoctype::eStrict) << std::endl;
-  *out << cgicc::html().set("lang", "en").set("dir","ltr") << std::endl;
-  //
-  //*out << cgicc::title(title) << std::endl;
-  //*out << "<a href=\"/\"><img border=\"0\" src=\"/daq/xgi/images/XDAQLogo.gif\" title=\"XDAQ\" alt=\"\" style=\"width: 145px; height: 89px;\"></a>" << h2(title) << std::endl;
-  //
-  cgicc::Cgicc cgi(in);
-  //
-  //const CgiEnvironment& env = cgi.getEnvironment();
-  //
-  std::string myUrl = getApplicationDescriptor()->getContextDescriptor()->getURL();
-  std::string myUrn = getApplicationDescriptor()->getURN();
-  xgi::Utils::getPageHeader(out,title,myUrl,myUrn,"");
-  //
-}
-//
 xoap::MessageReference EmuPeripheralCrateBroadcast::onConfigCalCFEB (xoap::MessageReference message) 
   throw (xoap::exception::Exception) {
   //

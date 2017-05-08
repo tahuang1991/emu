@@ -366,5 +366,23 @@ emu::db::TStoreReadWriter *EmuPeripheralCrateBase::GetEmuTStore()
     return activeTStore_; 
 }
  
+void EmuPeripheralCrateBase::MyHeader(xgi::Input * in, xgi::Output * out, std::string title ) 
+  throw (xgi::exception::Exception)
+{
+    *out << " <head>" << std::endl << " <style type=\"text/css\"> " << std::endl;
+    *out << " input, select, button, input[type=submit]" << std::endl;
+    *out << " { font-size: 90%; border-style: solid; padding: 0.5em 0.5em; }" << std::endl;
+    *out << " button, input[type=submit]" << std::endl;
+    *out << " { background-color: #E6E6E6; border: 1px solid black; border-radius: 6px; }" << std::endl;
+    *out << " fieldset" << std::endl;
+    *out << " {  border-style: solid; border-width: thin; border-color: black; padding: 0.75em; }" << std::endl;  
+    *out << " legend" << std::endl;
+    *out << " {  border: none; width: auto; padding: 0.35em; }" << std::endl;  
+    *out << " </style>" << std::endl << " </head> " << std::endl;
+
+    *out << "<h1 style=\"text-align: center\"> " << title << "</h1>" << std::endl;
+    *out << "<h5 style=\" font-weight: regular; text-align: center\"> " << "( time stamp: " << getLocalDateTime()  << " ) </h5> <br>" << std::endl;
+}
+
  }  // namespace emu::pc
 }  // namespace emu

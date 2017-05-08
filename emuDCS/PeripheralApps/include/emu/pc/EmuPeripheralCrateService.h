@@ -98,7 +98,6 @@ public:
 private:
 
   void stateChanged(toolbox::fsm::FiniteStateMachine &fsm) throw (toolbox::fsm::exception::Exception);
-  void MyHeader(xgi::Input * in, xgi::Output * out, std::string title ) throw (xgi::exception::Exception); 
   void HardReset(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void ChamberOff(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
 
