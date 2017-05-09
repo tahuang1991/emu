@@ -1049,7 +1049,7 @@ void EmuPeripheralCrateConfig::MyHeader(xgi::Input * in, xgi::Output * out, std:
       std::string GoToMain =  toolbox::toString("/%s/Default",getApplicationDescriptor()->getURN().c_str());
       *out << " <form action=\"" << GoToMain << "\" method=\"GET\">" << std::endl;
       *out << " <input type=\"submit\" value=\"Back to Yellow Page\" name=\"gt_ypg\" style=\"background-color: #FFFF00;\">"  << std::endl;
-      *out << " </form>" << std::endl; 
+      *out << " </form> <br>" << std::endl; 
 }  
 
 void EmuPeripheralCrateConfig::Default(xgi::Input * in, xgi::Output * out ) 
@@ -3284,11 +3284,6 @@ void EmuPeripheralCrateConfig::PowerOnFixCFEB(xgi::Input * in, xgi::Output * out
   MyHeader(in,out,"CSC DOC daily checklist");
   //
   int initial_crate = current_crate_;
-  //
-  std::string GoToMainPage = toolbox::toString("/%s/MainPage",getApplicationDescriptor()->getURN().c_str());
-  *out << cgicc::form().set("method","GET").set("action",GoToMainPage) << std::endl ;
-  *out << cgicc::input().set("type","submit").set("value","Go back to Yellow Page").set("style","color:black") << std::endl ;
-  *out << cgicc::form() << std::endl ;
   //
   char buf[200];
   //
