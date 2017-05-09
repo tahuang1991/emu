@@ -542,7 +542,7 @@ void EmuPeripheralCrateService::UnJamTMB(xgi::Input * in, xgi::Output * out )
         for(unsigned int j=0; j<myVector.size(); j++) 
         {
             if(myVector[j]==NULL) continue;
-            std::string chname = crateVector[i]->GetChamber(myVector[j])->GetLabel();
+            std::string chname = myVector[j]->GetLabel();
             if(chname==command_argu)
             {
                if(!Simulation_) myVector[j]->UnjamFPGA();
@@ -591,8 +591,8 @@ void EmuPeripheralCrateService::PowerCycleCFEB(xgi::Input * in, xgi::Output * ou
         for(unsigned int j=0; j<myVector.size(); j++) 
         {
             if(myVector[j]==NULL) continue;
-            std::string chname = crateVector[i]->GetChamber(myVector[j])->GetLabel();
-            std::string chname2 = emu::utils::Chamber( crateVector[i]->GetChamber(myVector[j])->GetLabel() ).name();
+            std::string chname = myVector[j]->GetLabel();
+            std::string chname2 = emu::utils::Chamber( myVector[j]->GetLabel() ).name();
             if(chname.substr(3, std::string::npos)==chamb.substr(3, std::string::npos) || chname2.substr(3, std::string::npos)==chamb.substr(3, std::string::npos) )
             {
                if(!Simulation_) myVector[j]->power_cycle_cfeb(dcfeb-1); 
@@ -644,8 +644,8 @@ void EmuPeripheralCrateService::DCFEBResetDAQLink(xgi::Input * in, xgi::Output *
         for(unsigned int j=0; j<myVector.size(); j++) 
         {
             if(myVector[j]==NULL) continue;
-            std::string chname = crateVector[i]->GetChamber(myVector[j])->GetLabel();
-            std::string chname2 = emu::utils::Chamber( crateVector[i]->GetChamber(myVector[j])->GetLabel() ).name();
+            std::string chname = myVector[j]->GetLabel();
+            std::string chname2 = emu::utils::Chamber( myVector[j]->GetLabel() ).name();
             if(chname.substr(3, std::string::npos)==chamb.substr(3, std::string::npos) || chname2.substr(3, std::string::npos)==chamb.substr(3, std::string::npos) )
             {
                std::vector<CFEB> cfebs = myVector[j]->cfebs();
@@ -705,8 +705,8 @@ void EmuPeripheralCrateService::DCFEBResetTrigLink(xgi::Input * in, xgi::Output 
         for(unsigned int j=0; j<myVector.size(); j++) 
         {
             if(myVector[j]==NULL) continue;
-            std::string chname = crateVector[i]->GetChamber(myVector[j])->GetLabel();
-            std::string chname2 = emu::utils::Chamber( crateVector[i]->GetChamber(myVector[j])->GetLabel() ).name();
+            std::string chname = myVector[j]->GetLabel();
+            std::string chname2 = emu::utils::Chamber( myVector[j]->GetLabel() ).name();
             if(chname.substr(3, std::string::npos)==chamb.substr(3, std::string::npos) || chname2.substr(3, std::string::npos)==chamb.substr(3, std::string::npos) )
             {
                std::vector<CFEB> cfebs = myVector[j]->cfebs();

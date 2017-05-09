@@ -245,7 +245,7 @@ void EmuPeripheralCrateCommand::MainPage(xgi::Input * in, xgi::Output * out )
 	  for (unsigned chamber_index=0; chamber_index<(tmbVector.size()<9?tmbVector.size():9) ; chamber_index++) 
 	    if (alct_check_ok[current_crate_][chamber_index] == 0) 
 	      *out << thisCrate->GetLabel() << "   "
-		   << thisCrate->GetChamber(tmbVector[chamber_index]->slot())->GetLabel().c_str() 
+		   << tmbVector[chamber_index]->GetLabel().c_str() 
 		   << "   ALCT   " << thisCrate->GetChamber(tmbVector[chamber_index]->slot())->GetProblemDescription() 
 		   << cgicc::br();
 	}
@@ -255,7 +255,7 @@ void EmuPeripheralCrateCommand::MainPage(xgi::Input * in, xgi::Output * out )
 	  for (unsigned chamber_index=0; chamber_index<(tmbVector.size()<9?tmbVector.size():9) ; chamber_index++) 
 	    if (tmb_check_ok[current_crate_][chamber_index] == 0) 
 	      *out << thisCrate->GetLabel() << "    "
-		   << thisCrate->GetChamber(tmbVector[chamber_index]->slot())->GetLabel().c_str() 
+		   << tmbVector[chamber_index]->GetLabel().c_str() 
 		   << "   TMB   " << thisCrate->GetChamber(tmbVector[chamber_index]->slot())->GetProblemDescription() 
 		   << cgicc::br();
 	}
@@ -265,7 +265,7 @@ void EmuPeripheralCrateCommand::MainPage(xgi::Input * in, xgi::Output * out )
 	  for (unsigned chamber_index=0; chamber_index<(tmbVector.size()<9?tmbVector.size():9) ; chamber_index++) 
 	    if (dmb_check_ok[current_crate_][chamber_index] == 0) 
 	      *out << thisCrate->GetLabel() << "    "
-		   << thisCrate->GetChamber(tmbVector[chamber_index]->slot())->GetLabel().c_str() 
+		   << tmbVector[chamber_index]->GetLabel().c_str() 
 		   << "   DMB   " << thisCrate->GetChamber(tmbVector[chamber_index]->slot())->GetProblemDescription() 
 		   << cgicc::br();
 	}
@@ -305,7 +305,7 @@ void EmuPeripheralCrateCommand::MainPage(xgi::Input * in, xgi::Output * out )
 // 
 void EmuPeripheralCrateCommand::Default(xgi::Input * in, xgi::Output * out ) 
   throw (xgi::exception::Exception) {
-  *out << "<meta HTTP-EQUIV=\"Refresh\" CONTENT=\"0; URL=/" <<getApplicationDescriptor()->getURN()<<"/"<<"MainPage"<<"\">" <<std::endl;
+  *out << "<head> <meta HTTP-EQUIV=\"Refresh\" CONTENT=\"0; URL=/" <<getApplicationDescriptor()->getURN()<<"/"<<"MainPage"<<"\"> </head>" <<std::endl;
 }
 //
 /////////////////////////////////////////////////////////////////////
@@ -885,7 +885,7 @@ xoap::MessageReference EmuPeripheralCrateCommand::onEnableCalALCTConnectivity (x
 				time (&currentTime); // fill now with the current time
 
 				int strip_mask = (1 << calsetup);
-				std::cout << "XTEP: "<< ctime(&currentTime)  << " setting up chamber: " << thisCrate->GetChamber(tmbVector[tn]->slot())->GetLabel().c_str() << std::endl;
+				std::cout << "XTEP: "<< ctime(&currentTime)  << " setting up chamber: " << tmbVector[tn]->GetLabel().c_str() << std::endl;
 				std::cout << "XTEP: calibration step: " << calsetup << std::endl;
 				std::cout << "XTEP: strip mask: " << std::hex << "0x" << strip_mask << std::dec << std::endl;
 
@@ -960,7 +960,7 @@ xoap::MessageReference EmuPeripheralCrateCommand::onEnableCalALCTThresholds (xoa
 				time_t currentTime;
 				time (&currentTime); // fill now with the current time
 
-				std::cout << "XTEP: "<< ctime(&currentTime)  << " setting up chamber: " << thisCrate->GetChamber(tmbVector[tn]->slot())->GetLabel().c_str() << std::endl;
+				std::cout << "XTEP: "<< ctime(&currentTime)  << " setting up chamber: " << tmbVector[tn]->GetLabel().c_str() << std::endl;
 				std::cout << "XTEP: calibration step: " << calsetup << std::endl;
 
 				tmbVector[tn]->SetCheckJtagWrite(1);
@@ -1012,7 +1012,7 @@ xoap::MessageReference EmuPeripheralCrateCommand::onEnableCalALCTDelays (xoap::M
 				time_t currentTime;
 				time (&currentTime); // fill now with the current time
 
-				std::cout << "XTEP: "<< ctime(&currentTime)  << " setting up chamber: " << thisCrate->GetChamber(tmbVector[tn]->slot())->GetLabel().c_str() << std::endl;
+				std::cout << "XTEP: "<< ctime(&currentTime)  << " setting up chamber: " << tmbVector[tn]->GetLabel().c_str() << std::endl;
 				std::cout << "XTEP: calibration step: " << calsetup << std::endl;
 
 				tmbVector[tn]->SetCheckJtagWrite(1);

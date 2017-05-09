@@ -952,7 +952,7 @@ void EmuPeripheralCrateConfig::MainPage(xgi::Input * in, xgi::Output * out )
 	*out << "ALCT: " ;
 	for (unsigned chamber_index=0; chamber_index<(tmbVector.size()<9?tmbVector.size():9) ; chamber_index++) {
 	  if (alct_check_ok[current_crate_][chamber_index] > 0) {
-	    *out << thisCrate->GetChamber(tmbVector[chamber_index]->slot())->GetLabel().c_str() << " ( " << alct_check_ok[current_crate_][chamber_index] << " ), ";
+	    *out << tmbVector[chamber_index]->GetLabel().c_str() << " ( " << alct_check_ok[current_crate_][chamber_index] << " ), ";
 	  }
 	}
 	*out << "... not OK" << cgicc::br() << std::endl ;
@@ -970,7 +970,7 @@ void EmuPeripheralCrateConfig::MainPage(xgi::Input * in, xgi::Output * out )
 	*out << "TMB: " ;
 	for (unsigned chamber_index=0; chamber_index<(tmbVector.size()<9?tmbVector.size():9) ; chamber_index++) {
 	  if (tmb_check_ok[current_crate_][chamber_index] > 0) {
-	    *out << thisCrate->GetChamber(tmbVector[chamber_index]->slot())->GetLabel().c_str() << " ( " << tmb_check_ok[current_crate_][chamber_index] << " ), ";
+	    *out << tmbVector[chamber_index]->GetLabel().c_str() << " ( " << tmb_check_ok[current_crate_][chamber_index] << " ), ";
 	  }
 	}
 	*out << "... not OK" << cgicc::br() << std::endl ;
@@ -988,7 +988,7 @@ void EmuPeripheralCrateConfig::MainPage(xgi::Input * in, xgi::Output * out )
 	*out << "DMB: " ;
 	for (unsigned chamber_index=0; chamber_index<(tmbVector.size()<9?tmbVector.size():9) ; chamber_index++) {
 	  if (dmb_check_ok[current_crate_][chamber_index] > 0) {
-	    *out << thisCrate->GetChamber(tmbVector[chamber_index]->slot())->GetLabel().c_str() << " ( " << dmb_check_ok[current_crate_][chamber_index] << " ), ";
+	    *out << tmbVector[chamber_index]->GetLabel().c_str() << " ( " << dmb_check_ok[current_crate_][chamber_index] << " ), ";
 	  }
 	}
 	*out << "... not OK" << cgicc::br() << std::endl ;
@@ -997,6 +997,8 @@ void EmuPeripheralCrateConfig::MainPage(xgi::Input * in, xgi::Output * out )
       }
       //
       *out << cgicc::span() << std::endl ;
+      if ( !(alct_ok && tmb_ok && dmb_ok) )
+      *out << cgicc::b("(problem-type): 1--unexpected; 2--expected; 3--marked as bad in database/xml.") << std::endl;
     }
     //
     *out << cgicc::br() << cgicc::hr() <<std::endl;
@@ -1042,12 +1044,12 @@ void EmuPeripheralCrateConfig::MainPage(xgi::Input * in, xgi::Output * out )
 void EmuPeripheralCrateConfig::MyHeader(xgi::Input * in, xgi::Output * out, std::string title )
   throw (xgi::exception::Exception) 
 {
+      EmuPeripheralCrateBase::MyHeader(in, out, title);
+
       std::string GoToMain =  toolbox::toString("/%s/Default",getApplicationDescriptor()->getURN().c_str());
       *out << " <form action=\"" << GoToMain << "\" method=\"GET\">" << std::endl;
       *out << " <input type=\"submit\" value=\"Back to Yellow Page\" name=\"gt_ypg\" style=\"background-color: #FFFF00;\">"  << std::endl;
-      *out << " </form>" << std::endl;
- 
-      EmuPeripheralCrateBase::MyHeader(in, out, title);
+      *out << " </form>" << std::endl; 
 }  
 
 void EmuPeripheralCrateConfig::Default(xgi::Input * in, xgi::Output * out ) 
@@ -1244,15 +1246,15 @@ bool EmuPeripheralCrateConfig::ParsingXML(){
       SetCurrentCrate(crate_number);
       for(unsigned i=0; i<dmbVector.size();i++) {
 	OutputDMBTests[i][current_crate_] << "DMB-CFEB Tests " 
-					  << thisCrate->GetChamber(dmbVector[i]->slot())->GetLabel().c_str() 
+					  << dmbVector[i]->GetLabel().c_str() 
 					  << " output:" << std::endl;
       }
       for(unsigned i=0; i<tmbVector.size();i++) {
 	OutputTMBTests[i][current_crate_] << "TMB-RAT Tests " 
-					  << thisCrate->GetChamber(tmbVector[i]->slot())->GetLabel().c_str() 
+					  << tmbVector[i]->GetLabel().c_str() 
 					  << " output:" << std::endl;
 	ChamberTestsOutput[i][current_crate_] << "Chamber-Crate Phases " 
-					      << thisCrate->GetChamber(tmbVector[i]->slot())->GetLabel().c_str() 
+					      << tmbVector[i]->GetLabel().c_str() 
 					      << " output:" << std::endl;
       }
       OutputCCBTests[current_crate_] << "CCB Tests output: " << std::endl; 
@@ -1734,7 +1736,7 @@ void EmuPeripheralCrateConfig::CrateConfiguration(xgi::Input * in, xgi::Output *
 	  if ( dmbslot == slot+1 ) {
 	    *out << cgicc::td();
 	    char Name[50];
-	    sprintf(Name,"Chamber Tests: %s",(thisCrate->GetChamber(slot)->GetLabel()).c_str());
+	    sprintf(Name,"Chamber Tests: %s",(tmbVector[i]->GetLabel()).c_str());
 	    std::string ChamberTests = toolbox::toString("/%s/ChamberTests?tmb=%d&dmb=%d",getApplicationDescriptor()->getURN().c_str(),i,iii);
 	    *out << cgicc::a(Name).set("href",ChamberTests) << std::endl;
 	    *out << cgicc::td();
@@ -1849,6 +1851,9 @@ void EmuPeripheralCrateConfig::CrateConfiguration(xgi::Input * in, xgi::Output *
   *out << cgicc::form() << std::endl ;
   *out << cgicc::td();
   //
+  *out << cgicc::td();
+  *out << cgicc::td();
+  //
   *out << cgicc::tr();
   //
   *out << cgicc::td();
@@ -1879,6 +1884,9 @@ void EmuPeripheralCrateConfig::CrateConfiguration(xgi::Input * in, xgi::Output *
        << " to "   << cgicc::input().set("type","text").set("size","3").set("value","75").set("name","to"  ) << std::endl ;
   *out << pipelineDepthScanResults_ << std::endl;
   *out << cgicc::form() << std::endl ;
+  *out << cgicc::td();
+  //
+  *out << cgicc::td();
   *out << cgicc::td();
   //
   *out << cgicc::tr();
@@ -3726,7 +3734,7 @@ void EmuPeripheralCrateConfig::FixCFEB(xgi::Input * in, xgi::Output * out )
       //
       // to read the ALCT's PROM content and save as a .mcs file
 
-      std::string chambername= thisCrate->GetChamber(thisTMB)->GetLabel();
+      std::string chambername= thisTMB->GetLabel();
       unsigned t = chambername.find('/');
       unsigned s = chambername.size();
       while(t<=s )
@@ -5056,7 +5064,6 @@ void EmuPeripheralCrateConfig::TestDcfebEpromsForCrate(xgi::Input * in, xgi::Out
     //
     for (unsigned int dmb=0; dmb < dmbVector.size() ; dmb++) {
       //
-      Chamber * thisChamber = chamberVector[dmb];
       DAQMB * thisDMB = dmbVector[dmb];
       if (thisDMB->GetHardwareVersion() == 2) {
 
@@ -5073,7 +5080,7 @@ void EmuPeripheralCrateConfig::TestDcfebEpromsForCrate(xgi::Input * in, xgi::Out
             continue;
           }
 
-          std::string chambername= thisCrate->GetChamber(thisDMB)->GetLabel();
+          std::string chambername= thisDMB->GetLabel();
           unsigned t = chambername.find('/');
           unsigned s = chambername.size();
           while(t<=s )
@@ -6399,7 +6406,7 @@ void EmuPeripheralCrateConfig::CFEBTimingSimpleScanSystem_me11(xgi::Input * in, 
 	web_backup.open(("/tmp/webout_backup_fullcrate_"+web_out_DateTime_scan+".txt").c_str(), std::ios::app);
 	//
 	std::cout << "crate = " << current_crate_ << ", TMB " << tmb << std::endl;
-	web_backup << "Chamber-Crate Phases "<< thisCrate->GetChamber(tmbVector[tmb]->slot())->GetLabel().c_str() << " output:" << std::endl << std::endl;
+	web_backup << "Chamber-Crate Phases "<< tmbVector[tmb]->GetLabel().c_str() << " output:" << std::endl << std::endl;
 	//
 	web_backup.close();
 	//
@@ -6509,7 +6516,7 @@ void EmuPeripheralCrateConfig::CFEBTimingSimpleScanSystem_non_me11(xgi::Input * 
 	web_backup.open(("/tmp/webout_backup_fullcrate_"+web_out_DateTime_scan+".txt").c_str(), std::ios::app);
 	//
 	std::cout << "crate = " << current_crate_ << ", TMB " << tmb << std::endl;
-	web_backup << "Chamber-Crate Phases "<< thisCrate->GetChamber(tmbVector[tmb]->slot())->GetLabel().c_str() << " output:" << std::endl << std::endl;
+	web_backup << "Chamber-Crate Phases "<< tmbVector[tmb]->GetLabel().c_str() << " output:" << std::endl << std::endl;
 	//
 	web_backup.close();
 	//
@@ -7043,7 +7050,7 @@ std::string EmuPeripheralCrateConfig::dmbsToString( std::set<DAQMB*>& dmbs ){
     oss << ( dmb == dmbs.begin() ? "" : " " )
 	<< "(crate=" << (*dmb)->getCrate()->CrateID()
 	<< ",dmb="  << (*dmb)->slot()
-	<< ","      << (*dmb)->getCrate()->GetChamber( *dmb )->GetLabel()
+	<< ","      << (*dmb)->GetLabel()
 	<< ")";
   }
   return oss.str();
@@ -9955,93 +9962,6 @@ void EmuPeripheralCrateConfig::TMBStatus(xgi::Input * in, xgi::Output * out )
   *out << cgicc::fieldset();
   }
   //
-  // Clocking Status
-  if (thisTMB->GetHardwareVersion() >= 2) {
-    *out << cgicc::fieldset();
-    *out << cgicc::legend("Configuration and programming timers (100 nanosecond units)").set("style","color:blue") << std::endl;
-    thisTMB->ReadRegister(tmb_mez_fpga_jtag_count_adr);
-    thisTMB->ReadRegister(tmb_power_up_time_adr);
-    thisTMB->ReadRegister(tmb_load_cfg_time_adr);
-    thisTMB->ReadRegister(alct_phaser_lock_time_adr);
-    thisTMB->ReadRegister(alct_load_cfg_time_adr);
-    thisTMB->ReadRegister(gtx_phaser_lock_time_adr);
-    thisTMB->ReadRegister(gtx_sync_done_time_adr);
-    *out << cgicc::pre() << std::endl;
-    *out << "FPGA Mez JTAG Chain Access Count              = ";
-    int temp_time_var = thisTMB->GetReadMezFpgaJtagCount();
-    if (temp_time_var >= 60000){
-      *out<< cgicc::span().set("style","color:red");
-      *out << temp_time_var << std::endl;
-      *out << cgicc::span();
-    }
-    else *out << temp_time_var << std::endl;
-    *out << "TMB Power Up Time                             = ";
-    temp_time_var = thisTMB->GetReadTMBPowerUpTime();
-    if (temp_time_var >= 60000){
-      *out<< cgicc::span().set("style","color:red");
-      *out << temp_time_var << std::endl;
-      *out << cgicc::span();
-    }
-    else *out << temp_time_var << std::endl;
-    *out << "TMB Load Cfg Time                             = ";
-    temp_time_var = thisTMB->GetReadTMBLoadCfgTime();
-    if (temp_time_var >= 60000){
-      *out<< cgicc::span().set("style","color:red");
-      *out << temp_time_var << std::endl;
-      *out << cgicc::span();
-    }
-    else *out << temp_time_var << std::endl;
-    *out << "ALCT Phaser Lock Time                         = ";
-    temp_time_var = thisTMB->GetReadALCTPhaserLockTime();
-    if (temp_time_var >= 60000){
-      *out<< cgicc::span().set("style","color:red");
-      *out << temp_time_var << std::endl;
-      *out << cgicc::span();
-    }
-    else *out << temp_time_var << std::endl;
-    *out << "ALCT Load Cfg Time (after ALCT startup delay) = ";
-    temp_time_var = thisTMB->GetReadALCTLoadCfgTime();
-    if (temp_time_var >= 60000){
-      *out<< cgicc::span().set("style","color:red");
-      *out << temp_time_var << std::endl;
-      *out << cgicc::span();
-    }
-    else *out << temp_time_var << std::endl;
-    *out << "Comparator Fiber Phaser Lock Time             = ";
-    temp_time_var = thisTMB->GetReadGtxPhaserLockTime();
-    if (temp_time_var >= 60000){
-      *out<< cgicc::span().set("style","color:red");
-      *out << temp_time_var << std::endl;
-      *out << cgicc::span();
-    }
-    else *out << temp_time_var << std::endl;
-    *out << "Gtx Sync Done Time                            = ";
-    temp_time_var = thisTMB->GetReadGtxSyncDoneTime();
-    if (temp_time_var >= 60000){
-      *out<< cgicc::span().set("style","color:red");
-      *out << temp_time_var << std::endl;
-      *out << cgicc::span();
-    }
-    else *out << temp_time_var << std::endl;
-    *out << cgicc::pre() << std::endl;
-    *out << cgicc::fieldset();
-  }
-  //
-  *out << cgicc::fieldset();
-  *out << cgicc::legend("Comparator Badbits").set("style","color:blue") << std::endl ;
-  *out << cgicc::pre();
-  thisTMB->RedirectOutput(out);
-  thisTMB->ReadRegister(cfeb_badbits_ctrl_adr);
-  if (thisTMB->GetHardwareVersion() >= 2) {
-    thisTMB->ReadRegister(dcfeb_badbits_ctrl_adr);
-  }
-  thisTMB->PrintBadBits();
-  thisTMB->ReadComparatorBadBits();
-  thisTMB->PrintComparatorBadBits();
-  thisTMB->RedirectOutput(&std::cout);
-  *out << cgicc::pre();
-  *out << cgicc::fieldset();
-  //
   if (thisTMB->GetHardwareVersion() >= 2) {
     *out << cgicc::fieldset();
     *out << cgicc::legend("Optical input status").set("style","color:blue") << std::endl ;
@@ -10149,6 +10069,93 @@ void EmuPeripheralCrateConfig::TMBStatus(xgi::Input * in, xgi::Output * out )
     *out << cgicc::pre();
     *out << cgicc::fieldset();
   } //thisTMB->GetHardwareVersion() >= 2
+  //
+  // Clocking Status
+  if (thisTMB->GetHardwareVersion() >= 2) {
+    *out << cgicc::fieldset();
+    *out << cgicc::legend("Configuration and programming timers (100 nanosecond units)").set("style","color:blue") << std::endl;
+    thisTMB->ReadRegister(tmb_mez_fpga_jtag_count_adr);
+    thisTMB->ReadRegister(tmb_power_up_time_adr);
+    thisTMB->ReadRegister(tmb_load_cfg_time_adr);
+    thisTMB->ReadRegister(alct_phaser_lock_time_adr);
+    thisTMB->ReadRegister(alct_load_cfg_time_adr);
+    thisTMB->ReadRegister(gtx_phaser_lock_time_adr);
+    thisTMB->ReadRegister(gtx_sync_done_time_adr);
+    *out << cgicc::pre() << std::endl;
+    *out << "FPGA Mez JTAG Chain Access Count              = ";
+    int temp_time_var = thisTMB->GetReadMezFpgaJtagCount();
+    if (temp_time_var >= 60000){
+      *out<< cgicc::span().set("style","color:red");
+      *out << temp_time_var << std::endl;
+      *out << cgicc::span();
+    }
+    else *out << temp_time_var << std::endl;
+    *out << "TMB Power Up Time                             = ";
+    temp_time_var = thisTMB->GetReadTMBPowerUpTime();
+    if (temp_time_var >= 60000){
+      *out<< cgicc::span().set("style","color:red");
+      *out << temp_time_var << std::endl;
+      *out << cgicc::span();
+    }
+    else *out << temp_time_var << std::endl;
+    *out << "TMB Load Cfg Time                             = ";
+    temp_time_var = thisTMB->GetReadTMBLoadCfgTime();
+    if (temp_time_var >= 60000){
+      *out<< cgicc::span().set("style","color:red");
+      *out << temp_time_var << std::endl;
+      *out << cgicc::span();
+    }
+    else *out << temp_time_var << std::endl;
+    *out << "ALCT Phaser Lock Time                         = ";
+    temp_time_var = thisTMB->GetReadALCTPhaserLockTime();
+    if (temp_time_var >= 60000){
+      *out<< cgicc::span().set("style","color:red");
+      *out << temp_time_var << std::endl;
+      *out << cgicc::span();
+    }
+    else *out << temp_time_var << std::endl;
+    *out << "ALCT Load Cfg Time (after ALCT startup delay) = ";
+    temp_time_var = thisTMB->GetReadALCTLoadCfgTime();
+    if (temp_time_var >= 60000){
+      *out<< cgicc::span().set("style","color:red");
+      *out << temp_time_var << std::endl;
+      *out << cgicc::span();
+    }
+    else *out << temp_time_var << std::endl;
+    *out << "Comparator Fiber Phaser Lock Time             = ";
+    temp_time_var = thisTMB->GetReadGtxPhaserLockTime();
+    if (temp_time_var >= 60000){
+      *out<< cgicc::span().set("style","color:red");
+      *out << temp_time_var << std::endl;
+      *out << cgicc::span();
+    }
+    else *out << temp_time_var << std::endl;
+    *out << "Gtx Sync Done Time                            = ";
+    temp_time_var = thisTMB->GetReadGtxSyncDoneTime();
+    if (temp_time_var >= 60000){
+      *out<< cgicc::span().set("style","color:red");
+      *out << temp_time_var << std::endl;
+      *out << cgicc::span();
+    }
+    else *out << temp_time_var << std::endl;
+    *out << cgicc::pre() << std::endl;
+    *out << cgicc::fieldset();
+  }
+  //
+  *out << cgicc::fieldset();
+  *out << cgicc::legend("Comparator Badbits").set("style","color:blue") << std::endl ;
+  *out << cgicc::pre();
+  thisTMB->RedirectOutput(out);
+  thisTMB->ReadRegister(cfeb_badbits_ctrl_adr);
+  if (thisTMB->GetHardwareVersion() >= 2) {
+    thisTMB->ReadRegister(dcfeb_badbits_ctrl_adr);
+  }
+  thisTMB->PrintBadBits();
+  thisTMB->ReadComparatorBadBits();
+  thisTMB->PrintComparatorBadBits();
+  thisTMB->RedirectOutput(&std::cout);
+  *out << cgicc::pre();
+  *out << cgicc::fieldset();
   //
   *out << cgicc::fieldset();
   *out << cgicc::legend("Sync Error status").set("style","color:blue") << std::endl ;
@@ -11452,7 +11459,7 @@ void EmuPeripheralCrateConfig::TMBReadFirmware(xgi::Input * in, xgi::Output * ou
   if(tmb>=0 && (unsigned)tmb<tmbVector.size())  thisTMB = tmbVector[tmb];
   if(thisTMB)
   {
-    std::string chambername= thisCrate->GetChamber(thisTMB)->GetLabel();
+    std::string chambername= thisTMB->GetLabel();
     unsigned t = chambername.find('/');
     unsigned s = chambername.size();
     while(t<=s )
@@ -11534,7 +11541,7 @@ void EmuPeripheralCrateConfig::ALCTReadFirmware(xgi::Input * in, xgi::Output * o
   if(tmb>=0 && (unsigned)tmb<tmbVector.size())  thisTMB = tmbVector[tmb];
   if(thisTMB)
   {
-    std::string chambername= thisCrate->GetChamber(thisTMB)->GetLabel();
+    std::string chambername= thisTMB->GetLabel();
     unsigned t = chambername.find('/');
     unsigned s = chambername.size();
     while(t<=s )
@@ -11584,7 +11591,7 @@ void EmuPeripheralCrateConfig::LoadALCTSlowFirmware(xgi::Input * in, xgi::Output
   if(tmb>=0 && (unsigned)tmb<tmbVector.size())  thisTMB = tmbVector[tmb];
   if(thisTMB)
   {
-    std::string chambername = thisCrate->GetChamber(thisTMB)->GetLabel();
+    std::string chambername = thisTMB->GetLabel();
     thisCCB->setCCBMode(CCB::VMEFPGA);
 
     std::cout  << getLocalDateTime() << " Download ALCT Slow Control firmware to " << chambername << std::endl;
@@ -12968,7 +12975,7 @@ void EmuPeripheralCrateConfig::SaveTestSummary() {
       std::cout << cgi["ClearTMBTestsOutput"]->getValue() << std::endl ;
       OutputTMBTests[tmb][current_crate_].str("");
       OutputTMBTests[tmb][current_crate_] << "TMB-RAT Tests " 
-					  << thisCrate->GetChamber(tmbVector[tmb]->slot())->GetLabel().c_str() 
+					  << tmbVector[tmb]->GetLabel().c_str() 
 					  << " output:" << std::endl;
       //
       this->TMBTests(in,out);
@@ -12987,7 +12994,7 @@ void EmuPeripheralCrateConfig::SaveTestSummary() {
     //
     OutputTMBTests[tmb][current_crate_].str("");
     OutputTMBTests[tmb][current_crate_] << "TMB-RAT Tests " 
-				      << thisCrate->GetChamber(tmbVector[tmb]->slot())->GetLabel().c_str() 
+				      << tmbVector[tmb]->GetLabel().c_str() 
 				      << " output:" << std::endl;
     //
     this->TMBTests(in,out);
@@ -13021,7 +13028,7 @@ void EmuPeripheralCrateConfig::SaveTestSummary() {
       std::cout << cgi["ClearChamberTestsOutput"]->getValue() << std::endl ;
       ChamberTestsOutput[tmb][current_crate_].str("");
       ChamberTestsOutput[tmb][current_crate_] << "Chamber-Crate Phases " 
-					      << thisCrate->GetChamber(tmbVector[tmb]->slot())->GetLabel().c_str() 
+					      << tmbVector[tmb]->GetLabel().c_str() 
 					      << " output:" << std::endl;
       //
       this->ChamberTests(in,out);
@@ -13072,7 +13079,7 @@ void EmuPeripheralCrateConfig::SaveTestSummary() {
       std::cout << cgi["ClearALCT_TMB_communicationOutput"]->getValue() << std::endl ;
       ALCT_TMB_communicationOutput[tmb][current_crate_].str("");
       ALCT_TMB_communicationOutput[tmb][current_crate_] << "Chamber-Crate Phases " 
-					      << thisCrate->GetChamber(tmbVector[tmb]->slot())->GetLabel().c_str() 
+					      << tmbVector[tmb]->GetLabel().c_str() 
 					      << " output:" << std::endl;
       //
       this->ALCT_TMB_communication(in,out);

@@ -1400,7 +1400,7 @@ void EmuPeripheralCrateMonitor::DCSChamber(xgi::Input * in, xgi::Output * out )
      myVector = crateVector[i]->daqmbs();
      for ( unsigned int j = 0; j < myVector.size(); j++ )
      {
-       if(cham_name==crateVector[i]->GetChamber(myVector[j])->GetLabel())
+       if(cham_name==myVector[j]->GetLabel())
        {  mycrate = i;
           mychamb = j;
           DHversion=myVector[j]->GetHardwareVersion();
@@ -1666,7 +1666,7 @@ void EmuPeripheralCrateMonitor::DCSCrateLV(xgi::Input * in, xgi::Output * out )
   //
   for(unsigned int dmb=0; dmb<myVector.size(); dmb++) {
     *out <<cgicc::td();
-    *out << crateVector[mycrate]->GetChamber(myVector[dmb])->GetLabel();
+    *out << myVector[dmb]->GetLabel();
     *out <<cgicc::td();
   }
   //
@@ -1755,7 +1755,7 @@ void EmuPeripheralCrateMonitor::DCSCrateCUR(xgi::Input * in, xgi::Output * out )
   //
   for(unsigned int dmb=0; dmb<myVector.size(); dmb++) {
     *out <<cgicc::td();
-    *out << crateVector[mycrate]->GetChamber(myVector[dmb])->GetLabel();
+    *out << myVector[dmb]->GetLabel();
     *out <<cgicc::td();
   }
   //
@@ -1852,7 +1852,7 @@ void EmuPeripheralCrateMonitor::DCSCrateTemp(xgi::Input * in, xgi::Output * out 
   for(unsigned int dmb=0; dmb<myVector.size(); dmb++) {
     if(myVector[dmb]->GetHardwareVersion()==2) upgraded=true;
     *out <<cgicc::td();
-    *out << crateVector[mycrate]->GetChamber(myVector[dmb])->GetLabel();
+    *out << myVector[dmb]->GetLabel();
     *out <<cgicc::td();
   }
   if(upgraded) Total_Temps += 2;
@@ -1966,7 +1966,7 @@ void EmuPeripheralCrateMonitor::DCSCrateTMB(xgi::Input * in, xgi::Output * out )
   //
   for(unsigned int tmb=0; tmb<myVector.size(); tmb++) {
     *out <<cgicc::td();
-    *out << crateVector[mycrate]->GetChamber(myVector[tmb])->GetLabel();
+    *out << myVector[tmb]->GetLabel();
     *out <<cgicc::td();
   }
   //
@@ -2183,7 +2183,7 @@ void EmuPeripheralCrateMonitor::ChamberView(xgi::Input * in, xgi::Output * out )
          }
       }
       // chamber name
-      *out << crateVector[idx]->GetChamber(myVector[tmb])->GetLabel() << cgicc::br();
+      *out << myVector[tmb]->GetLabel() << cgicc::br();
       // ALCT: LCT sent to TMB
       int dc=myVector[tmb]->GetCounter(myVector[tmb]->GetALCTSentToTMBCounterIndex());
       if (dc == 0x3fffffff || dc < 0 ) dc = -1;
@@ -2703,7 +2703,7 @@ void EmuPeripheralCrateMonitor::CrateTMBCounters(xgi::Input * in, xgi::Output * 
 //    myVector[tmb]->GetCounters();
     //
     output <<cgicc::td();
-    output << "Slot " <<myVector[tmb]->slot() << " " << myCrate->GetChamber(myVector[tmb])->GetLabel();
+    output << "Slot " <<myVector[tmb]->slot() << " " << myVector[tmb]->GetLabel();
     output <<cgicc::td();
     //
   }
@@ -2796,7 +2796,7 @@ void EmuPeripheralCrateMonitor::CrateDMBCounters(xgi::Input * in, xgi::Output * 
   //
   for(unsigned int dmb=0; dmb<myVector.size(); dmb++) {
     *out <<cgicc::td();
-    *out << "Slot " <<myVector[dmb]->slot() << " " << myCrate->GetChamber(myVector[dmb])->GetLabel();
+    *out << "Slot " <<myVector[dmb]->slot() << " " << myVector[dmb]->GetLabel();
     *out <<cgicc::td();
   }
   //
@@ -2913,7 +2913,7 @@ void EmuPeripheralCrateMonitor::DatabaseOutput(xgi::Input * in, xgi::Output * ou
         if (imask==0x3F || imask==0xff ) continue;
         
         *out << "    <count chamber=\"";
-        *out << crateVector[i]->GetChamber(myVector[j])->GetLabel();
+        *out << myVector[j]->GetLabel();
         *out << "\" ";
         for(int tc=0; tc<REAL_TMB_COUNTERS; tc++)
         {
@@ -2970,7 +2970,7 @@ void EmuPeripheralCrateMonitor::DatabaseOutput2(xgi::Input * in, xgi::Output * o
         if (imask==0x7F) continue;
         
         *out << "    <count chamber=\"";
-        *out << crateVector[i]->GetChamber(myVector[j])->GetLabel();
+        *out << myVector[j]->GetLabel();
         *out << "\" ";
         for(int tc=0; tc<TOTAL_TMB_COUNTERS2; tc++)
         {
@@ -3077,7 +3077,7 @@ void EmuPeripheralCrateMonitor::XmlOutput(xgi::Input * in, xgi::Output * out )
      for(unsigned int j=0; j<myVector.size(); j++) 
      {
         *out << "    <count chamber=\"";
-        *out << crateVector[i]->GetChamber(myVector[j])->GetLabel();
+        *out << myVector[j]->GetLabel();
         *out << "\" alct=\"";
 //        *out << myVector[j]->GetCounter(0);
         o_value = (*otmbdata)[j*MAX_TMB_COUNTERS+0];
@@ -3150,7 +3150,7 @@ void EmuPeripheralCrateMonitor::XmlOutput(xgi::Input * in, xgi::Output * out )
      for(unsigned int j=0; j<myVector.size(); j++) 
      {
         *out << "    <count chamber=\"";
-        *out << crateVector[i]->GetChamber(myVector[j])->GetLabel();
+        *out << myVector[j]->GetLabel();
         *out << "\" alct=\"";
 //        *out << myVector[j]->GetCounter(0);
         n_value = (*tmbdata)[j*MAX_TMB_COUNTERS+0];
@@ -3237,7 +3237,7 @@ void EmuPeripheralCrateMonitor::DCSOutput(xgi::Input * in, xgi::Output * out )
            if(dversion==2) continue;
            slot = myVector[j]->slot();
            ip = (ip & 0xff) + slot*256;
-           *out << crateVector[i]->GetChamber(myVector[j])->GetLabel();
+           *out << myVector[j]->GetLabel();
 
            // status 32 ==>crate OFF
            *out << " 32";
@@ -3326,7 +3326,7 @@ void EmuPeripheralCrateMonitor::DCSOutput(xgi::Input * in, xgi::Output * out )
         int dmbN = slot/2;
         if(dmbN>5) dmbN--;
         ip = (ip & 0xff) + slot*256;
-        std::string cscname=crateVector[i]->GetChamber(myVector[j])->GetLabel();
+        std::string cscname=myVector[j]->GetLabel();
         *out << cscname;
 
         ch_state=0;
@@ -3486,7 +3486,7 @@ void EmuPeripheralCrateMonitor::DCSOutput2(xgi::Input * in, xgi::Output * out )
            if(dversion!=2) continue;
            slot = myVector[j]->slot();
            ip = (ip & 0xff) + slot*256;
-           *out << crateVector[i]->GetChamber(myVector[j])->GetLabel();
+           *out << myVector[j]->GetLabel();
 
            // status 32 ==>crate OFF
            *out << " 32";
@@ -3588,7 +3588,7 @@ void EmuPeripheralCrateMonitor::DCSOutput2(xgi::Input * in, xgi::Output * out )
         int dmbN = slot/2;
         if(dmbN>5) dmbN--;
         ip = (ip & 0xff) + slot*256;
-        std::string cscname=crateVector[i]->GetChamber(myVector[j])->GetLabel();
+        std::string cscname=myVector[j]->GetLabel();
         *out << cscname;
 
         ch_state=0;
@@ -3742,7 +3742,7 @@ void EmuPeripheralCrateMonitor::BeamView(xgi::Input * in, xgi::Output * out )
      myVector = crateVector[i]->tmbs();
      for(unsigned int j=0; j<myVector.size(); j++) 
      {
-        std::string chname = crateVector[i]->GetChamber(myVector[j])->GetLabel();
+        std::string chname = myVector[j]->GetLabel();
         int station = std::atoi(chname.substr(3,1).c_str());
         int ring = std::atoi(chname.substr(5,1).c_str());
         int chnumb = std::atoi(chname.substr(7,2).c_str());
@@ -4284,7 +4284,7 @@ void EmuPeripheralCrateMonitor::CrateStatus(xgi::Input * in, xgi::Output * out )
   //
   for(unsigned int dmb=0; dmb<myVector.size(); dmb++) {
     *out << cgicc::td();
-    *out << myCrate->GetChamber(myVector[dmb])->GetLabel();
+    *out << myVector[dmb]->GetLabel();
     *out << cgicc::td();
   }
   //
@@ -4463,7 +4463,7 @@ void EmuPeripheralCrateMonitor::Problems(xgi::Input * in, xgi::Output * out )
         DAQMB* mydmb =now_crate->GetDAQMB(slot);
         if(mydmb==NULL) continue;
         confbit= (ccbbits>>(count+18))&0x1;
-        std::string cscname=now_crate->GetChamber(mydmb)->GetLabel();
+        std::string cscname=mydmb->GetLabel();
         if(confbit!=1 && cscname.substr(3,3)!="1/3")
         {
            PROBLEM *prob=new PROBLEM();

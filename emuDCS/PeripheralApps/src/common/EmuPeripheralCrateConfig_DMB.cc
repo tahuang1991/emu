@@ -43,10 +43,8 @@ void EmuPeripheralCrateConfig::DMBTests(xgi::Input * in, xgi::Output * out )
   //
   DAQMB * thisDMB = dmbVector[dmb];
   //
-  Chamber * thisChamber = chamberVector[dmb];
-  //
   char Name[100];
-  sprintf(Name,"%s DMB tests, crate=%s, slot=%d",(thisChamber->GetLabel()).c_str(), ThisCrateID_.c_str(),thisDMB->slot());
+  sprintf(Name,"%s DMB tests, crate=%s, slot=%d",(thisDMB->GetLabel()).c_str(), ThisCrateID_.c_str(),thisDMB->slot());
   //
   MyHeader(in,out,Name);
   //
@@ -588,7 +586,7 @@ void EmuPeripheralCrateConfig::DMBTest11(xgi::Input * in, xgi::Output * out )
       std::cout << cgi["ClearDMBTestsOutput"]->getValue() << std::endl ;
       OutputDMBTests[dmb][current_crate_].str("");
       OutputDMBTests[dmb][current_crate_] << "DMB-CFEB Tests " 
-					  << thisCrate->GetChamber(dmbVector[dmb]->slot())->GetLabel().c_str() 
+					  << dmbVector[dmb]->GetLabel().c_str() 
 					  << " output:" << std::endl;
 
       //
@@ -1657,7 +1655,7 @@ void EmuPeripheralCrateConfig::AllDCFEBsPromTestFast(xgi::Input * in, xgi::Outpu
         continue;
      }
 
-     std::string chambername= thisCrate->GetChamber(thisDMB)->GetLabel();
+     std::string chambername= thisDMB->GetLabel();
      unsigned t = chambername.find('/');
      unsigned s = chambername.size();
      while(t<=s )
@@ -1726,7 +1724,7 @@ void EmuPeripheralCrateConfig::DCFEBPromTestFast(xgi::Input * in, xgi::Output * 
         this->CFEBUtils(in,out);
         return;
      }
-     std::string chambername= thisCrate->GetChamber(thisDMB)->GetLabel();
+     std::string chambername= thisDMB->GetLabel();
      unsigned t = chambername.find('/');
      unsigned s = chambername.size();
      while(t<=s )
@@ -1797,7 +1795,7 @@ void EmuPeripheralCrateConfig::DCFEBPromTest(xgi::Input * in, xgi::Output * out 
         this->CFEBUtils(in,out);
         return;
      }
-     std::string chambername= thisCrate->GetChamber(thisDMB)->GetLabel();
+     std::string chambername= thisDMB->GetLabel();
      unsigned t = chambername.find('/');
      unsigned s = chambername.size();
      while(t<=s )
@@ -1936,7 +1934,7 @@ void EmuPeripheralCrateConfig::DCFEBReadFirmware(xgi::Input * in, xgi::Output * 
      unsigned icfeb=atoi(cfeb_value.c_str());
      std::vector<CFEB> cfebs = thisDMB->cfebs() ;
      if(icfeb<0 || icfeb>cfebs.size()) icfeb=0;
-     std::string chambername= thisCrate->GetChamber(thisDMB)->GetLabel();
+     std::string chambername= thisDMB->GetLabel();
      unsigned t = chambername.find('/');
      unsigned s = chambername.size();
      while(t<=s )
@@ -3168,7 +3166,7 @@ void EmuPeripheralCrateConfig::DMBReadFirmware(xgi::Input * in, xgi::Output * ou
      int hversion=thisDMB->GetHardwareVersion();
      if(hversion==2)
      {
-        std::string chambername= thisCrate->GetChamber(thisDMB)->GetLabel();
+        std::string chambername= thisDMB->GetLabel();
         unsigned t = chambername.find('/');
         unsigned s = chambername.size();
         while(t<=s )
