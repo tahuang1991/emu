@@ -1454,6 +1454,18 @@
                 <Pad1>EventDisplay</Pad1>
                 <Folder>DMB</Folder>
         </Canvas>
+        <Canvas>
+                <Type>cnv</Type>
+                <Prefix>CSC</Prefix>
+                <Name>TMB_ALCT_-_CLCT_Time_Match_ME11</Name>
+                <Title>TMB: ALCT - CLCT Time Synchronization for ME11</Title>
+                <NumPadsX>2</NumPadsX>
+                <NumPadsY>1</NumPadsY>
+                <Pad1>ALCT_Match_Time_me11a</Pad1>
+                <Pad2>ALCT_Match_Time_me11b</Pad2>
+                <Folder>TMB</Folder>
+        </Canvas>
+
 	<!--Canvas>
 		<Type>cnv</Type>
 		<Prefix>CSC</Prefix>
