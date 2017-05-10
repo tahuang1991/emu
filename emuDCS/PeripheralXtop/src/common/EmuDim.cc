@@ -324,16 +324,8 @@ void EmuDim::MainPage(xgi::Input * in, xgi::Output * out ) throw (xgi::exception
 void EmuDim::MyHeader(xgi::Input * in, xgi::Output * out, std::string title ) 
   throw (xgi::exception::Exception) {
   //
-  *out << cgicc::HTMLDoctype(cgicc::HTMLDoctype::eStrict) << std::endl;
-  *out << cgicc::html().set("lang", "en").set("dir","ltr") << std::endl;
-  //
-  cgicc::Cgicc cgi(in);
-  //
-  //const CgiEnvironment& env = cgi.getEnvironment();
-  //
-  std::string myUrl = getApplicationDescriptor()->getContextDescriptor()->getURL();
-  std::string myUrn = getApplicationDescriptor()->getURN();
-  xgi::Utils::getPageHeader(out,title,myUrl,myUrn,"");
+  *out << "<h1 style=\"text-align: center\"> " << title << "</h1>" << std::endl;
+  *out << "<h5 style=\" font-weight: regular; text-align: center\"> " << "( time stamp: " << getLocalDateTime()  << " ) </h5>" << std::endl;
   //
 }
 
