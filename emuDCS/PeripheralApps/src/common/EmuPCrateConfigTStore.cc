@@ -2116,6 +2116,29 @@ void EmuPCrateConfigTStore::copyTMBToTable(xdata::Table &newRows, TMB * TStore_t
     std::string MINISCOPE_ENABLE("MINISCOPE_ENABLE");
     std::string HARDWARE_VERSION("HARDWARE_VERSION");
 
+    std::string CLCT_MATCH_WINDOW_SIZE("CLCT_MATCH_WINDOW_SIZE");
+    std::string USE_DEAD_TIME_ZONE("USE_DEAD_TIME_ZONE");
+    std::string DEAD_TIME_ZONE_SIZE("DEAD_TIME_ZONE_SIZE");
+    std::string USE_DYNAMIC_DEAD_TIME_ZONE("USE_DYNAMIC_DEAD_TIME_ZONE");
+    std::string CLCT_TO_ALCT("CLCT_TO_ALCT");
+    std::string DROP_USED_CLCTS("DROP_USED_CLCTS");
+    std::string CROSS_BX_ALGORITHM("CROSS_BX_ALGORITHM");
+    std::string CLCT_USE_CORRECTED_BX("CLCT_USE_CORRECTED_BX");
+
+    std::string GEM_ENABLED("GEM_ENABLED");
+    std::string GEM_DELAY("GEM_DELAY");
+    std::string GEM_FINE_DELAY("GEM_FINE_DELAY");
+    std::string GEM_POSNEG("GEM_POSNEG");
+    std::string GEM_FIFO_TBINS("GEM_FIFO_TBINS");
+    std::string GEM_FIFO_PRETRIG("GEM_FIFO_PRETRIG");
+    std::string GEM_DECOUPLE("GEM_DECOUPLE");
+    std::string GEM_READ_ENABLE("GEM_READ_ENABLE");
+    std::string GEM_ZERO_SUPRESS_ENABLE("GEM_ZERO_SUPRESS_ENABLE");
+    std::string GEMA_FIFO_RXD_INT_DELAY("GEMA_FIFO_RXD_INT_DELAY");
+    std::string GEMB_FIFO_RXD_INT_DELAY("GEMB_FIFO_RXD_INT_DELAY");
+    std::string GEM_DECOUPLE_RXD_INT_DELAY("GEM_DECOUPLE_RXD_INT_DELAY");
+    std::string GEM_FIFO_RXD_INT_DELAY("GEM_FIFO_RXD_INT_DELAY");
+
     xdata::UnsignedShort  _adjacent_cfeb_distance      = TStore_thisTMB->GetAdjacentCfebDistance();
     xdata::UnsignedShort  _aff_thresh                  = TStore_thisTMB->GetActiveFebFlagThresh();
     xdata::UnsignedShort  _alct_bx0_delay              = TStore_thisTMB->GetAlctBx0Delay();
@@ -2270,6 +2293,29 @@ void EmuPCrateConfigTStore::copyTMBToTable(xdata::Table &newRows, TMB * TStore_t
     xdata::UnsignedShort  _l1a_priority_enable           = TStore_thisTMB->GetL1APriorityEnable();
     xdata::UnsignedShort  _miniscope_enable              = TStore_thisTMB->GetMiniscopeEnable();
     xdata::UnsignedShort  _hardware_version              = TStore_thisTMB->GetHardwareVersion();
+	
+    xdata::UnsignedShort  _clct_match_window_size	= TStore_thisTMB->Get_clct_match_window_size();
+    xdata::UnsignedShort  _use_dead_time_zone		= TStore_thisTMB->Get_use_dead_time_zone();
+    xdata::UnsignedShort  _dead_time_zone_size		= TStore_thisTMB->Get_dead_time_zone_size();
+    xdata::UnsignedShort  _use_dynamic_dead_time_zone	= TStore_thisTMB->Get_use_dynamic_dead_time_zone();
+    xdata::UnsignedShort  _clct_to_alct			= TStore_thisTMB->Get_clct_to_alct();
+    xdata::UnsignedShort  _drop_used_clcts		= TStore_thisTMB->Get_drop_used_clcts();
+    xdata::UnsignedShort  _cross_bx_algorithm		= TStore_thisTMB->Get_cross_bx_algorithm();
+    xdata::UnsignedShort  _clct_use_corrected_bx	= TStore_thisTMB->Get_clct_use_corrected_bx();
+	
+    xdata::UnsignedShort  _gem_enabled			= TStore_thisTMB->GetGemEnabled();
+    xdata::UnsignedShort  _gem_delay			= TStore_thisTMB->GetGemRxClockDelay();
+    xdata::UnsignedShort  _gem_fine_delay		= TStore_thisTMB->GetGemRxFineDelay();
+    xdata::UnsignedShort  _gem_posneg			= TStore_thisTMB->GetGemRxPosNeg();
+    xdata::UnsignedShort  _gem_fifo_tbins		= TStore_thisTMB->GetGemFifoTbins();
+    xdata::UnsignedShort  _gem_fifo_pretrig		= TStore_thisTMB->GetGemFifoPreTrig();
+    xdata::UnsignedShort  _gem_decouple			= TStore_thisTMB->GetGemDecoupleTbins();
+    xdata::UnsignedShort  _gem_read_enable		= TStore_thisTMB->GetGemReadEnable();
+    xdata::UnsignedShort  _gem_zero_supress_enable	= TStore_thisTMB->GetGemZeroSupressEnable();
+    xdata::UnsignedShort  _gema_fifo_rxd_int_delay	= TStore_thisTMB->GetGemARxdIntDelay();
+    xdata::UnsignedShort  _gemb_fifo_rxd_int_delay	= TStore_thisTMB->GetGemBRxdIntDelay();
+    xdata::UnsignedShort  _gem_decouple_rxd_int_delay	= TStore_thisTMB->GetDecoupleGemRxdIntDelay();
+    xdata::UnsignedShort  _gem_fifo_rxd_int_delay	= TStore_thisTMB->GetGemRxdIntDelay();
 
     newRows.setValueAt(rowId, ADJACENT_CFEB_DISTANCE,        _adjacent_cfeb_distance); 
     newRows.setValueAt(rowId, AFF_THRESH,                    _aff_thresh);
@@ -2404,6 +2450,29 @@ void EmuPCrateConfigTStore::copyTMBToTable(xdata::Table &newRows, TMB * TStore_t
     newRows.setValueAt(rowId, L1A_PRIORITY_ENABLE,           _l1a_priority_enable);
     newRows.setValueAt(rowId, MINISCOPE_ENABLE,              _miniscope_enable);
     newRows.setValueAt(rowId, HARDWARE_VERSION,              _hardware_version);
+
+    newRows.setValueAt(rowId, CLCT_MATCH_WINDOW_SIZE	, _clct_match_window_size);
+    newRows.setValueAt(rowId, USE_DEAD_TIME_ZONE	, _use_dead_time_zone);
+    newRows.setValueAt(rowId, DEAD_TIME_ZONE_SIZE	, _dead_time_zone_size);
+    newRows.setValueAt(rowId, USE_DYNAMIC_DEAD_TIME_ZONE	, _use_dynamic_dead_time_zone);
+    newRows.setValueAt(rowId, CLCT_TO_ALCT	, _clct_to_alct);
+    newRows.setValueAt(rowId, DROP_USED_CLCTS	, _drop_used_clcts);
+    newRows.setValueAt(rowId, CROSS_BX_ALGORITHM	, _cross_bx_algorithm);
+    newRows.setValueAt(rowId, CLCT_USE_CORRECTED_BX	, _clct_use_corrected_bx);
+
+    newRows.setValueAt(rowId, GEM_ENABLED	, _gem_enabled);
+    newRows.setValueAt(rowId, GEM_DELAY	, _gem_delay);
+    newRows.setValueAt(rowId, GEM_FINE_DELAY	, _gem_fine_delay);
+    newRows.setValueAt(rowId, GEM_POSNEG	, _gem_posneg);
+    newRows.setValueAt(rowId, GEM_FIFO_TBINS	, _gem_fifo_tbins);
+    newRows.setValueAt(rowId, GEM_FIFO_PRETRIG	, _gem_fifo_pretrig);
+    newRows.setValueAt(rowId, GEM_DECOUPLE	, _gem_decouple);
+    newRows.setValueAt(rowId, GEM_READ_ENABLE	, _gem_read_enable);
+    newRows.setValueAt(rowId, GEM_ZERO_SUPRESS_ENABLE	, _gem_zero_supress_enable);
+    newRows.setValueAt(rowId, GEMA_FIFO_RXD_INT_DELAY	, _gema_fifo_rxd_int_delay);
+    newRows.setValueAt(rowId, GEMB_FIFO_RXD_INT_DELAY	, _gemb_fifo_rxd_int_delay);
+    newRows.setValueAt(rowId, GEM_DECOUPLE_RXD_INT_DELAY	, _gem_decouple_rxd_int_delay);
+    newRows.setValueAt(rowId, GEM_FIFO_RXD_INT_DELAY	, _gem_fifo_rxd_int_delay);
   }
   catch (xcept::Exception &e)
   {
@@ -3722,7 +3791,30 @@ void EmuPCrateConfigTStore::readTMB(
       if (*column == "CFEB_BADBITS_READOUT"  ) tmb_->SetCFEBBadBitsReadout(IntValue);
       if (*column == "L1A_PRIORITY_ENABLE"   ) tmb_->SetL1APriorityEnable(IntValue);
       if (*column == "MINISCOPE_ENABLE"      ) tmb_->SetMiniscopeEnable(IntValue);
-      
+      	
+      if (*column == "CLCT_MATCH_WINDOW_SIZE") tmb_->Set_clct_match_window_size(IntValue);
+      if (*column == "USE_DEAD_TIME_ZONE") tmb_->Set_use_dead_time_zone(IntValue);
+      if (*column == "DEAD_TIME_ZONE_SIZE") tmb_->Set_dead_time_zone_size(IntValue);
+      if (*column == "USE_DYNAMIC_DEAD_TIME_ZONE") tmb_->Set_use_dynamic_dead_time_zone(IntValue);
+      if (*column == "CLCT_TO_ALCT") tmb_->Set_clct_to_alct(IntValue);
+      if (*column == "DROP_USED_CLCTS") tmb_->Set_drop_used_clcts(IntValue);
+      if (*column == "CROSS_BX_ALGORITHM") tmb_->Set_cross_bx_algorithm(IntValue);
+      if (*column == "CLCT_USE_CORRECTED_BX") tmb_->Set_clct_use_corrected_bx(IntValue);
+	
+      if (*column == "GEM_ENABLED") tmb_->SetGemEnabled(IntValue);
+      if (*column == "GEM_DELAY") tmb_->SetGemRxClockDelay(IntValue);
+      if (*column == "GEM_FINE_DELAY") tmb_->SetGemRxFineDelay(IntValue);
+      if (*column == "GEM_POSNEG") tmb_->SetGemRxPosNeg(IntValue);
+      if (*column == "GEM_FIFO_TBINS") tmb_->SetGemFifoTbins(IntValue);
+      if (*column == "GEM_FIFO_PRETRIG") tmb_->SetGemFifoPreTrig(IntValue);
+      if (*column == "GEM_DECOUPLE") tmb_->SetGemDecoupleTbins(IntValue);
+      if (*column == "GEM_READ_ENABLE") tmb_->SetGemReadEnable(IntValue);
+      if (*column == "GEM_ZERO_SUPRESS_ENABLE") tmb_->SetGemZeroSupressEnable(IntValue);
+      if (*column == "GEMA_FIFO_RXD_INT_DELAY") tmb_->SetGemARxdIntDelay(IntValue);
+      if (*column == "GEMB_FIFO_RXD_INT_DELAY") tmb_->SetGemBRxdIntDelay(IntValue);
+      if (*column == "GEM_DECOUPLE_RXD_INT_DELAY") tmb_->SetDecoupleGemRxdIntDelay(IntValue);
+      if (*column == "GEM_FIFO_RXD_INT_DELAY") tmb_->SetGemRxdIntDelay(IntValue);
+
       if (*column == "TMB_CONFIG_ID" ) tmb_config_id_ = StrgValue;
     }
     std::string identifier = DAQMBID(chamberID(theCrate->CrateID(), theChamber->GetLabel()), slot);

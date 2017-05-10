@@ -407,8 +407,10 @@ throw (emu::exception::ConfigurationException)
     XCEPT_RAISE(emu::exception::ConfigurationException, std::string("Failed to get TMB slot") );
   }
   int tmbHwVersion = 0;
+  int gemEnabled = 0;
   if (conf->has("HARDWARE_VERSION"))       tmbHwVersion =  getInt(conf, "HARDWARE_VERSION");
-  TMB * tmb_ = new TMB(theCrate, theChamber, slot, tmbHwVersion);
+  if (conf->has("GEM_ENABLED"))            gemEnabled   =  getInt(conf, "GEM_ENABLED");
+  TMB * tmb_ = new TMB(theCrate, theChamber, slot, tmbHwVersion, gemEnabled);
 
   if (conf->has("TMB_FIRMWARE_MONTH"))         tmb_->SetExpectedTmbFirmwareMonth( getInt(conf, "TMB_FIRMWARE_MONTH"));
   if (conf->has("TMB_FIRMWARE_DAY"))           tmb_->SetExpectedTmbFirmwareDay( getInt(conf, "TMB_FIRMWARE_DAY"));
@@ -568,6 +570,29 @@ throw (emu::exception::ConfigurationException)
   if (conf->has("L1A_PRIORITY_ENABLE"))    tmb_->SetL1APriorityEnable( getInt(conf, "L1A_PRIORITY_ENABLE"));
   if (conf->has("MINISCOPE_ENABLE"))       tmb_->SetMiniscopeEnable( getInt(conf, "MINISCOPE_ENABLE"));
 
+  if (conf->has("CLCT_MATCH_WINDOW_SIZE"))       tmb_->Set_clct_match_window_size( getInt(conf, "CLCT_MATCH_WINDOW_SIZE"));
+  if (conf->has("USE_DEAD_TIME_ZONE"))       tmb_->Set_use_dead_time_zone( getInt(conf, "USE_DEAD_TIME_ZONE"));
+  if (conf->has("DEAD_TIME_ZONE_SIZE"))       tmb_->Set_dead_time_zone_size( getInt(conf, "DEAD_TIME_ZONE_SIZE"));
+  if (conf->has("USE_DYNAMIC_DEAD_TIME_ZONE"))       tmb_->Set_use_dynamic_dead_time_zone( getInt(conf, "USE_DYNAMIC_DEAD_TIME_ZONE"));
+  if (conf->has("CLCT_TO_ALCT"))       tmb_->Set_clct_to_alct( getInt(conf, "CLCT_TO_ALCT"));
+  if (conf->has("DROP_USED_CLCTS"))       tmb_->Set_drop_used_clcts( getInt(conf, "DROP_USED_CLCTS"));
+  if (conf->has("CROSS_BX_ALGORITHM"))       tmb_->Set_cross_bx_algorithm( getInt(conf, "CROSS_BX_ALGORITH"));
+  if (conf->has("CLCT_USE_CORRECTED_BX"))       tmb_->Set_clct_use_corrected_bx( getInt(conf, "CLCT_USE_CORRECTED_BX"));
+  if(gemEnabled)
+  {
+    if (conf->has("GEM_DELAY"))       tmb_->SetGemRxClockDelay( getInt(conf, "GEM_DELAY"));
+    if (conf->has("GEM_FINE_DELAY"))       tmb_->SetGemRxFineDelay( getInt(conf, "GEM_FINE_DELAY"));
+    if (conf->has("GEM_POSNEG"))       tmb_->SetGemRxPosNeg( getInt(conf, "GEM_POSNEG"));
+    if (conf->has("GEM_FIFO_TBINS"))       tmb_->SetGemFifoTbins( getInt(conf, "GEM_FIFO_TBINS"));
+    if (conf->has("GEM_FIFO_PRETRIG"))       tmb_->SetGemFifoPreTrig( getInt(conf, "GEM_FIFO_PRETRIG"));
+    if (conf->has("GEM_DECOUPLE"))       tmb_->SetGemDecoupleTbins( getInt(conf, "GEM_DECOUPLE"));
+    if (conf->has("GEM_READ_ENABLE"))       tmb_->SetGemReadEnable( getInt(conf, "GEM_READ_ENABLE"));
+    if (conf->has("GEM_ZERO_SUPRESS_ENABLE"))       tmb_->SetGemZeroSupressEnable( getInt(conf, "GEM_ZERO_SUPRESS_ENABLE"));
+    if (conf->has("GEMA_FIFO_RXD_INT_DELAY"))       tmb_->SetGemARxdIntDelay( getInt(conf, "GEMA_FIFO_RXD_INT_DELAY"));
+    if (conf->has("GEMB_FIFO_RXD_INT_DELAY"))       tmb_->SetGemBRxdIntDelay( getInt(conf, "GEMB_FIFO_RXD_INT_DELAY"));
+    if (conf->has("GEM_DECOUPLE_RXD_INT_DELAY"))       tmb_->SetDecoupleGemRxdIntDelay( getInt(conf, "GEM_DECOUPLE_RXD_INT_DELAY"));
+    if (conf->has("GEM_FIFO_RXD_INT_DELAY"))       tmb_->SetGemRxdIntDelay( getInt(conf, "GEM_FIFO_RXD_INT_DELAY"));
+  }
   if(verbose_)
   {
     xdata::Table t = conf->row();
