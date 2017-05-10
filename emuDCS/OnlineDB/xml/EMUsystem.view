@@ -753,6 +753,27 @@ oldconfig.VALID_CLCT_REQUIRED "VALID_CLCT_REQUIRED $OLD_EMU_CONFIG_ID",newconfig
 oldconfig.WRITE_BUFFER_AUTOCLEAR "WRITE_BUFFER_AUTOCLEAR $OLD_EMU_CONFIG_ID",newconfig.WRITE_BUFFER_AUTOCLEAR "WRITE_BUFFER_AUTOCLEAR $NEW_EMU_CONFIG_ID",
 oldconfig.WRITE_BUFFER_CONTINOUS_ENABLE "WRITE_BUFFER_CONTINOUS $OLD_EMU_CONFIG_ID",newconfig.WRITE_BUFFER_CONTINOUS_ENABLE "WRITE_BUFFER_CONTINOUS $NEW_EMU_CONFIG_ID",
 oldconfig.WRITE_BUFFER_REQUIRED "WRITE_BUFFER_REQUIRED $OLD_EMU_CONFIG_ID",newconfig.WRITE_BUFFER_REQUIRED "WRITE_BUFFER_REQUIRED $NEW_EMU_CONFIG_ID",
+oldconfig.CLCT_MATCH_WINDOW_SIZE  "CLCT_MATCH_WINDOW_SIZE $OLD_EMU_CONFIG_ID", newconfig.CLCT_MATCH_WINDOW_SIZE  "CLCT_MATCH_WINDOW_SIZE $NEW_EMU_CONFIG_ID",
+oldconfig.USE_DEAD_TIME_ZONE  "USE_DEAD_TIME_ZONE $OLD_EMU_CONFIG_ID", newconfig.USE_DEAD_TIME_ZONE  "USE_DEAD_TIME_ZONE $NEW_EMU_CONFIG_ID",
+oldconfig.DEAD_TIME_ZONE_SIZE  "DEAD_TIME_ZONE_SIZE $OLD_EMU_CONFIG_ID", newconfig.DEAD_TIME_ZONE_SIZE  "DEAD_TIME_ZONE_SIZE $NEW_EMU_CONFIG_ID",
+oldconfig.USE_DYNAMIC_DEAD_TIME_ZONE  "USE_DYNAMIC_DEAD_TIME_ZONE $OLD_EMU_CONFIG_ID", newconfig.USE_DYNAMIC_DEAD_TIME_ZONE  "USE_DYNAMIC_DEAD_TIME_ZONE $NEW_EMU_CONFIG_ID",
+oldconfig.CLCT_TO_ALCT  "CLCT_TO_ALCT $OLD_EMU_CONFIG_ID", newconfig.CLCT_TO_ALCT  "CLCT_TO_ALCT $NEW_EMU_CONFIG_ID",
+oldconfig.DROP_USED_CLCTS  "DROP_USED_CLCTS $OLD_EMU_CONFIG_ID", newconfig.DROP_USED_CLCTS  "DROP_USED_CLCTS $NEW_EMU_CONFIG_ID",
+oldconfig.CROSS_BX_ALGORITHM  "CROSS_BX_ALGORITHM $OLD_EMU_CONFIG_ID", newconfig.CROSS_BX_ALGORITHM  "CROSS_BX_ALGORITHM $NEW_EMU_CONFIG_ID",
+oldconfig.CLCT_USE_CORRECTED_BX  "CLCT_USE_CORRECTED_BX $OLD_EMU_CONFIG_ID", newconfig.CLCT_USE_CORRECTED_BX  "CLCT_USE_CORRECTED_BX $NEW_EMU_CONFIG_ID",
+oldconfig.GEM_ENABLED  "GEM_ENABLED $OLD_EMU_CONFIG_ID", newconfig.GEM_ENABLED  "GEM_ENABLED $NEW_EMU_CONFIG_ID",
+oldconfig.GEM_DELAY  "GEM_DELAY $OLD_EMU_CONFIG_ID", newconfig.GEM_DELAY  "GEM_DELAY $NEW_EMU_CONFIG_ID",
+oldconfig.GEM_FINE_DELAY  "GEM_FINE_DELAY $OLD_EMU_CONFIG_ID", newconfig.GEM_FINE_DELAY  "GEM_FINE_DELAY $NEW_EMU_CONFIG_ID",
+oldconfig.GEM_POSNEG  "GEM_POSNEG $OLD_EMU_CONFIG_ID", newconfig.GEM_POSNEG  "GEM_POSNEG $NEW_EMU_CONFIG_ID",
+oldconfig.GEM_FIFO_TBINS  "GEM_FIFO_TBINS $OLD_EMU_CONFIG_ID", newconfig.GEM_FIFO_TBINS  "GEM_FIFO_TBINS $NEW_EMU_CONFIG_ID",
+oldconfig.GEM_FIFO_PRETRIG  "GEM_FIFO_PRETRIG $OLD_EMU_CONFIG_ID", newconfig.GEM_FIFO_PRETRIG  "GEM_FIFO_PRETRIG $NEW_EMU_CONFIG_ID",
+oldconfig.GEM_DECOUPLE  "GEM_DECOUPLE $OLD_EMU_CONFIG_ID", newconfig.GEM_DECOUPLE  "GEM_DECOUPLE $NEW_EMU_CONFIG_ID",
+oldconfig.GEM_READ_ENABLE  "GEM_READ_ENABLE $OLD_EMU_CONFIG_ID", newconfig.GEM_READ_ENABLE  "GEM_READ_ENABLE $NEW_EMU_CONFIG_ID",
+oldconfig.GEM_ZERO_SUPRESS_ENABLE  "GEM_ZERO_SUPRESS_ENABLE $OLD_EMU_CONFIG_ID", newconfig.GEM_ZERO_SUPRESS_ENABLE  "GEM_ZERO_SUPRESS_ENABLE $NEW_EMU_CONFIG_ID",
+oldconfig.GEMA_FIFO_RXD_INT_DELAY  "GEMA_FIFO_RXD_INT_DELAY $OLD_EMU_CONFIG_ID", newconfig.GEMA_FIFO_RXD_INT_DELAY  "GEMA_FIFO_RXD_INT_DELAY $NEW_EMU_CONFIG_ID",
+oldconfig.GEMB_FIFO_RXD_INT_DELAY  "GEMB_FIFO_RXD_INT_DELAY $OLD_EMU_CONFIG_ID", newconfig.GEMB_FIFO_RXD_INT_DELAY  "GEMB_FIFO_RXD_INT_DELAY $NEW_EMU_CONFIG_ID",
+oldconfig.GEM_DECOUPLE_RXD_INT_DELAY  "GEM_DECOUPLE_RXD_INT_DELAY $OLD_EMU_CONFIG_ID", newconfig.GEM_DECOUPLE_RXD_INT_DELAY  "GEM_DECOUPLE_RXD_INT_DELAY $NEW_EMU_CONFIG_ID",
+oldconfig.GEM_FIFO_RXD_INT_DELAY  "GEM_FIFO_RXD_INT_DELAY $OLD_EMU_CONFIG_ID", newconfig.GEM_FIFO_RXD_INT_DELAY  "GEM_FIFO_RXD_INT_DELAY $NEW_EMU_CONFIG_ID",
 oldconfig.TMB_CONFIG_ID "TMB_CONFIG_ID $OLD_EMU_CONFIG_ID",newconfig.TMB_CONFIG_ID "TMB_CONFIG_ID $NEW_EMU_CONFIG_ID"
 from EMU_TMB oldconfig,EMU_TMB newconfig,emu_alct oldalct,emu_alct newalct
 where oldconfig.EMU_CONFIG_ID=$OLD_EMU_CONFIG_ID and oldconfig.csc_CONFIG_ID=$OLD_XXX_CONFIG_ID
@@ -882,8 +903,28 @@ oldconfig.TMB_TO_ALCT_DATA_DELAY!=newconfig.TMB_TO_ALCT_DATA_DELAY or
 oldconfig.VALID_CLCT_REQUIRED!=newconfig.VALID_CLCT_REQUIRED or 
 oldconfig.WRITE_BUFFER_AUTOCLEAR!=newconfig.WRITE_BUFFER_AUTOCLEAR or 
 oldconfig.WRITE_BUFFER_CONTINOUS_ENABLE!=newconfig.WRITE_BUFFER_CONTINOUS_ENABLE or 
-oldconfig.WRITE_BUFFER_REQUIRED!=newconfig.WRITE_BUFFER_REQUIRED
-  or
+oldconfig.WRITE_BUFFER_REQUIRED!=newconfig.WRITE_BUFFER_REQUIRED  or
+oldconfig.CLCT_MATCH_WINDOW_SIZE!=newconfig.CLCT_MATCH_WINDOW_SIZE or
+oldconfig.USE_DEAD_TIME_ZONE!=newconfig.USE_DEAD_TIME_ZONE or
+oldconfig.DEAD_TIME_ZONE_SIZE!=newconfig.DEAD_TIME_ZONE_SIZE or
+oldconfig.USE_DYNAMIC_DEAD_TIME_ZONE!=newconfig.USE_DYNAMIC_DEAD_TIME_ZONE or
+oldconfig.CLCT_TO_ALCT!=newconfig.CLCT_TO_ALCT or
+oldconfig.DROP_USED_CLCTS!=newconfig.DROP_USED_CLCTS or
+oldconfig.CROSS_BX_ALGORITHM!=newconfig.CROSS_BX_ALGORITHM or
+oldconfig.CLCT_USE_CORRECTED_BX!=newconfig.CLCT_USE_CORRECTED_BX or
+oldconfig.GEM_ENABLED!=newconfig.GEM_ENABLED or
+oldconfig.GEM_DELAY!=newconfig.GEM_DELAY or
+oldconfig.GEM_FINE_DELAY!=newconfig.GEM_FINE_DELAY or
+oldconfig.GEM_POSNEG!=newconfig.GEM_POSNEG or
+oldconfig.GEM_FIFO_TBINS!=newconfig.GEM_FIFO_TBINS or
+oldconfig.GEM_FIFO_PRETRIG!=newconfig.GEM_FIFO_PRETRIG or
+oldconfig.GEM_DECOUPLE!=newconfig.GEM_DECOUPLE or
+oldconfig.GEM_READ_ENABLE!=newconfig.GEM_READ_ENABLE or
+oldconfig.GEM_ZERO_SUPRESS_ENABLE!=newconfig.GEM_ZERO_SUPRESS_ENABLE or
+oldconfig.GEMA_FIFO_RXD_INT_DELAY!=newconfig.GEMA_FIFO_RXD_INT_DELAY or
+oldconfig.GEMB_FIFO_RXD_INT_DELAY!=newconfig.GEMB_FIFO_RXD_INT_DELAY or
+oldconfig.GEM_DECOUPLE_RXD_INT_DELAY!=newconfig.GEM_DECOUPLE_RXD_INT_DELAY or
+oldconfig.GEM_FIFO_RXD_INT_DELAY!=newconfig.GEM_FIFO_RXD_INT_DELAY or
   oldalct.ALCT_ACCEL_MODE!=newalct.ALCT_ACCEL_MODE or
   oldalct.ALCT_BXN_OFFSET!=newalct.ALCT_BXN_OFFSET or
   oldalct.ALCT_CCB_ENABLE!=newalct.ALCT_CCB_ENABLE or
@@ -1457,6 +1498,27 @@ where rownum=1]]>
       <tstore:column name="l1a_priority_enable" type="unsigned short"/>
       <tstore:column name="miniscope_enable" type="unsigned short"/>
       <tstore:column name="hardware_version" type="unsigned short"/>
+      <tstore:column name="clct_match_window_size" type="unsigned short"/>
+      <tstore:column name="use_dead_time_zone" type="unsigned short"/>
+      <tstore:column name="dead_time_zone_size" type="unsigned short"/>
+      <tstore:column name="use_dynamic_dead_time_zone" type="unsigned short"/>
+      <tstore:column name="clct_to_alct" type="unsigned short"/>
+      <tstore:column name="drop_used_clcts" type="unsigned short"/>
+      <tstore:column name="cross_bx_algorithm" type="unsigned short"/>
+      <tstore:column name="clct_use_corrected_bx" type="unsigned short"/>
+      <tstore:column name="gem_enabled" type="unsigned short"/>
+      <tstore:column name="gem_delay" type="unsigned short"/>
+      <tstore:column name="gem_fine_delay" type="unsigned short"/>
+      <tstore:column name="gem_posneg" type="unsigned short"/>
+      <tstore:column name="gem_fifo_tbins" type="unsigned short"/>
+      <tstore:column name="gem_fifo_pretrig" type="unsigned short"/>
+      <tstore:column name="gem_decouple" type="unsigned short"/>
+      <tstore:column name="gem_read_enable" type="unsigned short"/>
+      <tstore:column name="gem_zero_supress_enable" type="unsigned short"/>
+      <tstore:column name="gema_fifo_rxd_int_delay" type="unsigned short"/>
+      <tstore:column name="gemb_fifo_rxd_int_delay" type="unsigned short"/>
+      <tstore:column name="gem_decouple_rxd_int_delay" type="unsigned short"/>
+      <tstore:column name="gem_fifo_rxd_int_delay" type="unsigned short"/>
 
       <tstore:foreignkey references="EMU_CSC">
         <tstore:keycolumn column="csc_config_id" references="csc_config_id"/>
