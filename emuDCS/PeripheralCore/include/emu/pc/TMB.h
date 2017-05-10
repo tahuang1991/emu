@@ -514,6 +514,7 @@ public:
   //  inline void SetHardwareVersion(int version) {hardware_version_ = version;} //in TMB constructor now
   inline int GetHardwareVersion() {return hardware_version_;}
   inline int GetGemEnabled() {return gem_enabled_;}
+  inline void SetGemEnabled(int value) { gem_enabled_ = value; }
 
   static const int MAX_GEM_FIBERS_ME11 = 4;
   inline int GetNGemEnabledLinks() {
@@ -2587,6 +2588,7 @@ public:
       gemA_rx_fine_delay_ = gem_rx_fine_delay;
       gemB_rx_fine_delay_ = gem_rx_fine_delay;
   }
+  inline int GetGemRxFineDelay() { return  gem_rx_fine_delay_; } 
   //
   inline int GetGemARxClockDelay() { return gemA_rx_clock_delay_; }
   inline int GetGemBRxClockDelay() { return gemB_rx_clock_delay_; }
