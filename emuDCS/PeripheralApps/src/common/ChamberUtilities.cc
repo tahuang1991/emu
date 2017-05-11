@@ -1558,6 +1558,7 @@ void ChamberUtilities::CFEBTiming_with_Posnegs_simple_routine(int time_delay, in
   else
     config.cfeb_mask = 0x1 << cfeb_num;
 
+  thisTMB->getTheController()->SetUseDelay(true);
   thisCCB_->setCCBMode(CCB::VMEFPGA);
   
   CFEBTiming_PrintConfiguration(config);
@@ -2379,6 +2380,7 @@ void ChamberUtilities::CFEBTiming_with_Posnegs_simple_routine(int time_delay, in
   
   web_backup.close();
   thisCCB_->setCCBMode(CCB::DLOG);
+  thisTMB->getTheController()->SetUseDelay(false);
     
 }
     //
