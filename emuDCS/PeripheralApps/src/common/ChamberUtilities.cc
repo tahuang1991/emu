@@ -7777,6 +7777,7 @@ void ChamberUtilities::PulseHalfstrips(int * hs_normal, bool enableL1aEmulator) 
   else {
     thisDMB->inject(1,0x4f);
   }
+  ::usleep(100);
   //
 	  // Decode the TMB CLCTs (0 and 1)
 	  //
