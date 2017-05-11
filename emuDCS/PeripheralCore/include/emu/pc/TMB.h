@@ -2576,14 +2576,12 @@ public:
   inline void SetGemBRxClockDelay(int gemB_rx_clock_delay) { gemB_rx_clock_delay_ = gemB_rx_clock_delay; }
   //
   inline void SetGemRxClockDelay(int gem_rx_clock_delay) {
-      assert(GetHardwareVersion()==2 && GetGemEnabled());
       gem_rx_clock_delay_  = gem_rx_clock_delay;
       gemA_rx_clock_delay_ = gem_rx_clock_delay;
       gemB_rx_clock_delay_ = gem_rx_clock_delay;
   }
   //
   inline void SetGemRxFineDelay(int gem_rx_fine_delay) {
-      assert(GetHardwareVersion()==2 && GetGemEnabled());
       gem_rx_fine_delay_  = gem_rx_fine_delay;
       gemA_rx_fine_delay_ = gem_rx_fine_delay;
       gemB_rx_fine_delay_ = gem_rx_fine_delay;
@@ -2592,7 +2590,7 @@ public:
   //
   inline int GetGemARxClockDelay() { return gemA_rx_clock_delay_; }
   inline int GetGemBRxClockDelay() { return gemB_rx_clock_delay_; }
-  inline int GetGemRxClockDelay()  { assert(GetHardwareVersion()==2 && GetGemEnabled()); return gem_rx_clock_delay_; }
+  inline int GetGemRxClockDelay()  { return gem_rx_clock_delay_; }
   inline int GetReadGemRxClockDelay()  { return read_gem_rx_clock_delay_ ;}
   inline int GetReadGemRxPosNeg(){return read_gem_rx_posneg_;}
   //
@@ -2603,7 +2601,6 @@ public:
   inline int  GetGemARxPosNeg() { return gemA_rx_posneg_;}
   inline int  GetGemBRxPosNeg() { return gemB_rx_posneg_;}
   inline int  GetGemRxPosNeg() {
-    assert(GetHardwareVersion()==2 && GetGemEnabled());
     return gem_rx_posneg_;
   }
 
@@ -2640,7 +2637,6 @@ public:
 
   inline int  GetGemRxdIntDelay ()                                 { return gem_rxd_int_delay_;}
   inline void SetGemRxdIntDelay (int gem_rxd_int_delay)            {
-      assert(HasGroupedGemRxValues()>0);
       gem_rxd_int_delay_  = gem_rxd_int_delay;
       gemA_rxd_int_delay_ = gem_rxd_int_delay;
       gemB_rxd_int_delay_ = gem_rxd_int_delay;
