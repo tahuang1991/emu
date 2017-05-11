@@ -576,7 +576,7 @@ throw (emu::exception::ConfigurationException)
   if (conf->has("USE_DYNAMIC_DEAD_TIME_ZONE"))       tmb_->Set_use_dynamic_dead_time_zone( getInt(conf, "USE_DYNAMIC_DEAD_TIME_ZONE"));
   if (conf->has("CLCT_TO_ALCT"))       tmb_->Set_clct_to_alct( getInt(conf, "CLCT_TO_ALCT"));
   if (conf->has("DROP_USED_CLCTS"))       tmb_->Set_drop_used_clcts( getInt(conf, "DROP_USED_CLCTS"));
-  if (conf->has("CROSS_BX_ALGORITHM"))       tmb_->Set_cross_bx_algorithm( getInt(conf, "CROSS_BX_ALGORITH"));
+  if (conf->has("CROSS_BX_ALGORITHM"))       tmb_->Set_cross_bx_algorithm( getInt(conf, "CROSS_BX_ALGORITHM"));
   if (conf->has("CLCT_USE_CORRECTED_BX"))       tmb_->Set_clct_use_corrected_bx( getInt(conf, "CLCT_USE_CORRECTED_BX"));
   if(gemEnabled)
   {
