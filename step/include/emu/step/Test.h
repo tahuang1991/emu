@@ -3,6 +3,12 @@
 
 #include "emu/step/TestParameters.h"
 
+#ifdef DIP
+#include "Dip.h"
+#include "DipSubscription.h"
+#include "emu/step/TimingOptions.h"
+#endif
+
 #include "emu/utils/Progress.h"
 
 #include "emu/pc/XMLParser.h"
@@ -36,7 +42,12 @@ namespace emu{
 			   kill_All    = 0x01ff };
 
 
+    class SPSSynchronizer;
+
     class Test : public TestParameters, public toolbox::exception::Listener {
+
+      friend class SPSListener;
+      friend class TimingOptions;
 
     public:
 
@@ -59,6 +70,8 @@ namespace emu{
 	    const string& specialSettingsXML,
 	    const bool    isFake,
 	    Logger*       pLogger              );
+
+      ~Test();
 
 
       /// Setter of run number
@@ -116,6 +129,9 @@ namespace emu{
       ///
       void PrintDmbValuesAndScopes( emu::pc::TMB* tmb, emu::pc::DAQMB* dmb, emu::pc::CCB* ccb, emu::pc::MPC* mpc );
 
+      bool isFake() const { return isFake_; }
+      
+
       enum { pipelineDepthFromXML = -99 };
 
     private:
@@ -131,6 +147,49 @@ namespace emu{
       emu::pc::XMLParser   parser_;
       emu::utils::Progress progress_; ///< Progress counter.
 
+#ifdef DIP
+    public:
+      /// The SPS cycle whose timing signals we're interested in
+      const string SPSCycleName_;
+      /// DIP publication indices (each corresponds to a published SPS timing signal)
+      enum SPSTimingSignal_t { SPSSuperCycleStart ,  SPSCycleStart ,  SPSExtractionStart ,  SPSExtractionEnd, nDIPPublications };
+      /// Names of SPS timing signals that we'll subscribe to by DIP: 
+      static const char* SPSTimingSignalNames_[nDIPPublications];
+    private:
+      /// Array of DIP publication names
+      static const char* DIPPublications_[nDIPPublications];
+      /// DIP publication name --> index map (the inverse of the DIPPublications_ array)
+      map<string,int> DIPPublicationIndices_; 
+      /// The "DIP message received" word (its bits are indexed by the SPSTimingSignal_t enum)
+      unsigned int DIPMessageReceivedFlags_;
+      /// DIPFactory singleton. Call Dip::create() only once to create it, all subsequent calls would only return the same object. Do not try to destroy dip_.
+      DipFactory *dip_;
+      /// Nested DIP listener class
+      class SPSListener : public DipSubscriptionListener{
+      private:
+	Test *client_;
+      public:
+	SPSListener( Test *c ) : client_( c ){};
+	void handleMessage( DipSubscription *subscription, DipData &message);
+	void connected( DipSubscription *subscription );
+	void disconnected( DipSubscription *subscription, char *reason );
+	void handleException( DipSubscription* subscription, DipException& ex );
+      } *spsListener_; /// SPS DIP listener
+      DipSubscription **subscriptions_;/// The array of our subscriptions
+      void subscribeToDIP();
+      void unsubscribeFromDIP();
+      void resetDIPMessageReceivedFlags( unsigned int signals );
+      /// See if we received any of the indices we're interested in, and if so, reset its corresponding receive flag, and return its index.
+      ///
+      /// @param signals The world whose bits corresponds to the indices of the signals (see SPSTimingSignal_t) that we're interested in.
+      ///
+      /// @return The index of the received signal (see SPSTimingSignal_t) we're interested in.
+      ///
+      int receivedSPSSignal( unsigned int signals );
+      int waitForSPSTimingSignals( unsigned int signals );
+#endif
+
+    private:
       void ( emu::step::Test::* getProcedure( const string& testId, State_t state ) )(); 
       void createEndcap( const string& generalSettingsXML,
 			 const string& specialSettingsXML  );
@@ -148,6 +207,7 @@ namespace emu{
       void hardResetOTMBs(emu::pc::Crate* crate); ///< hard-reset all OTMBs *only* (to clean the hot channel masks)
       void printDCFEBUserCodes( emu::pc::DAQMB* dmb );
       string getDataDirName() const;
+
       void configure_11();
       void configure_11c();
       void configure_12();
@@ -182,6 +242,7 @@ namespace emu{
       void enable_30();
       void enable_40();
       void enable_fake();
+
       virtual void onException( xcept::Exception& e ); // callback for toolbox::exception::Listener
 
     };

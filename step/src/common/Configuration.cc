@@ -21,12 +21,12 @@ emu::step::Configuration::Configuration( const string& XMLnamespace,
 
   xslt_ = emu::utils::readFile( emu::utils::performExpansions( configurationXSLFileName.toString() ) );
   if ( xslt_.size() == 0 ){
-    XCEPT_RAISE( xcept::Exception, configurationXSLFileName.toString() + " could not be read in or is empty." );
+    XCEPT_RAISE( xcept::Exception, "Configuration XSL file '" + configurationXSLFileName.toString() + "' could not be read in or is empty." );
   }
 
   testParametersXML_ = emu::utils::readFile( emu::utils::performExpansions( testParametersFileName ) );
   if ( testParametersXML_.size() == 0 ){
-    XCEPT_RAISE( xcept::Exception, testParametersFileName.toString() + " could not be read in or is empty." );
+    XCEPT_RAISE( xcept::Exception, "Test parameters file '" + testParametersFileName.toString() + "' could not be read in or is empty." );
   }
   for ( map<string,string>::const_iterator p = pCrateSettingsFileNames.begin(); p != pCrateSettingsFileNames.end(); ++p )
     {
@@ -34,7 +34,7 @@ emu::step::Configuration::Configuration( const string& XMLnamespace,
 	{
 	  pCrateSettingsXMLs_[p->first] = emu::utils::readFile( emu::utils::performExpansions( p->second ) );
 	  if ( pCrateSettingsXMLs_[p->first].size() == 0 ){
-	    XCEPT_RAISE( xcept::Exception, p->second + " could not be read in or is empty." );
+	    XCEPT_RAISE( xcept::Exception, "PCrate settings file '" + p->second + "' could not be read in or is empty." );
 	  }
 	}
     }

@@ -32,7 +32,7 @@ void emu::step::TestParameters::extractParameters( const string& testParametersX
 
   stringstream xpath;
   xpath << "//STEP_tests/test_config[translate(test,' ','')='" << id_ << "']/*[name()!='test']";
-  cout << "testParametersXML" << endl << testParametersXML << endl << "xpath" << endl << xpath.str() << endl << flush;
+  if ( pLogger_ ){ LOG4CPLUS_INFO( *pLogger_,  "testParametersXML\n" << testParametersXML << "\nxpath\n" << xpath.str() << "\n"); }
   vector< pair< string, string > > par = utils::getSelectedNodesValues( testParametersXML, xpath.str() );
 
   for ( vector< pair< string, string > >::const_iterator p = par.begin(); p != par.end(); ++p ){
@@ -42,64 +42,13 @@ void emu::step::TestParameters::extractParameters( const string& testParametersX
   calculateNEvents();
 }
 
-// void emu::step::TestParameters::calculateNEvents(){
-//   if      ( id_ == "11" ){
-//     nEvents_ = parameters_["events_total"];
-//   }
-//   else if ( id_ == "12" ){
-//     const uint64_t nStrips = 6; // strips to scan, never changes
-//     nEvents_ = parameters_["events_per_strip"] * nStrips;
-//   }
-//   else if ( id_ == "13" ){
-//     nEvents_ = parameters_["events_per_threshold"] * parameters_["thresholds_per_tpamp"] * parameters_["tpamps_per_run"];
-//   }
-//   else if ( id_ == "14" ){
-//     nEvents_ = parameters_["events_per_delay"] * parameters_["delays_per_run"];
-//   }
-//   else if ( id_ == "15" ){
-//     nEvents_ = parameters_["events_total"];
-//   }
-//   else if ( id_ == "16" ){
-//     const uint64_t nLayerPairs = 3; // Pairs of layers to scan, never changes. (Scans 2 layers at a time.)
-//     nEvents_ = parameters_["events_per_layer"] * nLayerPairs;
-//   }
-//   else if ( id_ == "17" ){
-//     nEvents_ = parameters_["events_per_delay"] * parameters_["delays_per_strip"] * parameters_["strips_per_run"];
-//   }
-//   else if ( id_ == "17b"){
-//     nEvents_ = parameters_["events_per_pulsedac"] * parameters_["pulse_dac_settings"] * parameters_["strips_per_run"];
-//   }
-//   else if ( id_ == "18" ){
-//     nEvents_ = parameters_["events_total"];
-//   }
-//   else if ( id_ == "19" ){
-//     nEvents_ = parameters_["events_per_thresh"] * parameters_["threshs_per_tpamp"] * parameters_["dmb_tpamps_per_strip"] * parameters_["strips_per_run"];
-//   }
-//   else if ( id_ == "21" ){
-//     nEvents_ = parameters_["events_per_hstrip"] * parameters_["hstrips_per_run"];
-//   }
-//   else if ( id_ == "25" ){
-//     nEvents_ = parameters_["trig_settings"] * parameters_["events_per_trig_set"];
-//   }
-//   else {
-//     XCEPT_RAISE( xcept::Exception, "Unknown test id '" + id_ + "'." );
-//   }
-// }
-
 void emu::step::TestParameters::calculateNEvents(){
   // For passive tests (i.e., those without pulses), get the number of events to be collected.
-  if      ( id_ == "18" ){
-    nEvents_ = parameters_["events_total"];
-  }
-  else if ( id_ == "27" ){
-    nEvents_ = parameters_["events_total"];
-  }
-  else if ( id_ == "27s" ){
-    nEvents_ = parameters_["events_total"];
-  }
-  else if ( id_ == "40" ){
-    nEvents_ = parameters_["events_total"];
-  }
+  if ( id_ == "18"  ||
+       id_ == "27"  || 
+       id_ == "27s" || 
+       id_ == "40"  || 
+       id_ == "40s"    ) nEvents_ = parameters_["events_total"];
   // For active (i.e., pulsed) tests, the number of events to be collected will be calculated at the beginning of the test
   // as it depends on the number of chambers to be tested. For the time being, keep nEvents_ = 0 for active (pulsed or timed) tests.
 }

@@ -31,8 +31,11 @@ Sources = \
 	TestParameters.cc	\
 	Test.cc	\
 	ChamberMap.cc	\
+	Dumper.cc	\
 	PeriodicDumper.cc	\
+	TimingOptions.cc \
 	version.cc
+
 TestSources =
 TestIncludeDirs =
 
@@ -42,13 +45,14 @@ IncludeDirs = \
 	$(BUILD_HOME)/emu/base/include \
 	$(BUILD_HOME)/emu/emuDCS/PeripheralCore/include \
 	$(BUILD_HOME)/emu/emuDCS/PeripheralApps/include \
-	$(BUILD_HOME)/emu/step/include
-LibraryDirs =
+	$(BUILD_HOME)/emu/step/include \
+	$(BUILD_HOME)/../../dip/include
+LibraryDirs = $(BUILD_HOME)/../../dip/lib64
 
 UserSourcePath =
 UserCFlags = $(ROOTCFLAGS)
-#UserCCFlags = -g -Wall -pedantic-errors -Wno-long-long
-UserCCFlags = -O0 -g -Wall -Wno-long-long $(ROOTCFLAGS)
+# Add -DDIP to UserCCFlags if the DIP library is available and needed.
+UserCCFlags = -O0 -g -Wall -Wno-long-long $(ROOTCFLAGS) # -DDIP
 UserDynamicLinkFlags = $(ROOTLIBS)
 UserStaticLinkFlags =
 UserExecutableLinkFlags =
@@ -76,3 +80,6 @@ TestExecutables=configTest.cc
 
 include $(XDAQ_ROOT)/config/Makefile.rules
 include $(XDAQ_ROOT)/config/mfRPM.rules
+
+preproc:
+	cpp -x c++ -I $(XDAQ_ROOT)/include -I $(XDAQ_ROOT)/include/linux -I $(BUILD_HOME)/emu/soap/include -I $(BUILD_HOME)/emu/base/include -I $(BUILD_HOME)/emu/emuDCS/PeripheralCore/include -I $(BUILD_HOME)/emu/emuDCS/PeripheralApps/include -I $(BUILD_HOME)/emu/step/include -I $(BUILD_HOME)/../../dip/include $(BUILD_HOME)/emu/step/src/common/SPSListener.cc SPSListener.cpp
