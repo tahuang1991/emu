@@ -6,6 +6,8 @@
 #include "emu/pc/Chamber.h"
 #include "emu/utils/System.h"
 
+#include "log4cplus/loggingmacros.h"
+
 #include <sys/time.h>
 #include <iomanip>
 #include <fstream>

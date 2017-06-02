@@ -6,6 +6,7 @@
 #include "emu/utils/System.h"
 
 #include "xcept/tools.h"
+#include "log4cplus/loggingmacros.h"
 
 using namespace emu::utils;
 

@@ -4,6 +4,8 @@
 
 #include "emu/utils/IO.h"
 
+#include "log4cplus/loggingmacros.h"
+
 emu::step::TimingOptions::TimingOptions( emu::step::Test *test )
  : test_                    ( test )
  , doPeriodicDumps_         ( false )        
