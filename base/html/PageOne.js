@@ -12,8 +12,10 @@ function onLoad() {
 	PCMonP:   "http://csc-dcs-pc1.cms:20040/urn:xdaq-application:lid=30/ForEmuPage1",
 	PCMonM:   "http://csc-dcs-pc2.cms:20040/urn:xdaq-application:lid=30/ForEmuPage1",
 	DAQDisks: "http://kvm-s3562-1-ip151-99.cms:9945/urn:xdaq-application:lid=16/retrieveCollection",
-	CSCTF:    "http://l1ts-csctf.cms:5005/urn:xdaq-application:service=las/retrieveCollection",
-	TCDS:     "http://kvm-s3562-1-ip151-95.cms:9945/urn:xdaq-application:lid=16/retrieveCollection",
+	// CSCTF:    "http://cmslas.cern.ch/emtflas/urn:xdaq-application:lid=16/retrieveCollection",
+	CSCTF:    "http://l1ts-xaas.cms:9945/urn:xdaq-application:lid=16/retrieveCollection",
+	// TCDS:     "http://cmslas.cern.ch/tcdslas/urn:xdaq-application:lid=16/retrieveCollection",
+	TCDS:     "http://tcds-xaas.cms:9945/urn:xdaq-application:lid=16/retrieveCollection",
 	FED:      "http://csc-sv.cms:20101/urn:xdaq-application:lid=66/ForEmuPage1",
 	DAQ:      "http://csc-daq00.cms:20200/urn:xdaq-application:class=emu::daq::manager::Application,instance=0/ForEmuPage1",
 	DQM:      "http://csc-dqm.cms:20550/urn:xdaq-application:lid=1450/ForEmuPage1"
@@ -27,17 +29,19 @@ function onLoad() {
     panels = new Array();
     var period = 10000;
     for ( var i=0; i<divs.length; i++ ){
-	if ( divs[i].id == 'TMB' ){
-	    new XSLTLoader('TMB_XSL.xml','RUI-to-chamber_mapping.xml',
-			   function(){
-			       $('#TMB').append( this.result );
-			       tmbPanel = new TMBPanel( tmbURLs );
-			   }
-			  );
-	}
-	else{
-	    panels.push( new Panel( divs[i].id, period, URLs[divs[i].id] ) );
-	}
+    	var position = divs[i].id.search("_panel");
+		var name = divs[i].id.slice(0, position);
+		if ( name == 'TMB' ){
+		    new XSLTLoader('TMB_XSL.xml','RUI-to-chamber_mapping.xml',
+				   function(){
+				       $('#TMB_panel').append( this.result );
+				       tmbPanel = new TMBPanel( tmbURLs );
+				   	}
+				  	);
+		}
+		else if(position > 0){
+		    panels.push( new Panel( name, period, URLs[name] ) );
+		}
     }
 
     document.onmousemove = mouseMove;
@@ -300,7 +304,33 @@ function Panel( name, refreshPeriod, dataURL ) {
     	this.pad_element.addEventListener('mousewheel', this.onMouseWheelOnPad, false); // Chrome
     	this.follow_element.onmousedown = this.onMouseDownOnFollowButton;
     	this.zoom_element.onmousedown = this.onMouseDownOnZoomButton;
+    	$("#TCDS-td_value_LPMState").on("mouseover", {id: "TCDS-a_value_LPMState_tooltip", elementId: "TCDS-td_value_LPMState"}, this.onMouseOverTableData);
+    	$("#TCDS-td_value_LPMState").on("mouseout", {id: "TCDS-a_value_LPMState_tooltip", elementId: "TCDS-td_value_LPMState"}, this.onMouseOutTableData);
+    	$("#TCDS-td_value_CPMState").on("mouseover", {id: "TCDS-a_value_CPMState_tooltip", elementId: "TCDS-td_value_CPMState"}, this.onMouseOverTableData);
+    	$("#TCDS-td_value_CPMState").on("mouseout", {id: "TCDS-a_value_CPMState_tooltip", elementId: "TCDS-a_value_CPMState"}, this.onMouseOutTableData);
+    	$("#TCDS-td_value_State").on("mouseover", {id: "TCDS-a_value_State_tooltip", elementId: "TCDS-td_value_State"}, this.onMouseOverTableData);
+    	$("#TCDS-td_value_State").on("mouseout", {id: "TCDS-a_value_State_tooltip", elementId: "TCDS-td_value_State"}, this.onMouseOutTableData);
+    	$("#TCDS-td_value_MUTFUPState").on("mouseover", {id: "TCDS-a_value_MUTFUPState_tooltip", elementId: "TCDS-td_value_MUTFUPState"}, this.onMouseOverTableData);
+    	$("#TCDS-td_value_MUTFUPState").on("mouseout", {id: "TCDS-a_value_MUTFUPState_tooltip", elementId: "TCDS-td_value_MUTFUPState"}, this.onMouseOutTableData);
+    	$("#CSCTF-a_value_total").on("mouseover", {id: "CSCTF-a_value_total_tooltip", elementId: "CSCTF-a_value_total"}, this.onMouseOverTableData);
+    	$("#CSCTF-a_value_total").on("mouseout", {id: "CSCTF-a_value_total_tooltip", elementId: "CSCTF-a_value_total"}, this.onMouseOutTableData);
     };
+
+    this.onMouseOverTableData = function(e){
+    	var dataElement = document.getElementById(e.data.elementId);
+    	var dataElementTooltip = document.getElementById(e.data.id);
+    	if (dataElement && dataElementTooltip){
+    		tooltip(e, e.data.id);
+    	}
+    } 
+
+    this.onMouseOutTableData = function(e){
+    	var dataElement = document.getElementById(e.data.elementId);
+    	var dataElementTooltip = document.getElementById(e.data.id);
+    	if (dataElement && dataElementTooltip){
+    		tooltip(e, e.data.id);
+    	}
+    }
 
     this.onMouseDownOnPad = function (e){
 	//alert(self.graph_element + ' ' + self.dragStart.x );
@@ -566,106 +596,64 @@ function Panel( name, refreshPeriod, dataURL ) {
 	if ( this.autoZooming ) this.transformYToFit();
     };
 
-    this.TrackFinderFromJson = function (){
-	// Get info on Track Finder from csctf_emupageone flashlist
-	var state = null;
-	$.getJSON( this.DataURL+'?fmt=json&flash=urn:xdaq-flashlist:csctf_emupageone', function(json){
-	    var time = toUnixTime( json.table.properties.LastUpdate );
-	    $('#'+self.name+'-td_localDateTime').text( timeToString( time ) );
-	    var msg = '';
-	    $.each( json.table.rows, function(i,row){
-		if ( i == 0 ){
-		    msg += 'EMUPAGEONE_FSM_t.rows.length='+row.EMUPAGEONE_FSM_t.rows.length+'   EMUPAGEONE_RATES_t.rows.length='+row.EMUPAGEONE_RATES_t.rows.length;
-		    var validConfPatterns = ['^EmuLocal$','^Configuration$'];
-		    var foundGlobalConf = false;
-		    var foundLocalConf  = false;
-		    for ( var p=0; p<validConfPatterns.length; p++ ){
-			$.each( row.EMUPAGEONE_FSM_t.rows, function(j,configRow){
-			    if ( configRow['id'].search(validConfPatterns[p])==0 ){
-				$('#'+self.name+'-td_value_state').attr( 'class', configRow['state'] );
-				$('#'+self.name+'-a_value_state').text( configRow['state'] );
-				$('#'+self.name+'-a_value_state').attr( 'title', 'Operation \"'+configRow['id']+'\" is in '+configRow['state']+' state.' );
-				$('#'+self.name+'-td_value_confkey').attr( 'class', configRow['conf_key'] );
-				$('#'+self.name+'-a_value_confkey').text( configRow['conf_key'] );
-				$('#'+self.name+'-a_value_confkey').attr( 'title', 'Operation \"'+configRow['id']+'\" has configuration key '+configRow['conf_key']+'.' );
-				if ( p==0 ) foundGlobalConf = true;
-				else        foundLocalConf  = true;
-				state = configRow['state'];
-			    }
-			});
-		    }
-		    if ( !foundGlobalConf && !foundLocalConf ){
-			$('#'+self.name+'-td_value_state').attr( 'class', 'UNKNOWN' );
-			$('#'+self.name+'-a_value_state').text( 'UNKNOWN' );
-			$('#'+self.name+'-a_value_state').attr( 'title', (row.EMUPAGEONE_FSM_t.rows.length==0?'No operation found. (This is normal IF the TF Cell has been restarted in this run.)':' Only invalid operation found.') );
-			$('#'+self.name+'-td_value_confkey').attr( 'class', 'UNKNOWN' );
-			$('#'+self.name+'-a_value_confkey').text( 'UNKNOWN' );
-			$('#'+self.name+'-a_value_confkey').attr( 'title', (row.EMUPAGEONE_FSM_t.rows.length==0?'No operation found. (This is normal IF the TF Cell has been restarted in this run.)':' Only invalid operation found.') );
-		    }
-		    $.each( row.EMUPAGEONE_RATES_t.rows, function(j,ratesRow){ 
-			if ( j == 0 ){
-			    var graphPoint = { name:'total SP input rate [Hz]', time:time, value:ratesRow['Total SPs Rate'] };
-			    self.appendPoint( graphPoint );
-			    $('#'+self.name+'-a_value_min').text( formatNumber( ratesRow['Min Single SP Rate'] ) + ' Hz' );
-			    if ( ratesRow['Min Single SP Rate'] == 0 && ratesRow['Total SPs Rate'] > 100 ){
-				$('#'+self.name+'-td_value_min').attr('class', 'WARN' );
-				$('#'+self.name+'-a_value_min').attr('title', 'One or more SPs may be dead. Click to check.' );
-			    }
-			    else{
-				$('#'+self.name+'-td_value_min').attr('class', '');
-				$('#'+self.name+'-a_value_min').attr('title', '');
-				       }
-			    $('#'+self.name+'-a_value_total').text( formatNumber( ratesRow['Total SPs Rate'] ) + ' Hz' );
-			}
-		    });
-		}
-	    });
-	}).success( function(){
-	    // Get info on Track Finders' AFD registers from csctf_csr_af_wordcount flashlist. They only work as a canary in the enabled state.
-	    if ( state == 'enabled' ){
-		$.getJSON( self.DataURL+'?fmt=json&flash=urn:xdaq-flashlist:csctf_csr_af_wordcount', function(json){
-		    var time = toUnixTime( json.table.properties.LastUpdate );
-		    var msg = '';
-		    var title = '';
-		    var maxAllowedChange = 2;
-		    var maxChange = 0;
-		    $.each( json.table.rows, function(i,row){
-			$.each( row.CSR_AF_WORDCOUNT_t.rows, function(j,afCountRow){ 
-			    if ( self.trends[j]==undefined || self.trends[j]==null ) self.trends[j] = new Trend(10);
-			    self.trends[j].add( time, afCountRow.VALUE );
-			    var change = self.trends[j].difference(10);
-			    if ( Math.abs( change ) > maxChange ) maxChange = Math.abs( change );
-			    if ( Math.abs( change ) > maxAllowedChange ){
-				title += '('+afCountRow.NUM_ASP+','+afCountRow.NUM_LINK+','+afCountRow.VALUE+','+change+')\n';
-			    }
-
-			    //if ( Math.abs( change ) > 0 ) console.log( 'CSCTF: '+self.trends[j].print()+' self.trends['+j+'].difference(10)='+self.trends[j].difference(10) );	    
-			    msg += afCountRow.NUM_ASP+' '+afCountRow.NUM_LINK+' '+afCountRow.VALUE+' '+self.trends[j].difference(10)+'\n';
-			});
-			if ( title.length > 1 ){
-			    title = "These links' AFD register changed more than "+maxAllowedChange+' (SP,link,value,change):\n'+title;
-			    $('#'+self.name+'-a_value_afd').attr('title',title).text( maxChange );
-			    $('#'+self.name+'-td_value_afd').attr('class','WARN');
-			}
-			else{
-			    $('#'+self.name+'-a_value_afd').attr('title','All looking OK now.').text( maxChange );
-			    $('#'+self.name+'-td_value_afd').attr('class','');
-			}
-		    });
-		}).success( function(){
-		    clearTimeout(self.Clock);
-		    self.ageOfPageClock(0);
-		});
-	    }
-	    else{
-		$('#'+self.name+'-a_value_afd').attr('title','Not enabled now therefore no reading reported.').text( '0' );
-		$('#'+self.name+'-td_value_afd').attr('class','');
-		clearTimeout(self.Clock);
-		self.ageOfPageClock(0);
-	    }
-	});
-	
-    };
+    this.TrackFinderFromJson = function(){
+    	$.getJSON(self.DataURL + "?fmt=json&flash=urn:xdaq-flashlist:l1ts_cell", function(json){
+    		$.each(json.table.rows, function(i,row){
+    			if (row.name == "EMTF SWATCH Cell"){
+    				$('#'+self.name+'-td_value_state').attr( 'class', row.Operations.rows[0].state );
+		    		$('#'+self.name+'-a_value_state').text( row.Operations.rows[0].state );
+		    		$('#'+self.name+'-a_value_state').attr( 'title', 'The EMTF (Endcap Muon Track Finder) Controller application is '+row.Operations.rows[0].state);
+    			}
+    		});
+    	}).success(function(){
+    	    var graphPoint = null;
+    	    $.getJSON(self.DataURL + "?fmt=json&flash=urn:xdaq-flashlist:emtf_cell", function(json){
+		$("#CSCTF-a_value_total_tooltip").empty();
+		$("#CSCTF-a_value_total_tooltip").append("<table><tbody><tr><td colspan='2'>Output track rates:</td></tr></tbody></table>");
+		var minOutputTrackRate = Number.MAX_VALUE;
+		var totalOutputTrackRate = 0;
+		var minOutputTriggerSector = undefined;
+		var minTriggerSectors = new Array();
+		var sortedTriggerSectors = new Array();
+		var nameOfMinTriggerSectors = "";
+		var time = toUnixTime( json.table.properties.LastUpdate );
+		$('#'+self.name+'-td_localDateTime').text( timeToString( time ) );
+    		$.each(json.table.rows[0].processor_EmtfProcessor.rows, function(i,row){
+    		    var outputTrackRate = row.outputTrack0Rate + row.outputTrack1Rate + row.outputTrack2Rate;
+    		    if (outputTrackRate < minOutputTrackRate){
+    			minOutputTrackRate = outputTrackRate;
+    			minOutputTriggerSector = row.id;
+    			minTriggerSectors = [];
+    			minTriggerSectors.push(minOutputTriggerSector);
+    		    } 
+    		    else if (outputTrackRate == minOutputTrackRate){
+    			minOutputTriggerSector = row.id;
+    			minTriggerSectors.push(minOutputTriggerSector);
+    		    }
+    		    sortedTriggerSectors.push({name: row.id, value: outputTrackRate});
+    		    totalOutputTrackRate += outputTrackRate;
+    		});
+    		sortedTriggerSectors.sort(function(a,b){
+    		    if(a.name < b.name) return -1;
+    		    if(a.name > b.name) return 1;
+    		    return 0;
+    		});
+    		sortedTriggerSectors.forEach(function(item,index){
+		    $("#CSCTF-a_value_total_tooltip table tbody").append("<tr><td>" + item.name + ": </td><td>" + item.value + "</td></tr>");
+    		});
+    		minTriggerSectors.forEach(function(item, index){
+    		    nameOfMinTriggerSectors += (minTriggerSectors[index] + ", ");
+    		});
+    		$("#CSCTF-a_value_min").text(minOutputTrackRate);
+    		$("#CSCTF-a_value_min").attr("title", "Name(s) of the minimum trigger sector(s): " + nameOfMinTriggerSectors);
+    		$("#CSCTF-a_value_total").text(totalOutputTrackRate);
+    		graphPoint = { name:'Total track rate [kHz]', time: time, value:totalOutputTrackRate*0.001 };
+    		self.appendPoint(graphPoint);
+    	    });
+    	    clearTimeout(self.Clock);
+	    self.ageOfPageClock(0);
+    	});
+    }
 
     this.TCDSFromJson = function (){
 	// Get info on TCDS
@@ -678,21 +666,38 @@ function Panel( name, refreshPeriod, dataURL ) {
 	}
 	$.getJSON( self.DataURL+'?fmt=json&flash=urn:xdaq-flashlist:tcds_common', function(json){
 	    var combinedState = null;
+	    $("#TCDS-a_value_LPMState_tooltip").empty();
+	    $("#TCDS-a_value_CPMState_tooltip").empty();
+	    $("#TCDS-a_value_State_tooltip").empty();
+	    $("#TCDS-a_value_State_tooltip").append("<table><tbody></tbody></table>");
 	    $.each( json.table.rows, function(i,row){
 		if ( row.service.search('i-csc[^ ]*-'+TCDS_system) >= 0 ){
 		    if ( combinedState && combinedState != row.state_name ) combinedState = 'INDEFINITE';
 		    else                                                    combinedState = row.state_name;
 		    // console.log( row.service+' '+row.state_name+' '+combinedState );
+		    //console.log($("#TCDS-a_value_State_tooltip") + "valami");
+		    if (row.problem_description == "-"){
+		    	$("#TCDS-a_value_State_tooltip table tbody").append("<tr><td>" + row.service + ": </td><td class='" + row.state_name + "'>" + row.state_name + "</td></tr>");
+		    }
+		    else {
+		    	$("#TCDS-a_value_State_tooltip table tbody").append("<tr><td>" + row.service + ": </td><td class='" + row.state_name + "'>" + row.state_name + "</td><td>Problem description: </td><td class='ERROR'>" + row.problem_description + "</td></tr>");
+		    }		    
 		}
 		else if ( row.service == 'lpm-csc-'+TCDS_system ){
 		    $('#'+self.name+'-td_value_LPMState').attr( 'class', row.state_name );
 		    $('#'+self.name+'-a_value_LPMState').text( row.state_name );
 		    $('#'+self.name+'-a_value_LPMState').attr( 'title', 'The LPM (Local Partition Manager) Controller application is '+row.state_name);
+		    if (row.problem_description != "-"){
+		    	$("#TCDS-a_value_LPMState_tooltip").append("<p>Problem description: " + row.problem_description + "</p>");
+		    }
 		}
 		else if ( row.service == 'cpm-'+TCDS_system ){
 		    $('#'+self.name+'-td_value_CPMState').attr( 'class', row.state_name );
 		    $('#'+self.name+'-a_value_CPMState').text( row.state_name );
 		    $('#'+self.name+'-a_value_CPMState').attr( 'title', 'The CPM (Central Partition Manager) Controller application is '+row.state_name);
+		    if (row.problem_description != "-"){
+		    	$("#TCDS-a_value_CPMState_tooltip").append("<p>Problem description: " + row.problem_description + "</p>");
+		    }
 		}
 	    });
 	    $('#'+self.name+'-td_value_State').attr( 'class', combinedState );
@@ -708,7 +713,7 @@ function Panel( name, refreshPeriod, dataURL ) {
 	      	  $.each( json.table.rows, function(i,row){
 	      	      if ( row.service == 'cpm-'+TCDS_system ) totalTriggerRate = row.trg_rate_total;
 	      	    });
-	    	  var graphPoint = { name:'Total '+(TCDS_system=='pri'?'primary':'secondary')+' CPM trigger [Hz]', time:time, value:totalTriggerRate };
+	    	  var graphPoint = { name:'Total '+(TCDS_system=='pri'?'primary':'secondary')+' CPM trigger [kHz]', time:time, value:totalTriggerRate*0.001 };
 	    	  self.appendPoint( graphPoint );
 	    	  // }).success( function(){
 	    	  clearTimeout(self.Clock);
@@ -729,6 +734,24 @@ function Panel( name, refreshPeriod, dataURL ) {
 	    }
 			  
 	});
+
+	//$.getJSON("http://cmslas.cern.ch/emtflas/urn:xdaq-application:lid=16/retrieveCollection?fmt=json&flash=urn:xdaq-flashlist:l1ts_cell", function(json){
+	$.getJSON("http://l1ts-xaas.cms:9945/urn:xdaq-application:lid=16/retrieveCollection?fmt=json&flash=urn:xdaq-flashlist:l1ts_cell", function(json){
+		var combinedState = null;
+		$("#TCDS-a_value_MUTFUPState_tooltip").empty();
+		$("#TCDS-a_value_MUTFUPState_tooltip").append("<table><tbody></tbody></table>");
+		$.each(json.table.rows, function(i,row){
+			if(row.name == "MUTFUP TCDS ICI Cell" || row.name == "MUTFUP TCDS PI Cell"){
+				if(combinedState && combinedState != row.Operations.rows[0].state) combinedState = "INDEFINITE";
+				else 															   combinedState = row.Operations.rows[0].state;
+				$("#TCDS-a_value_MUTFUPState_tooltip table tbody").append("<tr><td>" + row.name + ": </td><td class='" + row.Operations.rows[0].state + "'>" + row.Operations.rows[0].state + "</td></tr>");
+			}
+		});
+		$("#" + self.name + "-td_value_MUTFUPState").attr("class", combinedState);
+		$("#" + self.name + "-a_value_MUTFUPState").text( combinedState );
+		$("#" + self.name + "-a_value_MUTFUPState").attr("title", (combinedState == "INDEFINITE" ? 'MUTFUP TCDS CI and PI Controller applications are not in the same FSM state.' : 'MUTFUP TCDS CI and PI Controller applications are '+combinedState ));
+	});
+
  	// Get TCDS PI spy log
 	$.getJSON('http://tcds-control-csc-'+TCDS_system+'.cms:2104/urn:xdaq-application:service=pi-cscm-'+TCDS_system+'/update', function(json){
 	    // var msg='';

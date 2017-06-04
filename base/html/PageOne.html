@@ -16,7 +16,7 @@
       <tr>
 
 	<td style="vertical-align:top;">
-	  <div id="PCMan">
+	  <div id="PCMan_panel">
 	    <table class="root" rules="all">
 	      <tr>
 		<td>
@@ -60,7 +60,7 @@
 	</td>
 
 	<td style="vertical-align:top;">
-	  <div id="BlueP">
+	  <div id="BlueP_panel">
 	    <table class="root" rules="all">
 	      <tr>
 		<td>
@@ -92,7 +92,7 @@
 	</td>
 
 	<td style="vertical-align:top;">
-	  <div id="BlueM">
+	  <div id="BlueM_panel">
 	    <table class="root" rules="all">
 	      <tr>
 		<td>
@@ -124,7 +124,7 @@
 	</td>
 
 	<td style="vertical-align:top;">
-	  <div id="PCMonP">
+	  <div id="PCMonP_panel">
 	    <table class="root" rules="all">
 	      <tr>
 		<td>
@@ -162,7 +162,7 @@
 	</td>
 
 	<td style="vertical-align:top;">
-	  <div id="PCMonM">
+	  <div id="PCMonM_panel">
 	    <table class="root" rules="all">
 	      <tr>
 		<td>
@@ -200,7 +200,7 @@
 	</td>
 
 	<td style="vertical-align:top;">
-	  <div id="DAQDisks">
+	  <div id="DAQDisks_panel">
 	    <table class="root" rules="all">
 	      <tr>
 		<td>
@@ -240,11 +240,11 @@
       <tr>
 	<td style="vertical-align:top;">
 
-	  <div id="CSCTF">
+	  <div id="CSCTF_panel">
 	  <table class="fresh" rules="all" id="CSCTF-fadingTable">
 	    <tr>
 	      <th colspan="2" class="title">
-		<a id="CSCTF-a_value_title" target="_blank" href="http://csc-tf.cms:2974/urn:xdaq-application:lid=13" title="Click to visit the CSC Track Finder Cell's page." class="title">CSC Track Finder</a>
+		<a id="CSCTF-a_value_title" target="_blank" href="http://csc-tf.cms:2974/urn:xdaq-application:lid=13" title="Click to visit the CSC Track Finder Cell's page." class="title">EMTF</a>
 	      </th>
 	    </tr>
 	    <tr>
@@ -270,14 +270,6 @@
 	      </td>
 	    </tr>
 	    <tr>
-	      <th id="CSCTF-th_name_afd">
-		<a target="_blank" id="CSCTF-a_name_afd" href="http://csc-tf.cms:2974/urn:xdaq-application:lid=13" title="Absolute value of the maximum change of any AFD register's value. In enabled state, they should be constant to within a couple of units.">ΔAFD</a>
-	      </th>
-	      <td id="CSCTF-td_value_afd">
-		<a target="_blank" id="CSCTF-a_value_afd" href="http://csc-tf.cms:2974/urn:xdaq-application:lid=13" title="No reading available yet...">N/A</a>
-	      </td>
-	    </tr>
-	    <tr>
 	      <th>rates
 	      </th>
 	      <td class="layout">
@@ -294,6 +286,7 @@
 		    </th>
 		    <td id="CSCTF-td_value_total">
 		      <a target="_blank" id="CSCTF-a_value_total" href="http://csc-tf.cms:2974/urn:xdaq-application:lid=13" title=""></a>
+		      <div id="CSCTF-a_value_total_tooltip" class="paneltooltip"></div>
 		    </td>
 		  </tr>
 		</table>
@@ -305,7 +298,7 @@
 	</td>
 	<td style="vertical-align:top;">
 
-	  <div id="TCDS">
+	  <div id="TCDS_panel">
           <table class="fresh" rules="all" id="TCDS-fadingTable">
             <tr>
               <th colspan="7" class="title">
@@ -326,6 +319,7 @@
               </th>
               <td colspan="1" style="width:100%;" id="TCDS-td_value_LPMState">
                 <a target="_blank" id="TCDS-a_value_LPMState" href="http://tcds-control-csc-pri.cms:2104/urn:xdaq-application:service=lpm-csc-pri"></a>
+                <div id="TCDS-a_value_LPMState_tooltip" class="paneltooltip paneltooltipwithoutpadding"></div>
               </td>
             </tr>
 
@@ -335,16 +329,28 @@
               </th>
               <td colspan="1" style="width:100%;" id="TCDS-td_value_CPMState">
                 <a target="_blank" id="TCDS-a_value_CPMState" href="http://tcds-control-cpm-pri.cms:2050/urn:xdaq-application:service=cpm-pri"></a>
+                <div id="TCDS-a_value_CPMState_tooltip" class="paneltooltip paneltooltipwithoutpadding"></div>
               </td>
             </tr>
 
             <tr>
               <th id="TCDS-th_name_State">
-                <a target="_blank" id="TCDS-a_name_State" href="http://tcds-control-csc-pri.cms:2104" title="The combined state of the TCDS CI and PI Controller applications.">PI&nbsp;and&nbsp;CI&nbsp;State</a>
+                <a target="_blank" id="TCDS-a_name_State" href="http://tcds-control-csc-pri.cms:2104" title="The combined state of the TCDS CI and PI Controller applications.">CSC&nbsp;PI&nbsp;and&nbsp;CI</a>
               </th>
               <td colspan="1" style="width:100%;" id="TCDS-td_value_State">
                 <a target="_blank" id="TCDS-a_value_State" href="http://tcds-control-csc-pri.cms:2104"></a>
+                <div  id="TCDS-a_value_State_tooltip" class="paneltooltip"></div>
               </td>
+            </tr>
+
+            <tr>
+            	<th>
+            		<a target="_blank" id="TCDS-th_name_MUTFUPState" href="http://tcds-control-rpc-pri.cms:2103/urn:xdaq-application:lid=302" title="The combined state of the MUTFUP TCDS CI and PI Controller applications">MUTFUP&nbsp;PI&nbsp;and&nbsp;CI</a>
+            	</th>
+            	<td colspan="1" style="width: 100%;" id="TCDS-td_value_MUTFUPState">
+            		<a target="_blank" id="TCDS-a_value_MUTFUPState" href="http://tcds-control-rpc-pri.cms:2103/urn:xdaq-application:lid=502"></a>
+            		<div id="TCDS-a_value_MUTFUPState_tooltip" class="paneltooltip"></div>
+            	</td>
             </tr>
 
             <tr>
@@ -362,7 +368,7 @@
 	</td>
 	<td style="vertical-align:top;">
 
-	  <div id="FED">
+	  <div id="FED_panel">
           <table class="fresh" rules="all" id="FED-fadingTable">
             <tr>
               <th colspan="7" class="title">
@@ -464,7 +470,7 @@
 	</td>
 	<td style="vertical-align:top;">
 
-	  <div id="DAQ">
+	  <div id="DAQ_panel">
           <table class="fresh" rules="all" id="DAQ-fadingTable">
             <tr>
               <th colspan="5" class="title">
@@ -567,7 +573,7 @@
 	</td>
 
         <td style="vertical-align:top;">
-	  <div id="DQM">
+	  <div id="DQM_panel">
           <table class="fresh" rules="all" id="DQM-fadingTable">
             <tr>
               <th colspan="5" class="title">
@@ -980,7 +986,7 @@
 
     </table>
 
-    <div id="TMB" title=""></div>
+    <div id="TMB_panel" title=""></div>
 
   </body>
 </html>
