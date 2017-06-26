@@ -312,8 +312,10 @@ function Panel( name, refreshPeriod, dataURL ) {
     	$("#TCDS-td_value_State").on("mouseout", {id: "TCDS-a_value_State_tooltip", elementId: "TCDS-td_value_State"}, this.onMouseOutTableData);
     	$("#TCDS-td_value_MUTFUPState").on("mouseover", {id: "TCDS-a_value_MUTFUPState_tooltip", elementId: "TCDS-td_value_MUTFUPState"}, this.onMouseOverTableData);
     	$("#TCDS-td_value_MUTFUPState").on("mouseout", {id: "TCDS-a_value_MUTFUPState_tooltip", elementId: "TCDS-td_value_MUTFUPState"}, this.onMouseOutTableData);
-    	$("#CSCTF-a_value_total").on("mouseover", {id: "CSCTF-a_value_total_tooltip", elementId: "CSCTF-a_value_total"}, this.onMouseOverTableData);
-    	$("#CSCTF-a_value_total").on("mouseout", {id: "CSCTF-a_value_total_tooltip", elementId: "CSCTF-a_value_total"}, this.onMouseOutTableData);
+    	$("#CSCTF-a_value_total_in").on("mouseover", {id: "CSCTF-a_value_total_in_tooltip", elementId: "CSCTF-a_value_total_in"}, this.onMouseOverTableData);
+    	$("#CSCTF-a_value_total_in").on("mouseout", {id: "CSCTF-a_value_total_in_tooltip", elementId: "CSCTF-a_value_total_in"}, this.onMouseOutTableData);
+    	$("#CSCTF-a_value_total_out").on("mouseover", {id: "CSCTF-a_value_total_out_tooltip", elementId: "CSCTF-a_value_total_out"}, this.onMouseOverTableData);
+    	$("#CSCTF-a_value_total_out").on("mouseout", {id: "CSCTF-a_value_total_out_tooltip", elementId: "CSCTF-a_value_total_out"}, this.onMouseOutTableData);
     };
 
     this.onMouseOverTableData = function(e){
@@ -608,47 +610,88 @@ function Panel( name, refreshPeriod, dataURL ) {
     	}).success(function(){
     	    var graphPoint = null;
     	    $.getJSON(self.DataURL + "?fmt=json&flash=urn:xdaq-flashlist:emtf_cell", function(json){
-		$("#CSCTF-a_value_total_tooltip").empty();
-		$("#CSCTF-a_value_total_tooltip").append("<table><tbody><tr><td colspan='2'>Output track rates:</td></tr></tbody></table>");
+		// Input (LCT) rates
+		$("#CSCTF-a_value_total_in_tooltip").empty();
+		$("#CSCTF-a_value_total_in_tooltip").append("<table><tbody><tr><td colspan='2'>Input LCT rates:</td></tr></tbody></table>");
+		var minInputLCTRate = Number.MAX_VALUE;
+		var totalInputLCTRate = 0;
+		var minInputTriggerSector = undefined;
+		var minInputTriggerSectorsArray = new Array();
+		var sortedInputTriggerSectors = new Array();
+		var nameOfMinInputTriggerSectors = "";
+		// Output (track) rates
+		$("#CSCTF-a_value_total_out_tooltip").empty();
+		$("#CSCTF-a_value_total_out_tooltip").append("<table><tbody><tr><td colspan='2'>Output track rates:</td></tr></tbody></table>");
 		var minOutputTrackRate = Number.MAX_VALUE;
 		var totalOutputTrackRate = 0;
 		var minOutputTriggerSector = undefined;
-		var minTriggerSectors = new Array();
-		var sortedTriggerSectors = new Array();
-		var nameOfMinTriggerSectors = "";
+		var minOutputTriggerSectorsArray = new Array();
+		var sortedOutputTriggerSectors = new Array();
+		var nameOfMinOutputTriggerSectors = "";
 		var time = toUnixTime( json.table.properties.LastUpdate );
 		$('#'+self.name+'-td_localDateTime').text( timeToString( time ) );
     		$.each(json.table.rows[0].processor_EmtfProcessor.rows, function(i,row){
+
+		    var inputLCTRate = 0;
+		    $.each(row, function(name,value){
+			if ( name.substr(0,8) == 'rateLct_' ) inputLCTRate += value;
+			// console.log( name+":"+value+"  " );
+		    });
+		    if (inputLCTRate < minInputLCTRate){
+			minInputLCTRate = inputLCTRate;
+    			minInputTriggerSector = row.id;
+    			minInputTriggerSectorsArray = [];
+    			minInputTriggerSectorsArray.push(minInputTriggerSector);
+		    }
+    		    else if (inputLCTRate == minInputLCTRate){
+    			minInputTriggerSector = row.id;
+    			minInputTriggerSectorsArray.push(minInputTriggerSector);
+    		    }
+    		    sortedInputTriggerSectors.push({name: row.id, value: inputLCTRate});
+		    totalInputLCTRate += inputLCTRate;
+			
     		    var outputTrackRate = row.outputTrack0Rate + row.outputTrack1Rate + row.outputTrack2Rate;
     		    if (outputTrackRate < minOutputTrackRate){
     			minOutputTrackRate = outputTrackRate;
     			minOutputTriggerSector = row.id;
-    			minTriggerSectors = [];
-    			minTriggerSectors.push(minOutputTriggerSector);
+    			minOutputTriggerSectorsArray = [];
+    			minOutputTriggerSectorsArray.push(minOutputTriggerSector);
     		    } 
     		    else if (outputTrackRate == minOutputTrackRate){
     			minOutputTriggerSector = row.id;
-    			minTriggerSectors.push(minOutputTriggerSector);
+    			minOutputTriggerSectorsArray.push(minOutputTriggerSector);
     		    }
-    		    sortedTriggerSectors.push({name: row.id, value: outputTrackRate});
+    		    sortedOutputTriggerSectors.push({name: row.id, value: outputTrackRate});
     		    totalOutputTrackRate += outputTrackRate;
     		});
-    		sortedTriggerSectors.sort(function(a,b){
+    		sortedOutputTriggerSectors.sort(function(a,b){
     		    if(a.name < b.name) return -1;
     		    if(a.name > b.name) return 1;
     		    return 0;
     		});
-    		sortedTriggerSectors.forEach(function(item,index){
-		    $("#CSCTF-a_value_total_tooltip table tbody").append("<tr><td>" + item.name + ": </td><td>" + item.value + "</td></tr>");
+
+    		sortedInputTriggerSectors.forEach(function(item,index){
+		    $("#CSCTF-a_value_total_in_tooltip table tbody").append("<tr><td>" + item.name + ": </td><td>" + item.value + "</td></tr>");
     		});
-    		minTriggerSectors.forEach(function(item, index){
-    		    nameOfMinTriggerSectors += (minTriggerSectors[index] + ", ");
+    		minInputTriggerSectorsArray.forEach(function(item, index){
+    		    nameOfMinInputTriggerSectors += (minInputTriggerSectorsArray[index] + ", ");
     		});
-    		$("#CSCTF-a_value_min").text(minOutputTrackRate);
-    		$("#CSCTF-a_value_min").attr("title", "Name(s) of the minimum trigger sector(s): " + nameOfMinTriggerSectors);
-    		$("#CSCTF-a_value_total").text(totalOutputTrackRate);
+    		$("#CSCTF-a_value_min_in").text(minInputLCTRate);
+    		$("#CSCTF-a_value_min_in").attr("title", "Name(s) of the minimum trigger sector(s): " + nameOfMinInputTriggerSectors);
+    		$("#CSCTF-a_value_total_in").text(totalInputLCTRate);
+		
+    		sortedOutputTriggerSectors.forEach(function(item,index){
+		    $("#CSCTF-a_value_total_out_tooltip table tbody").append("<tr><td>" + item.name + ": </td><td>" + item.value + "</td></tr>");
+    		});
+    		minOutputTriggerSectorsArray.forEach(function(item, index){
+    		    nameOfMinOutputTriggerSectors += (minOutputTriggerSectorsArray[index] + ", ");
+    		});
+    		$("#CSCTF-a_value_min_out").text(minOutputTrackRate);
+    		$("#CSCTF-a_value_min_out").attr("title", "Name(s) of the minimum trigger sector(s): " + nameOfMinOutputTriggerSectors);
+    		$("#CSCTF-a_value_total_out").text(totalOutputTrackRate);
     		graphPoint = { name:'Total track rate [kHz]', time: time, value:totalOutputTrackRate*0.001 };
     		self.appendPoint(graphPoint);
+		
     	    });
     	    clearTimeout(self.Clock);
 	    self.ageOfPageClock(0);
