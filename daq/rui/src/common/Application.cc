@@ -2161,12 +2161,14 @@ void emu::daq::rui::Application::createFileWriter(){
 						       u.getHost(), "EmuRUI", instance_, emudaqrui::versions, &logger_ );
       // Create a rate limiter, but not for calibration or STEP runs.
       if ( runType_.toString() == "Monitor" ||
+	   runType_.toString() == "Local"   ||
 	   runType_.toString() == "Debug"      ){
 	rateLimiter_ = new emu::daq::writer::RateLimiter( fileWritingRateLimitInHz_, fileWritingRateSampleSize_ );
 	fileWritingVetoed_ = false;
       }
     }
   else if ( runType_.toString() != "Monitor" &&
+	    runType_.toString() != "Local"   &&
 	    runType_.toString() != "Debug"      ) // must be a calibration or STEP run...
     {
       LOG4CPLUS_FATAL( logger_, "A calibration run or a STEP run has been started without specifying a directory and/or maximum size for data files. Please set \"pathToRUIDataOutFile\" and \"ruiFileSizeInMegaBytes\" to nonzero values in the XML configuration file." );
