@@ -232,7 +232,7 @@ void emu::step::Test::setUpDDU(emu::pc::Crate* crate)
       LOG4CPLUS_INFO( *pLogger_, "Kill Fiber  is set to 0x" << hex << ( (*ddu)->readFlashKillFiber() & 0xffff ) << dec );
       LOG4CPLUS_INFO( *pLogger_, "GbEPrescale is set to 0x" << hex << ( (*ddu)->readGbEPrescale()    & 0xffff ) << dec );
       LOG4CPLUS_INFO( *pLogger_, "Fake L1A    is set to 0x" << hex << ( (*ddu)->readFakeL1()         & 0xffff ) << dec );
-      if ( (*ddu)->readFlashKillFiber() & 0x000f != GbEPrescaleWord ){
+      if ( ( (*ddu)->readFlashKillFiber() & 0x000f ) != GbEPrescaleWord ){
 	LOG4CPLUS_ERROR( *pLogger_, "Failed to set GbEPrescale to 0x" << hex << GbEPrescaleWord << dec );
       }
     }
@@ -422,6 +422,10 @@ void emu::step::Test::setUpODMBPulsing( emu::pc::DAQMB *dmb, ODMBMode_t mode, OD
     LOG4CPLUS_INFO( *pLogger_, "ODMB kill mask changed from 0x" << hex << oldKillMask << " to 0x" << newKillMask << dec );
   }
 
+  if ( pLogger_ ){
+    int mask_pulse( dmb->odmb_read_mask_pulse() );
+    LOG4CPLUS_INFO( *pLogger_, "ODMB pulse mask is " << mask_pulse << dec << ( mask_pulse==0 ? " (pulsing enabled)" : " (pulsing disabled)" ) );
+  }
 }
 
 // One pipeline fuction to rule them all.
@@ -1170,6 +1174,8 @@ void emu::step::Test::configure_15(){ // OK
       for ( vector<emu::pc::DAQMB*>::iterator dmb = dmbs.begin(); dmb != dmbs.end(); ++dmb ){
 
 	if( (*dmb)->GetHardwareVersion() == 2 ){
+ 	  enum { pulse=0, noPulse=1 };
+	  (*dmb)->odmb_mask_pulse( noPulse );
 	  setUpODMBPulsing( *dmb, ODMBPedestalMode, ODMBInputKill_t( kill_ALCT | kill_TMB ) );
 	} // if( (*dmb)->GetHardwareVersion() == 2 )
 	::sleep(1);
