@@ -89,7 +89,7 @@ std::string csvFrom( const Container& c, const char delimiter = ',' )
   for ( typename Container::const_iterator it = c.begin(); it != c.end(); ++it ){
     typename Container::const_iterator i = it;
     ++i;
-    oss << *it << ( i != c.end() ? std::string( &delimiter ): "" );
+    oss << *it << ( i != c.end() ? std::string( 1, delimiter ): "" );
   }
   return oss.str();
 }
