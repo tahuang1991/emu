@@ -430,6 +430,7 @@ EmuPeripheralCrateConfig::EmuPeripheralCrateConfig(xdaq::ApplicationStub * s): E
   xgi::bind(this,&EmuPeripheralCrateConfig::ODMBLoadFirmwarePoll, "ODMBLoadFirmwarePoll");
   xgi::bind(this,&EmuPeripheralCrateConfig::RestoreCfebJtagIdle, "RestoreCfebJtagIdle");
   xgi::bind(this,&EmuPeripheralCrateConfig::ReadDcfebVirtex6Reg, "ReadDcfebVirtex6Reg");
+  xgi::bind(this,&EmuPeripheralCrateConfig::DCFEBLinkReset, "DCFEBLinkReset");
   //
   //-----------------------------------------------
   // TMB tests
@@ -778,6 +779,22 @@ void EmuPeripheralCrateConfig::MainPage(xgi::Input * in, xgi::Output * out )
   *out << cgicc::form() << std::endl ;
   *out << cgicc::td(); lsd*/
 
+
+  *out << cgicc::td();
+  std::string PowerOnFixCFEB = toolbox::toString("/%s/PowerOnFixCFEB",getApplicationDescriptor()->getURN().c_str());
+  *out << cgicc::a(" [Firmware Check] ").set("href",PowerOnFixCFEB) << std::endl;
+  *out << cgicc::td();
+
+  *out << cgicc::td();
+  std::string CheckConfigurationPage = toolbox::toString("/%s/CheckConfigurationPage",getApplicationDescriptor()->getURN().c_str());
+  *out << cgicc::a(" [Configuration Check] ").set("href",CheckConfigurationPage) << std::endl;
+  *out << cgicc::td();
+
+  *out << cgicc::td();
+  std::string ExpertToolsPage = toolbox::toString("/%s/ExpertToolsPage",getApplicationDescriptor()->getURN().c_str());
+  *out << cgicc::a(" [Expert Tools Page] ").set("href",ExpertToolsPage) << std::endl;
+  *out << cgicc::td();
+
 // for non-standalone mode, use the one in Service (Blue) instead
   if(standalone_) 
   {
@@ -790,34 +807,15 @@ void EmuPeripheralCrateConfig::MainPage(xgi::Input * in, xgi::Output * out )
   }
 
   *out << cgicc::td();
-  std::string PowerOnFixCFEB = toolbox::toString("/%s/PowerOnFixCFEB",getApplicationDescriptor()->getURN().c_str());
-  *out << cgicc::a("[Firmware Check]").set("href",PowerOnFixCFEB) << std::endl;
+  std::string CrateConfigureAll = toolbox::toString("/%s/ConfigAllCrates",getApplicationDescriptor()->getURN().c_str());
+  *out << cgicc::form().set("method","GET").set("action",CrateConfigureAll) << std::endl ;
+  *out << cgicc::input().set("type","submit").set("value","Write FLASH All Crates") << std::endl ;
+  *out << cgicc::form() << std::endl ;;
   *out << cgicc::td();
-
-  *out << cgicc::td();
-  std::string CheckConfigurationPage = toolbox::toString("/%s/CheckConfigurationPage",getApplicationDescriptor()->getURN().c_str());
-  *out << cgicc::a("[Configuration Check]").set("href",CheckConfigurationPage) << std::endl;
-  *out << cgicc::td();
-
-  *out << cgicc::td();
-  std::string ExpertToolsPage = toolbox::toString("/%s/ExpertToolsPage",getApplicationDescriptor()->getURN().c_str());
-  *out << cgicc::a("[Expert Tools Page]").set("href",ExpertToolsPage) << std::endl;
-  *out << cgicc::td();
-
   *out << cgicc::table();
 
   *out << cgicc::br() << std::endl;
 
-  *out << cgicc::table().set("border","0");
-  *out << cgicc::td();
-  std::string CrateConfigureAll = toolbox::toString("/%s/ConfigAllCrates",getApplicationDescriptor()->getURN().c_str());
-  *out << cgicc::form().set("method","GET").set("action",CrateConfigureAll) << std::endl ;
-  *out << cgicc::input().set("type","submit").set("value","Write FLASH All Crates") << std::endl ;
-  *out << cgicc::form() << cgicc::br() << std::endl ;;
-  *out << cgicc::td();
-
-  *out << cgicc::table() << std::endl ;
-  //
   //
   *out << cgicc::br() << cgicc::hr() <<std::endl;
 
@@ -884,7 +882,7 @@ void EmuPeripheralCrateConfig::MainPage(xgi::Input * in, xgi::Output * out )
     std::string CalibrationRuns = toolbox::toString("/%s/CalibrationRuns",getApplicationDescriptor()->getURN().c_str());
     *out << cgicc::a("[Calibration Runs]").set("href",CalibrationRuns) << std::endl;
     //
-    *out << cgicc::br() << cgicc::br() << cgicc::table().set("border","0");
+    *out << cgicc::br() << cgicc::br() << cgicc::br() << cgicc::br() << cgicc::table().set("border","0");
     //
 
 // for non-standalone mode, use the one in Service (Blue) instead
