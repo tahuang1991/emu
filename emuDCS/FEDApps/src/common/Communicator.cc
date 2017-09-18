@@ -25,6 +25,9 @@
 #include "emu/fed/DDUDebugger.h"
 #include "emu/fed/IRQThreadManager.h"
 #include "emu/fed/IRQData.h"
+#include "emu/soap/ToolBox.h"
+#include "emu/utils/Chamber.h"
+#include "emu/utils/String.h"
 
 XDAQ_INSTANTIATOR_IMPL(emu::fed::Communicator)
 
@@ -74,6 +77,7 @@ waitTimeAfterFMM_(5)
 	// Other SOAP call-back functions
 	xoap::bind(this, &emu::fed::Communicator::onSetTTSBits, "SetTTSBits", XDAQ_NS_URI);
 	xoap::bind(this, &emu::fed::Communicator::onGetParameters, "GetParameters", XDAQ_NS_URI);
+	xoap::bind(this, &emu::fed::Communicator::onKillChambers, "KillChambers", XDAQ_NS_URI);
 
 	// FSM state definitions and state-change call-back functions
 	fsm_.addState('H', "Halted", this, &emu::fed::Communicator::stateChanged);
@@ -1507,6 +1511,106 @@ emu::base::FactCollection emu::fed::Communicator::findFacts()
 	storedFacts_.clear();
 
 	return collection;
+}
+
+xoap::MessageReference emu::fed::Communicator::onKillChambers(xoap::MessageReference message){
+  // To execute this command, send a SOAP like this:
+  // <xdaq:KillChambers xmlns:xdaq='urn:xdaq-soap:3.0'><xdaq:chambersCSV xsi:type='xsd:string'>ME-1/1/08,ME+1/2/03</xdaq:chambersCSV></xdaq:KillChambers>
+  // To initialize crateVector_, send the following SOAP first:
+  // "<xdaq:GetParameters xmlns:xdaq='urn:xdaq-soap:3.0'/>"
+
+  // Extract list of chambers to kill
+  xdata::String chambersCSV;
+  try{
+    emu::soap::extractParameters( message, emu::soap::Parameters().add( "chambersCSV", &chambersCSV ) );
+  }
+  catch( xcept::Exception &e ){
+    XCEPT_RETHROW( xoap::exception::Exception, "Failed to extract list of chambers to kill from KillChambers SOAP command.", e );
+  }
+
+  // Kill them
+  std::vector<std::string> killed;
+  std::vector<std::string> notFound;
+  std::vector<std::string> chambers = emu::utils::csvTo< std::vector<std::string> >( chambersCSV.toString() );
+  try{
+    for ( std::vector<std::string>::iterator iChamber = chambers.begin(); iChamber != chambers.end(); ++iChamber ){
+      bool found = false;
+      emu::utils::Chamber chamberToKill( *iChamber );
+
+      // Find this chamber/fiber
+      LOG4CPLUS_DEBUG(getApplicationLogger(), "Looking for " << *iChamber << " to kill." );
+      for ( std::vector<Crate *>::iterator iCrate = crateVector_.begin(); ( iCrate != crateVector_.end() ) && !found; iCrate++ ) {
+	std::vector<DDU*> DDUs = (*iCrate)->getDDUs();
+	for ( std::vector<DDU *>::iterator iDDU = DDUs.begin(); ( iDDU != DDUs.end() && !found ); iDDU++ ) {
+	  std::vector<Fiber*> fibers = (*iDDU)->getFibers();
+	  for (std::vector<Fiber*>::iterator iFiber = fibers.begin(); ( iFiber != fibers.end() && !found ); iFiber++) {
+	    emu::utils::Chamber chamber( (*iFiber)->getEndcap().c_str()[0], (*iFiber)->getStation(), (*iFiber)->getRing(), (*iFiber)->getNumber() );
+	  
+	    if ( chamberToKill.isValid() ){
+	      // It looks like a legitimate chamber name. If their canonical names are the same, we've found it.
+	      if ( chamber.name() == chamberToKill.name() ){
+		found = true;
+	      }
+	    }
+	    else{
+	      // Apparently, it's not a valid chamber name. Check if the fiber was specified instead in the format "c1s4f14" (meaning FED crate 1, slot 4, fiber 14).
+	      // Parse it and check if the crate number matches...
+	      size_t pos = iChamber->find_first_of( "Cc" );
+	      if ( pos != string::npos && pos+1 < iChamber->length() && emu::utils::stringTo<unsigned int>( iChamber->substr( pos+1 ) ) == (*iCrate)->number() ){
+		// ..and the DDU's slot number matches...
+		pos = iChamber->find_first_of( "Ss" );
+		if ( pos != string::npos && pos+1 < iChamber->length() && emu::utils::stringTo<unsigned int>( iChamber->substr( pos+1 ) ) == (*iDDU)->slot() ){
+		  // ...and the fiber number matches.
+		  pos = iChamber->find_first_of( "Ff" );
+		  if ( pos != string::npos && pos+1 < iChamber->length() && emu::utils::stringTo<unsigned int>( iChamber->substr( pos+1 ) ) == (*iFiber)->number() ){
+		    found = true;
+		  }
+		}
+	      }
+	    }
+
+	    if ( found ){
+	      uint32_t killMask = ~( 0x1 << (*iFiber)->number() );
+	      uint32_t fpgaKillFiber = (*iDDU)->readKillFiber();
+	      uint32_t newKillFiber = fpgaKillFiber & killMask;
+	      ostringstream msg;
+	      msg << "Killing " << *iChamber 
+		  << " (" << chamber.name()
+		  << ") read by crate " << (*iCrate)->number() << " slot " << (*iDDU)->slot() << " fiber " << (*iFiber)->number()
+		  << " by SOAP command 'KillChambers'. Old killFiber=0x" << hex << fpgaKillFiber
+		  << ", new=0x" << hex << newKillFiber << dec;
+	      LOG4CPLUS_WARN(getApplicationLogger(), msg.str() );
+	      //(*iDDU)->writeFlashKillFiber( newKillFiber & 0xfffff ); // This'll be loaded to the FPGA on the next *VME* hard reset, which should never be issued during a run. So this is of no use here.
+	      (*iDDU)->writeKillFiber     ( newKillFiber & 0xfffff ); // This'll be applied on the next resync.
+	    }
+
+	  }
+	}
+      }
+      if ( found ) killed  .push_back( chamberToKill.name() );
+      else         notFound.push_back( chamberToKill.name() );
+    }
+  }
+  catch( xcept::Exception &e ){
+    XCEPT_RETHROW( xoap::exception::Exception, "Failed to kill chambers on KillChambers SOAP command.", e );
+  }
+  catch( std::exception &e ){
+    ostringstream msg;
+    msg << "Failed to kill chambers by KillChambers SOAP command. " << e.what();
+    XCEPT_RAISE( xoap::exception::Exception, msg.str() );
+  }
+  catch( ... ){
+    XCEPT_RAISE( xoap::exception::Exception, "Failed to kill chambers by KillChambers SOAP command. Unknown exception, no more details." );
+  }
+  
+  // The reply including the lists of killed and not found chambers:
+  xdata::String chambersKilled   = emu::utils::csvFrom( killed   );
+  xdata::String chambersNotFound = emu::utils::csvFrom( notFound );
+  xoap::MessageReference reply = emu::soap::createMessage( "onKillChambersReply", 
+							   emu::soap::Parameters()
+							   .add( "chambersKilled"  , &chambersKilled   )
+							   .add( "chambersNotFound", &chambersNotFound ) );
+  return reply;
 }
 
 

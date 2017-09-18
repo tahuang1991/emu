@@ -86,6 +86,9 @@ namespace emu {
 			/** Serializes the appropriate variables to send to whatever application requests them. **/
 			xoap::MessageReference onGetParameters(xoap::MessageReference message);
 
+			/** Kills the specified chambers' inputs. These killings will be overridden by the db or xml configuration on the next configure. **/
+			xoap::MessageReference onKillChambers(xoap::MessageReference message);
+
 			/** Returns a requested fact **/
 			virtual emu::base::Fact findFact(const emu::base::Component& component, const std::string& factType);
 			
