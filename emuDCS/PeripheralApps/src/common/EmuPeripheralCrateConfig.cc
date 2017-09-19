@@ -1416,7 +1416,7 @@ void EmuPeripheralCrateConfig::CrateTests(xgi::Input * in, xgi::Output * out )
      return;
   }
   //
-  MyHeader(in,out,"CrateTests");
+  MyHeader(in,out,"CrateTests--"+ThisCrateID_);
   //
   *out << cgicc::fieldset().set("style","font-size: 11pt; font-family: arial;");
   *out << cgicc::legend("Crate Tests").set("style","color:blue") ;
@@ -1501,7 +1501,7 @@ void EmuPeripheralCrateConfig::DefineConfiguration(xgi::Input * in, xgi::Output 
 void EmuPeripheralCrateConfig::CalibrationRuns(xgi::Input * in, xgi::Output * out ) 
   throw (xgi::exception::Exception) {
   //
-  MyHeader(in,out,"CalibrationRuns");
+  MyHeader(in,out,"CalibrationRuns"+ThisCrateID_);
   //
   *out << cgicc::fieldset().set("style","font-size: 11pt; font-family: arial;");
   *out << cgicc::legend("Calibration Runs").set("style","color:blue") ;
@@ -5382,12 +5382,15 @@ void EmuPeripheralCrateConfig::ChamberTests(xgi::Input * in, xgi::Output * out )
   Chamber * thisChamber = chamberVector[tmb];
   //
   char Name[100];
-  sprintf(Name,"%s synchronization, crate=%s, TMBslot=%d, DMBslot=%d",
+  sprintf(Name,"Chamber Tests %s, crate=%s, TMBslot=%d, DMBslot=%d",
 	  (thisChamber->GetLabel()).c_str(), ThisCrateID_.c_str(),thisTMB->slot(),thisDMB->slot());
   //
   MyHeader(in,out,Name);
   //
   //
+  *out << "Known Problem Mask = 0x" << std::hex << thisChamber->GetProblemMask() << std::dec << " <br>" << std::endl;
+  *out << "Known Problem Description: " << thisChamber->GetProblemDescription() << std::endl;
+
   *out << cgicc::fieldset().set("style","font-size: 11pt; font-family: arial;") << std::endl;
   //
   *out << cgicc::legend("Team A tests").set("style","color:blue") << std::endl ;
