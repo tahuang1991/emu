@@ -5388,8 +5388,15 @@ void EmuPeripheralCrateConfig::ChamberTests(xgi::Input * in, xgi::Output * out )
   MyHeader(in,out,Name);
   //
   //
-  *out << "Known Problem Mask = 0x" << std::hex << thisChamber->GetProblemMask() << std::dec << " <br>" << std::endl;
-  *out << "Known Problem Description: " << thisChamber->GetProblemDescription() << std::endl;
+  if(thisChamber->GetProblemMask())
+  {
+     *out << "Known Problem Mask = 0x" << std::hex << thisChamber->GetProblemMask() << std::dec << " <br>" << std::endl;
+     *out << "Known Problem Description: " << thisChamber->GetProblemDescription() << std::endl;
+  }
+  else
+  {
+     *out << "No Known Problem!" << std::endl;
+  }    
 
   *out << cgicc::fieldset().set("style","font-size: 11pt; font-family: arial;") << std::endl;
   //

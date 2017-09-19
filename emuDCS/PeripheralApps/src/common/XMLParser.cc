@@ -72,10 +72,10 @@ bool XMLParser::fillIntX(std::string item, int & target)
   return found;  
 }
 
-bool XMLParser::fillLongIntX(std::string item, long int & target) 
+bool XMLParser::fillLongIntX(std::string item, unsigned long int & target) 
 {
   bool found=false;
-  long int value; 
+  unsigned long int value; 
   XMLCh * name = xercesc::XMLString::transcode(item.c_str());
   xercesc::DOMAttr * pAttributeNode = (xercesc::DOMAttr*) pAttributes_->getNamedItem(name);
   if(pAttributeNode) {
@@ -930,7 +930,7 @@ void XMLParser::DAQMBParser(xercesc::DOMNode * pNode, Crate * theCrate, Chamber 
       daqmb_->SetPowerMask(delay);
     }
     //
-    long int long_value;
+    unsigned long int long_value;
     if (fillLongIntX("dmb_cntl_firmware_tag", long_value) ) 
       daqmb_->SetExpectedControlFirmwareTag(long_value);
     //
@@ -1043,12 +1043,12 @@ void XMLParser::CSCParser(xercesc::DOMNode * pNode, Crate * theCrate, xercesc::D
   Chamber * csc_ = new Chamber(theCrate);
 
   std::string label, chamberType, problem;
-  int problem_mask;
+  unsigned long int problem_mask;
 
   if(fillString("label", label)) csc_->SetLabel(label);
   fillString("chamber_type", chamberType);
   if(fillString("known_problem", problem)) csc_->SetProblemDescription(problem);
-  if(fillIntX("problem_location_mask", problem_mask)) csc_->SetProblemMask(problem_mask); 
+  if(fillLongIntX("problem_location_mask", problem_mask)) csc_->SetProblemMask(problem_mask); 
   //
   std::cout << "Creating CSC Type=" << chamberType 
 	    << " Label= " << label << std::endl;
