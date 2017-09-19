@@ -552,9 +552,14 @@ xoap::MessageReference emu::supervisor::Application::onReset(xoap::MessageRefere
   throw (xoap::exception::Exception)
 {
   isCommandFromWeb_ = false;
-  resetAction();
+  try{
+    resetAction();
+  }
+  catch( toolbox::fsm::exception::Exception& e ){
+    XCEPT_RETHROW( xoap::exception::Exception, "Reset failed. ", e );
+  }
   
-  return onHalt(message);
+  return createReply(message);
 }
 
 xoap::MessageReference emu::supervisor::Application::onSetTTS(xoap::MessageReference message)
@@ -941,9 +946,15 @@ void emu::supervisor::Application::webReset(xgi::Input *in, xgi::Output *out)
   throw (xgi::exception::Exception)
 {
   isCommandFromWeb_ = true;
-  resetAction();
+  try{
+    resetAction();
+  }
+  catch( toolbox::fsm::exception::Exception& e ){
+    XCEPT_RETHROW( xgi::exception::Exception, "Reset failed. ", e );
+  }
   
-  webHalt(in, out);
+  keep_refresh_ = true;
+  webRedirect(in, out);
 }
 
 void emu::supervisor::Application::webSetTTS(xgi::Input *in, xgi::Output *out)
@@ -1904,7 +1915,116 @@ void emu::supervisor::Application::resetAction() throw (toolbox::fsm::exception:
   fsm_.reset();
   reasonForFailure_ = "";
   state_ = fsm_.getStateName(fsm_.getCurrentState());
-  
+
+  emu::soap::Messenger m( this );
+
+  try {
+    emu::base::Stopwatch sw;
+    sw.start();
+    state_table_.refresh();
+    cout << "Timing in resetAction: " << endl
+	 << "    state table: " << state_table_
+	 << "    state_table_.refresh: " << sw.read() << endl;    
+
+    // Reset TF Cell operation
+    if ( isUsingLegacyTF_.value_ ){
+      if ( tf_descr_ != NULL && controlTFCellOp_.value_ ){
+	if ( bool(forceTFCellConf_) ){
+	  if ( !ignoreTFCell() ) OpResetCell();
+	  cout << "    reset TFCellOp: " << sw.read() << endl;
+	}
+	else{
+	  LOG4CPLUS_WARN( getApplicationLogger(), "\"forceTFCellConf\" is set to FALSE, therefore the TF Cell will not be 'reset' (to 'halted' state). Instead, it will be 'stopped' (to 'configured' state) so that it can be ready to start without being (re)configured if the correct key is already active." );
+	  if ( !ignoreTFCell() ) sendCommandCell("stop");
+	  if ( !ignoreTFCell() ) waitForTFCellOpToReach("configured",5);
+	  cout << "    stop TFCellOp: " << sw.read() << endl;
+	}
+      }
+    } // if ( isUsingLegacyTF_.value_ )
+    else{
+      if ( tf_descr_ != NULL && controlTFCellOp_.value_ ){
+	LOG4CPLUS_INFO( getApplicationLogger(), "Resetting the TF Cell." );
+	OpResetCell();
+	LOG4CPLUS_INFO( getApplicationLogger(), "Reset the TF Cell." );
+      }
+    } // if ( isUsingLegacyTF_.value_ ) else
+
+    if ( ! isUsingTCDS_ ){
+      if (state_table_.getState("ttc::LTCControl", 0) != "halted") {
+	m.sendCommand( "ttc::LTCControl", "reset" );
+	cout << "    Halt (reset) ttc::LTCControl: " << sw.read() << endl;
+      }
+
+      if (state_table_.getState("ttc::TTCciControl", 0) != "halted") {
+	m.sendCommand( "ttc::TTCciControl", "reset" );
+	cout << "    Halt (reset) ttc::TTCciControl: " << sw.read() << endl;
+      }
+    }
+
+    m.sendCommand( "emu::fed::Manager", "Halt" );
+    cout << "    Halt emu::fed::Manager: " << sw.read() << endl;
+
+    m.sendCommand( "emu::pc::EmuPeripheralCrateManager", "Halt" );
+    cout << "    Halt emu::pc::EmuPeripheralCrateManager: " << sw.read() << endl;
+    
+    isDAQResponsive_ = true; // Maybe the local DAQ has been relaunched/cured in the meantime if it was unresponsive, so let's give it a chance.
+    try {
+      if ( isDAQManagerControlled("Halt") ){
+	if ( bool( isDAQResponsive_ ) ){
+	  m.sendCommand( "emu::daq::manager::Application", 0, "Halt" );
+	  if ( isCommandFromWeb_ ) waitForDAQToExecute("Halt", 60, true);
+	  else                     waitForDAQToExecute("Halt", 3);
+	}
+      }
+    } catch (xcept::Exception& e){
+      isDAQResponsive_ = false;
+      LOG4CPLUS_ERROR( getApplicationLogger(), "Failed to Halt emu::daq::manager::Application in Reset." << xcept::stdformat_exception_history(e) );
+    }
+    cout << "    Halt emu::daq::manager::Application: " << sw.read() << endl;
+
+    if ( ! isUsingTCDS_ ){
+      // Issue a resync now to make sure L1A is reset to zero in the FEDs in case a global run follows.
+      // In a global run, when backpressure is not ignored, this would fail (see http://cmsonline.cern.ch/cms-elog/756961).
+      // By resynching through LTC, we make sure it's only done in local runs. 
+      // The following command will do nothing if no ttc::LTCControl application is found.
+      xdata::String attributeValue( "resync" );
+      m.sendCommand( "ttc::LTCControl", "ExecuteSequence", emu::soap::Parameters::none, emu::soap::Attributes().add( "Param", &attributeValue ) );
+    }
+    else{
+      // Halt TCDS. This is the only valid command if we don't hold the hardware lease...
+      // LPM
+      LOG4CPLUS_ERROR( getApplicationLogger(), "Halting TCDS LPM." );
+      if ( pm_       ) pm_      ->halt();
+      if ( pm_       ) pm_      ->waitForState( "Halted", 30 );
+      // CIs
+      LOG4CPLUS_ERROR( getApplicationLogger(), "Halting TCDS CIs." );
+      if ( ci_plus_  ) ci_plus_ ->halt();
+      if ( ci_minus_ ) ci_minus_->halt();
+      if ( ci_tf_    ) ci_tf_   ->halt();
+      if ( ci_plus_  ) ci_plus_ ->waitForState( "Halted", 30 );
+      if ( ci_minus_ ) ci_minus_->waitForState( "Halted", 30 );
+      if ( ci_tf_    ) ci_tf_   ->waitForState( "Halted", 30 );
+      // PIs
+      LOG4CPLUS_ERROR( getApplicationLogger(), "Halting TCDS PIs." );
+      if ( pi_plus_  ) pi_plus_ ->halt();
+      if ( pi_minus_ ) pi_minus_->halt();
+      if ( pi_tf_    ) pi_tf_   ->halt();
+      if ( pi_plus_  ) pi_plus_ ->waitForState( "Halted", 30 );
+      if ( pi_minus_ ) pi_minus_->waitForState( "Halted", 30 );
+      if ( pi_tf_    ) pi_tf_   ->waitForState( "Halted", 30 );
+    }
+
+    writeRunInfo( isCommandFromWeb_ ); // only write runinfo if Halt was issued from the web interface
+    if ( isCommandFromWeb_ ) cout << "    Write run info: " << sw.read() << endl;
+
+  } catch ( xoap::exception::Exception& e) {
+    XCEPT_RETHROW( toolbox::fsm::exception::Exception, "Halt transition failed with xoap::exception on Reset command.", e );
+  } catch ( xcept::Exception& e ) {
+    XCEPT_RETHROW( toolbox::fsm::exception::Exception, "Halt transition failed with xcept::Exception on Reset command.", e );
+  } catch( std::exception& e ){
+    XCEPT_RAISE( toolbox::fsm::exception::Exception, string( "Halt transition failed with std::exception on Reset command: " ) + e.what() );
+  }
+    
   LOG4CPLUS_DEBUG(getApplicationLogger(), "reset(end)");
 }
 
