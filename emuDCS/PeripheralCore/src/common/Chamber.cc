@@ -103,12 +103,12 @@ Chamber::Chamber(Crate * csc):
 {
   expected_config_problem_alct_  = 0;
   expected_config_problem_tmb_   = 0;
-  expected_config_problem_dmb_   = 0;
   expected_config_problem_cfeb1_ = 0;
   expected_config_problem_cfeb2_ = 0;
   expected_config_problem_cfeb3_ = 0;
   expected_config_problem_cfeb4_ = 0;
   expected_config_problem_cfeb5_ = 0;
+  expected_config_problem_dmb_   = 0;
   expected_config_problem_cfeb6_ = 0;
   expected_config_problem_cfeb7_ = 0;
   //
@@ -127,19 +127,19 @@ Chamber::~Chamber(){
      alct = myTMB->alctController();
   }
 
-    void Chamber::SetProblemMask(unsigned long int problem_mask) {
+    void Chamber::SetProblemMask(int problem_mask) {
       //
       problem_mask_ = problem_mask;
-      expected_config_problem_alct_  = (problem_mask >> 0) & 0x0F;
-      expected_config_problem_tmb_   = (problem_mask >> 4) & 0x0F;
-      expected_config_problem_dmb_   = (problem_mask >> 8) & 0x0F;
-      expected_config_problem_cfeb1_ = (problem_mask >> 12) & 0x0F;
-      expected_config_problem_cfeb2_ = (problem_mask >> 16) & 0x0F;
-      expected_config_problem_cfeb3_ = (problem_mask >> 20) & 0x0F;
-      expected_config_problem_cfeb4_ = (problem_mask >> 24) & 0x0F;
-      expected_config_problem_cfeb5_ = (problem_mask >> 28) & 0x0F;
-      expected_config_problem_cfeb6_ = (problem_mask >> 32) & 0x0F;
-      expected_config_problem_cfeb7_ = (problem_mask >> 36) & 0x0F;
+      expected_config_problem_alct_  = (problem_mask >> 0) & 0x01;
+      expected_config_problem_tmb_   = (problem_mask >> 1) & 0x01;
+      expected_config_problem_cfeb1_ = (problem_mask >> 2) & 0x01;
+      expected_config_problem_cfeb2_ = (problem_mask >> 3) & 0x01;
+      expected_config_problem_cfeb3_ = (problem_mask >> 4) & 0x01;
+      expected_config_problem_cfeb4_ = (problem_mask >> 5) & 0x01;
+      expected_config_problem_cfeb5_ = (problem_mask >> 6) & 0x01;
+      expected_config_problem_dmb_   = (problem_mask >> 7) & 0x01;
+      expected_config_problem_cfeb6_ = (problem_mask >> 8) & 0x01;
+      expected_config_problem_cfeb7_ = (problem_mask >> 9) & 0x01;
       //
       return;
     }
