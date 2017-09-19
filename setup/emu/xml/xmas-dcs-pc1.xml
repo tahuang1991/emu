@@ -6,7 +6,7 @@
         <xc:Context url="http://csc-dcs-pc1:20060">
                 <xc:Application class="emu::pc::EmuPeripheralCrateTimer" id="50" instance="0" network="local">
                  <properties xmlns="urn:xdaq-application:emu::pc::EmuPeripheralCrateTimer" xsi:type="soapenc:Struct">
-                    <FastLoop xsi:type="xsd:unsignedShort">10</FastLoop>
+                    <FastLoop xsi:type="xsd:unsignedShort">30</FastLoop>
                     <SlowLoop xsi:type="xsd:unsignedShort">180</SlowLoop>
                     <ExtraLoop xsi:type="xsd:unsignedShort">170</ExtraLoop>
                  </properties>
