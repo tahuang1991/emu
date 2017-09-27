@@ -1363,6 +1363,11 @@ void emu::supervisor::Application::configureAction(toolbox::Event::Reference evt
     
     if ( isUsingTCDS_ ){
       int index = keyToIndex(run_type_);
+      if ( index < 0 ){
+	ostringstream oss;
+	oss << "'" << run_type_.toString() << "' is not a known run type.";
+	XCEPT_RAISE( toolbox::fsm::exception::Exception, oss.str() );
+      }
       // Configure TCDS
       // See https://indico.cern.ch/event/403280/contribution/3/material/slides/0.pdf for the proper order.
       RegDumpPreprocessor pp;
@@ -2078,8 +2083,8 @@ void emu::supervisor::Application::stateChanged(toolbox::fsm::FiniteStateMachine
   try
     {
       rcmsStateNotifier_.findRcmsStateListener();      	
-      LOG4CPLUS_INFO(getApplicationLogger(),"Sending state changed notification to Run Control.");
-      rcmsStateNotifier_.stateChanged((std::string)state_,"");
+      LOG4CPLUS_INFO(getApplicationLogger(),"Sending state changed notification to Run Control:\n" + reasonForFailure_.toString());
+      rcmsStateNotifier_.stateChanged((std::string)state_,reasonForFailure_.toString());
     }
   catch(xcept::Exception &e)
     {
@@ -2128,19 +2133,7 @@ void emu::supervisor::Application::transitionFailed(toolbox::Event::Reference ev
   reasonForFailure_ = reason.str();
   LOG4CPLUS_ERROR(getApplicationLogger(), reason.str());
 
-  // Send notification to Run Control
-  try {
-    rcmsStateNotifier_.findRcmsStateListener();      	
-    LOG4CPLUS_INFO(getApplicationLogger(),"Sending state changed notification (Error) to Run Control.");
-    rcmsStateNotifier_.stateChanged("Error",xcept::stdformat_exception_history(failed.getException()));
-  } catch(xcept::Exception &e) {
-    LOG4CPLUS_ERROR(getApplicationLogger(), "Failed to notify state change to Run Control : "
-		    << xcept::stdformat_exception_history(e));
-    stringstream ss3;
-    ss3 << "Failed to notify state change to Run Control : ";
-    XCEPT_DECLARE_NESTED( emu::supervisor::exception::Exception, eObj, ss3.str(), e );
-    this->notifyQualified( "error", eObj );
-  }
+  // Send notification to Run Control. Or rather not. It's done in emu::supervisor::Application::stateChanged, fail or succeed the transition.
   
 }
 
