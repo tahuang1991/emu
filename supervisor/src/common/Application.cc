@@ -130,8 +130,10 @@ emu::supervisor::Application::Application(xdaq::ApplicationStub *stub)
   isBookedRunNumber_  ( false ),
   state_table_(this)
 {  
-  appDescriptor_ = getApplicationDescriptor();
+  setUpLogger();
   
+  appDescriptor_ = getApplicationDescriptor();
+
   xdata::InfoSpace *i = getApplicationInfoSpace();
   i->fireItemAvailable("isInCalibrationSequence", &isInCalibrationSequence_);
   i->fireItemAvailable("RunType", &run_type_);
@@ -257,8 +259,6 @@ emu::supervisor::Application::Application(xdaq::ApplicationStub *stub)
   state_table_.addApplication("tcds::pi::PIController");
   state_table_.addApplication("tcds::lpm::LPMController");
 
-  setUpLogger();
-  
   LOG4CPLUS_INFO(getApplicationLogger(), "emu::supervisor::Application constructed for " << state_table_ );
 }
 
