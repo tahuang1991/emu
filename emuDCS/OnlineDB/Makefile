@@ -20,7 +20,6 @@ Sources=\
 	OnlineDBVersion.cc \
 	BoardsDB.cc \
 	ConnectionsDB.cc \
-	ConnectionsGUI.cc \
 	TStoreRequest.cc \
 	ConfigurationEditor.cc \
 	TableDefinitions.cc \
@@ -37,6 +36,7 @@ Sources=\
 	XMLReadWriter.cc \
 	ConfigEditor.cc
 #	PCConfigEditor.cc
+#	ConnectionsGUI.cc 
 
 
 IncludeDirs = \

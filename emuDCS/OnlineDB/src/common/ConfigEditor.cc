@@ -27,6 +27,7 @@
 #include "xoap/domutils.h"
 #include "xoap/DOMParserFactory.h"
 
+#include "xgi/framework/Method.h"
 
 namespace emu { namespace db {
 
@@ -34,23 +35,23 @@ namespace emu { namespace db {
 ConfigEditor::ConfigEditor(xdaq::ApplicationStub * s) throw (xdaq::exception::Exception) :
   xdaq::WebApplication(s)
 {
-  xgi::bind(this, &ConfigEditor::Default, "Default");
-  xgi::bind(this, &ConfigEditor::parseConfigFromXML, "parse");
-  xgi::bind(this, &ConfigEditor::uploadConfigToDB, "upload");
-  xgi::bind(this, &ConfigEditor::readConfigFromDB, "read");
-  xgi::bind(this, &ConfigEditor::synchronizeToFromDB, "sync");
-  xgi::bind(this, &ConfigEditor::SelectLocalConfFile, "selectConfFile");
-  xgi::bind(this, &ConfigEditor::uploadConfFile, "UploadConfFile");
-  xgi::bind(this, &ConfigEditor::incrementValue, "incrementValue");
-  xgi::bind(this, &ConfigEditor::setValue, "setValue");
-  xgi::bind(this, &ConfigEditor::viewValues, "viewValues");
-  xgi::bind(this, &ConfigEditor::changeSingleValue, "changeSingleValue");
-  xgi::bind(this, &ConfigEditor::showTable, "Show");
-  xgi::bind(this, &ConfigEditor::hideTable, "Hide");
-  xgi::bind(this, &ConfigEditor::selectVersions, "selectVersions"); //select two versions to compare
-  xgi::bind(this, &ConfigEditor::compareVersions, "compareVersions");
-  xgi::bind(this, &ConfigEditor::selectVersion, "selectVersion"); //select one version to load
-  xgi::bind(this, &ConfigEditor::exportAsXML, "exportAsXML");
+  xgi::framework::deferredbind(this,this, &ConfigEditor::Default, "Default");
+  xgi::framework::deferredbind(this,this, &ConfigEditor::parseConfigFromXML, "parse");
+  xgi::framework::deferredbind(this,this, &ConfigEditor::uploadConfigToDB, "upload");
+  xgi::framework::deferredbind(this,this, &ConfigEditor::readConfigFromDB, "read");
+  xgi::framework::deferredbind(this,this, &ConfigEditor::synchronizeToFromDB, "sync");
+  xgi::framework::deferredbind(this,this, &ConfigEditor::SelectLocalConfFile, "selectConfFile");
+  xgi::framework::deferredbind(this,this, &ConfigEditor::uploadConfFile, "UploadConfFile");
+  xgi::framework::deferredbind(this,this, &ConfigEditor::incrementValue, "incrementValue");
+  xgi::framework::deferredbind(this,this, &ConfigEditor::setValue, "setValue");
+  xgi::framework::deferredbind(this,this, &ConfigEditor::viewValues, "viewValues");
+  xgi::framework::deferredbind(this,this, &ConfigEditor::changeSingleValue, "changeSingleValue");
+  xgi::framework::deferredbind(this,this, &ConfigEditor::showTable, "Show");
+  xgi::framework::deferredbind(this,this, &ConfigEditor::hideTable, "Hide");
+  xgi::framework::deferredbind(this,this, &ConfigEditor::selectVersions, "selectVersions"); //select two versions to compare
+  xgi::framework::deferredbind(this,this, &ConfigEditor::compareVersions, "compareVersions");
+  xgi::framework::deferredbind(this,this, &ConfigEditor::selectVersion, "selectVersion"); //select one version to load
+  xgi::framework::deferredbind(this,this, &ConfigEditor::exportAsXML, "exportAsXML");
   std::string HomeDir_ = getenv("HOME");
   xmlpath_ = HomeDir_ + "/config/" + configurationDirectory_ + "/"; //xml file chosen must be in this directory. If you choose something in another directory then it will look for it in here and fail.
   xmlfile_ = "";
@@ -185,11 +186,6 @@ void ConfigEditor::outputHeader(xgi::Output * out)
   *out << cgicc::HTMLDoctype(cgicc::HTMLDoctype::eStrict) << std::endl;
   *out << cgicc::html().set("lang", "en").set("dir", "ltr") << std::endl;
   *out << cgicc::title("Emu " + configName_ + " Config via TStore") << std::endl;
-  xgi::Utils::getPageHeader(out,
-      getApplicationDescriptor()->getClassName(),
-      getApplicationDescriptor()->getContextDescriptor()->getURL(),
-      getApplicationDescriptor()->getURN(),
-      "/hyperdaq/images/HyperDAQ.jpg");
 }
 
 
