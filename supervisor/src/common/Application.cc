@@ -213,6 +213,7 @@ emu::supervisor::Application::Application(xdaq::ApplicationStub *stub)
   halt_signature_        = toolbox::task::bind(this, &emu::supervisor::Application::haltAction,           "haltAction");
   calibration_signature_ = toolbox::task::bind(this, &emu::supervisor::Application::calibrationAction,    "calibrationAction");
   sequencer_signature_   = toolbox::task::bind(this, &emu::supervisor::Application::calibrationSequencer, "calibrationSequencer");
+  notifier_signature_    = toolbox::task::bind(this, &emu::supervisor::Application::rcmsNotifier,         "rcmsNotifier");
   
   fsm_.addState('H', "Halted",     this, &emu::supervisor::Application::stateChanged);
   fsm_.addState('C', "Configured", this, &emu::supervisor::Application::stateChanged);
@@ -501,8 +502,17 @@ xoap::MessageReference emu::supervisor::Application::onConfigure(xoap::MessageRe
   run_number_ = 1;
   nevents_ = -1;
 
-  submit(configure_signature_);
-  
+  if ( run_type_.toString() == "Calib_RunAllInOneGo" ){
+    // We're to run all calibration in one go, so let's not really configure here, just pretend to RCMS that we have.
+    // During the sequence we'll be making the configure-->start-->halt transition cycle several times
+    // while pretending to RCMS that we're 'running' uninterrupted.
+    calib_wl_->submit( notifier_signature_ );
+  }
+  else{
+    // This is to be a normal single run, not one driven by the sequencer, so we configure it now.
+    submit(configure_signature_);
+  }
+
   return createReply(message);
 }
 
@@ -522,8 +532,18 @@ xoap::MessageReference emu::supervisor::Application::onStart(xoap::MessageRefere
   }
 
   isCommandFromWeb_ = false;
-  submit(start_signature_);
-  
+
+  if ( run_type_.toString() == "Calib_RunAllInOneGo" ){
+    // We're to run all calibration in one go, so let's start the whole sequence.
+    // During the sequence we'll be making the configure-->start-->halt transition cycle several times
+    // while pretending to RCMS that we're 'running' uninterrupted.
+    calib_wl_->submit( sequencer_signature_ );
+  }
+  else{
+    // This is to be a normal single run, not one driven by the sequencer, so we start it now.
+    submit(start_signature_);
+  }  
+
   return createReply(message);
 }
 
@@ -1202,6 +1222,10 @@ bool emu::supervisor::Application::calibrationAction(toolbox::task::WorkLoop *wl
 bool emu::supervisor::Application::calibrationSequencer(toolbox::task::WorkLoop *wl)
 {
   // Do all calibrations in one go.
+
+  // First tell RCMS we're running, not to worry. We'll then keep quiet about all the state changes during the sequence.
+  notifyRCMS( "Running" );
+
   LOG4CPLUS_DEBUG(getApplicationLogger(), "calibrationSequencer " << "(begin)");
   isInCalibrationSequence_ = true;
   size_t nRunTypes = ( isUsingTCDS_ ? runParameters_.size() : calib_params_.size() );
@@ -1223,6 +1247,39 @@ bool emu::supervisor::Application::calibrationSequencer(toolbox::task::WorkLoop 
   keep_refresh_ = true;
   LOG4CPLUS_DEBUG(getApplicationLogger(), "calibrationSequencer " << "(end)");
   return false;
+}
+
+bool emu::supervisor::Application::rcmsNotifier(toolbox::task::WorkLoop *wl){
+  // Make RCMS believe that we've configured.
+  notifyRCMS( "Configured" );
+  return false;
+}
+
+void emu::supervisor::Application::notifyRCMS( const string state ){
+  try
+    {
+      rcmsStateNotifier_.findRcmsStateListener();      	
+      LOG4CPLUS_INFO(getApplicationLogger(),"Sending state '" << state << "' notification to RCMS");
+      rcmsStateNotifier_.stateChanged( state, "" );
+    }
+  catch(xcept::Exception &e)
+    {
+      stringstream ss;
+      ss << "Failed to notify RCMS about state change to " << state << ". ";
+      LOG4CPLUS_ERROR(getApplicationLogger(), ss.str() << xcept::stdformat_exception_history(e));
+    }
+  catch( std::exception& e )
+    {
+      stringstream ss;
+      ss << "Failed to notify RCMS about state change to " << state << ".  std::exception caught: ";
+      LOG4CPLUS_ERROR(getApplicationLogger(), ss.str() << e.what() );
+    }
+  catch(...)
+    {
+      stringstream ss;
+      ss << "Failed to notify RCMS about state change to " << state << ". Unknown exception caught.";
+      LOG4CPLUS_ERROR(getApplicationLogger(), ss.str() );
+    }
 }
 
 void emu::supervisor::Application::sendCalibrationStatus( unsigned int iRun, unsigned int nRuns, unsigned int iStep, unsigned int nSteps ){
@@ -1253,7 +1310,7 @@ void emu::supervisor::Application::configureAction(toolbox::Event::Reference evt
   LOG4CPLUS_DEBUG(getApplicationLogger(), evt->type() << "(begin)");
   LOG4CPLUS_INFO(getApplicationLogger(), "runtype: " << run_type_.toString()
 		 << " runnumber: " << run_number_ << " nevents: " << nevents_.toString());
-  
+
   xdata::Boolean isGlobalInControl( toolbox::tolower( run_type_.toString() ) == "global" );
 
   rcmsStateNotifier_.findRcmsStateListener();      	
@@ -2078,6 +2135,13 @@ void emu::supervisor::Application::stateChanged(toolbox::fsm::FiniteStateMachine
   keep_refresh_ = false;
   
   LOG4CPLUS_INFO(getApplicationLogger(),"Current state is: [" << fsm.getStateName (fsm.getCurrentState()) << "]");
+
+  if ( (bool)isInCalibrationSequence_ && reasonForFailure_.toString().length() == 0 ){
+    LOG4CPLUS_INFO(getApplicationLogger(),"We're in a calibration sequence, so no state notification is sent to RCMS.");
+    emu::base::Supervised::stateChanged(fsm);
+    return;
+  }
+
   // Send notification to Run Control
   state_=fsm.getStateName (fsm.getCurrentState());
   try
