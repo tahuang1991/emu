@@ -119,11 +119,11 @@ protected:
   std::vector< std::string> monitorables_;
   bool Monitor_On_, Monitor_Ready_, new_data_;
   bool fast_on, slow_on, extra_on, reload_vcc;
-  int fast_count, slow_count, extra_count, x2p_count, x2p_count2;
+  int fast_count, slow_count, extra_count, x2p_count, x2p_count2, read_dcfeb;
   xdata::UnsignedShort fastloop, slowloop, extraloop;
   toolbox::task::Timer * timer_;
   //
-  std::vector<int> vcc_reset, dcs_mask, tcs_mask, tmb_mask, dmb_mask;
+  std::vector<int> vcc_reset, dcs_mask, tcs_mask, tmb_mask, dmb_mask, feb_mask;
   std::vector<bool> crate_off;
   //
   std::vector< std::string> TCounterName;
@@ -147,12 +147,13 @@ protected:
   int TOTAL_TMB_COUNTERS, TOTAL_TMB_COUNTERS2;
   xdata::TimeVal last_read_time;
   unsigned short ccbmpcreg[60][4];
-  bool first_read[60];
+  bool first_read[60], donebits_changed[60];
 
   static const int TOTAL_DCS_COUNTERS=64;
   static const int TOTAL_TMB_VOLTAGES=16;
-  static const int TOTAL_DCFEB_MONS=200;  // (19+8)*7+9+2 (2 is reserved)
+  static const int TOTAL_DCFEB_MONS=222;  // (19+8+3)*7+9+3 (3 are reserved)
   static const int MAX_TMB_COUNTERS=120;;
+  static const int REAL_TMB_COUNTERS=93;
   
 public:
   //
@@ -161,8 +162,6 @@ public:
   EmuPeripheralCrateMonitor(xdaq::ApplicationStub * s);
   void Default(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
   void MainPage(xgi::Input * in, xgi::Output * out );
-  void MyHeader(xgi::Input * in, xgi::Output * out, std::string title ) throw (xgi::exception::Exception); 
-
 
 private:
 

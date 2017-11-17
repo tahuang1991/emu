@@ -22,6 +22,7 @@ namespace emu{
 		      Logger*       pLogger );
       uint64_t getNEvents() const { return nEvents_; }
       string getId() const { return id_; }
+      Logger* getLogger(){ return pLogger_; }
 
     protected:
       toolbox::BSem       bsem_;	///< Binary semaphore.

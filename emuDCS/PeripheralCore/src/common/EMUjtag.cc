@@ -7,6 +7,7 @@
 #include <string>
 #include <fstream>
 #include <sstream>
+#include <cmath>
 #include <time.h>
 #include <string.h>
 //
@@ -467,7 +468,8 @@ void EMUjtag::packCharBuffer(int * bitVector,
   // bitVector[0]     = LSB of charVector[0]
   // bitVector[Nbits] = MSB of charVector[Nbits/8]
   //
-  for (int i=0; i<Nbits/8; i++) 
+  int nChars = std::ceil(Nbits/8.); 
+  for (int i=0; i<nChars; i++) 
     charVector[i] = 0;
   //
   int bufferbit = 0;
@@ -2458,11 +2460,15 @@ void EMUjtag::ProgramTMBProms() {
   //
   this->ProgramProms_();
   //
+/*  LIU May 2015: It's not enough to just clear bit 7 of the boot register. Set the boot register to 0 is safe and easier.
+
   if (tmb_->slot() < 22) {
     short unsigned int BootReg;
     tmb_->tmb_get_boot_reg(&BootReg);
     tmb_->tmb_set_boot_reg(BootReg & 0xff7f);     //give the JTAG chain back to the FPGA 
   }
+*/
+  tmb_->tmb_set_boot_reg(0);
   //
   return;
 }

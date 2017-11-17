@@ -1,10 +1,10 @@
 #include "emu/dqm/calibration/Test_Generic.h"
-#include "emu/utils/IO.h"
+// #include "emu/utils/IO.h"
 
 using namespace XERCES_CPP_NAMESPACE;
 
 using namespace emu::dqm::utils;
-using namespace emu::utils;
+// using namespace emu::utils;
 
 time_sample Test_Generic::CalculateCorrectedPulseAmplitude(pulse_fit& fit)
 {
@@ -91,32 +91,6 @@ std::string timestr(time_t* t)
 
 };
 
-/*
-std::map<std::string, int> getCSCTypeToBinMap()
-{
-  std::map<std::string, int> tmap;
-  tmap["ME-4.2"] = 0;
-  tmap["ME-4.1"] = 1;
-  tmap["ME-3.2"] = 2;
-  tmap["ME-3.1"] = 3;
-  tmap["ME-2.2"] = 4;
-  tmap["ME-2.1"] = 5;
-  tmap["ME-1.3"] = 6;
-  tmap["ME-1.2"] = 7;
-  tmap["ME-1.1"] = 8;
-  tmap["ME+1.1"] = 9;
-  tmap["ME+1.2"] = 10;
-  tmap["ME+1.3"] = 11;
-  tmap["ME+2.1"] = 12;
-  tmap["ME+2.2"] = 13;
-  tmap["ME+3.1"] = 14;
-  tmap["ME+3.2"] = 15;
-  tmap["ME+4.1"] = 16;
-  tmap["ME+4.2"] = 17;
-  return tmap;
-
-}
-*/
 void Test_Generic::fillCrateMap(CSCCrateMap* mapobj)
 {
   if (!fillCrateMapSQLite(mapobj))
@@ -286,7 +260,7 @@ void Test_Generic::init()
   bin_checker.crcCFEB(true);
   bin_checker.modeDDU(true);
   emucnvs.clear();
-  tmap = getCSCTypeToBinMap();
+  tmap = emu::dqm::utils::getCSCTypeToBinMap();
   //  map = new cscmap1();
   //  cratemap = new CSCCrateMap();
   fillCrateMap(cratemap);
@@ -604,7 +578,7 @@ void Test_Generic::setCSCMapFile(std::string filename)
 
 }
 
-
+/*
 std::string Test_Generic::getCSCTypeLabel(int endcap, int station, int ring )
 {
   std::string label = "Unknown";
@@ -628,7 +602,7 @@ std::string Test_Generic::getCSCTypeLabel(int endcap, int station, int ring )
     }
   return label;
 }
-
+*/
 
 std::string Test_Generic::getCSCFromMap(int crate, int slot, int& csctype, int& cscposition)
 {
@@ -668,8 +642,7 @@ std::string Test_Generic::getCSCFromMap(int crate, int slot, int& csctype, int& 
     }
 
   /// Get chamber label by constructing it with endcap/station/ring/position (txt and sqlite-based mapping)
-  /*
-  std::string tlabel = getCSCTypeLabel(iendcap, istation, iring );
+  std::string tlabel = emu::dqm::utils::getCSCTypeLabel(iendcap, istation, iring );
   std::map<std::string,int>::const_iterator it = tmap.find( tlabel );
   if (it != tmap.end())
   {
@@ -681,8 +654,7 @@ std::string Test_Generic::getCSCFromMap(int crate, int slot, int& csctype, int& 
   }
 
 
-  return tlabel+"."+Form("%02d", cscposition);
-  */
+  // return tlabel+"."+Form("%02d", cscposition);
 
   /// Get chamber label from the mapping entry chamberLabel field directly (sqlite-based mapping)
   try
@@ -824,12 +796,10 @@ int applyParameters(TH1* object, bookParams& params)
           //object->Draw();
         }
 
-      /*
         if ((itr = params.find("SetOptStat")) != params.end()) {
         gStyle->SetOptStat(itr->second.c_str());
 
         }
-      */
 
       if ((itr = params.find("SetStats")) != params.end())
         {
@@ -1008,6 +978,7 @@ void Test_Generic::bookCommonHistos()
 {
   MonHistos emuhistos;
   emucnvs.clear();
+  csc_tlimits.clear();
   tlimits.clear();
   char *stopstring;
   for (testParamsCfg::iterator itr=xmlCfg.begin(); itr != xmlCfg.end(); ++itr)
@@ -1137,6 +1108,8 @@ void Test_Generic::bookTestsForCSC(std::string cscID)
   char *stopstring;
 
   ResultsCodes rcodes;
+  std::map<std::string, test_limits> limits;
+  limits.clear();
 
   for (testParamsCfg::iterator itr=xmlCfg.begin(); itr != xmlCfg.end(); ++itr)
     {
@@ -1145,6 +1118,8 @@ void Test_Generic::bookTestsForCSC(std::string cscID)
         {
           std::string cnvtype = params["Type"];
           std::string scope = params["Prefix"];
+          std::string tname = params["Name"];
+
           std::string name = cscID+"_"+testID+"_"+params["Name"];
           std::string title = cscID+": "+testID+" "+params["Title"];
           double xmin=0., xmax=0.;
@@ -1376,6 +1351,12 @@ void Test_Generic::bookTestsForCSC(std::string cscID)
               cnv->AddTextResult(params["Title"]);
               cnv->SetLimits(low1limit,low0limit, high0limit, high1limit, high0limit2, high1limit2);
               csccnvs[itr->first]=cnv;
+
+	      limits[tname].low0 = low0limit;
+              limits[tname].low1 = low1limit;
+              limits[tname].high0 = high0limit;
+              limits[tname].high1 = high1limit;
+
             }
 
           if ((cnvtype.find("h") == 0 && !(cnvtype.find("half") == 0)) && (scope=="CSC"))
@@ -1407,6 +1388,8 @@ void Test_Generic::bookTestsForCSC(std::string cscID)
   mhistos[cscID]=cschistos;
 
   rescodes[cscID] = rcodes;
+
+  csc_tlimits[cscID] = limits;
 
   //  return cschistos;
 }
@@ -1457,12 +1440,16 @@ void Test_Generic::doBinCheck()
       // int ChamberID     = chamber->first;
       int CrateID = (chamber->first>>4) & 0xFF;
       int DMBSlot = chamber->first & 0xF;
-      if ((CrateID ==255) || (CrateID == 0) || (DMBSlot == 0) ||
+      if ((CrateID ==255) || (CrateID <= 0) || (DMBSlot <= 0) || (CrateID > 60) || (DMBSlot > 10) ||
           (chamber->second & 0x80))
         {
+	  if (((CrateID > 60) || (DMBSlot > 10)) && (CrateID <255)) {
+   	     LOG4CPLUS_ERROR(logger, "Evt#" << std::dec << nTotalEvents << "> Invalid CSC ID: Crate " << CrateID << ", DMBSlot " << DMBSlot);
+          }
           chamber++;    // = Skip chamber detection if DMB header is missing (Error code 6)
           continue;
         }
+
 
       int CSCtype   = 0;
       int CSCposition = 0;
@@ -1494,9 +1481,10 @@ void Test_Generic::doBinCheck()
               }
         }
 
+
+     
       if (isCSCError && CSCtype && CSCposition && mhistos["EMU"]["E00"])
         {
-
           mhistos["EMU"]["E00"]->Fill(CSCposition, CSCtype);
           //    mo->SetEntries(nBadEvents);
 
@@ -1623,7 +1611,7 @@ void Test_Generic::finish()
                   cnv->Draw();
                   cnv->SetCanvasSize(imgW, imgH);
                   cnv->SaveAs(path+cscID+"_"+testID+"_"+subtestID+".png");
-                  // cnv->Write();
+                  cnv->Write();
                   if (emucnvs[subtestID] != NULL)
                     {
                       TestCanvas_1h* emucnv = dynamic_cast<TestCanvas_1h*>(emucnvs[subtestID]);
@@ -1764,7 +1752,7 @@ void Test_Generic::finish()
               cnv->SaveAs((path+cscID+"_"+testID+"_"+subtestID+".png").c_str());
               //  cnv->Print((path+cscID+"_"+testID+"_"+subtestID+".png").c_str());
               m_itr->second->Write();
-              // cnv->Write();
+              cnv->Write();
               delete cnv;
               defStyle.cd();
             }
@@ -1845,23 +1833,30 @@ void Test_Generic::finish()
 
 }
 
-int Test_Generic::checkChannel(TestData& cscdata, std::vector<std::string>& tests, int layer, int strip)
+int Test_Generic::checkChannel(TestData& cscdata, std::vector<std::string>& tests, int layer, int strip, std::string cscID)
 {
+  std::map<std::string, test_limits> &limits = tlimits;
+  if (csc_tlimits.size() > 0 ) {
+      std::map<std::string, std::map<std::string, test_limits> >::iterator itr = csc_tlimits.find(cscID);
+	if (itr != csc_tlimits.end())
+		limits = itr->second;
+  } 
+
   for (unsigned i = 0; i < tests.size(); i++)
     {
-      if ((cscdata[tests[i]].content[layer][strip] > tlimits[tests[i]].high1)
-          || (cscdata[tests[i]].content[layer][strip] < tlimits[tests[i]].low1))
+      if ((cscdata[tests[i]].content[layer][strip] > limits[tests[i]].high1)
+          || (cscdata[tests[i]].content[layer][strip] < limits[tests[i]].low1))
         return 1;
     }
 
   return 0;
 }
 
-
-double Test_Generic::checkChannelConstant(std::string test, double value, double threshold)
+double Test_Generic::checkChannelConstant(std::string test, double value, double threshold, std::string cscID)
 {
-  if ((value > threshold*tlimits[test].high1)
-      || (value < threshold*tlimits[test].low1))  return BAD_VALUE;
+  std::map<std::string, test_limits> &limits = tlimits;
+  if ((value > threshold*limits[test].high1)
+      || (value < threshold*limits[test].low1))  return BAD_VALUE;
   return value;
 }
 

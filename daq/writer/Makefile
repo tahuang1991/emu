@@ -15,6 +15,7 @@ Package = daq/writer
 Sources = \
 	RawDataFile.cc \
 	RateLimiter.cc \
+	TransferJSON.cc \
 	version.cc
 
 IncludeDirs = \

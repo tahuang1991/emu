@@ -2,6 +2,8 @@
 #include "emu/daq/manager/version.h"
 #include "emu/daq/manager/alarm/Alarm.h"
 #include "emu/base/Alarm.h"
+#include "emu/utils/System.h"
+#include "emu/exception/Exception.h"
 #include "emu/daq/rui/STEPEventCounter.h"
 #include "cgicc/HTTPHTMLHeader.h"
 #include "cgicc/HTTPPlainHeader.h"
@@ -712,9 +714,12 @@ throw (xgi::exception::Exception)
   *out << "Emu Local DAQ "                                           << endl;
   *out << "</title>"                                                 << endl;
   *out << "</head>"                                                  << endl;
-  *out << "  <frameset rows=\"90%, *\">"                             << endl;
+  // *out << "  <frameset rows=\"90%, *\">"                             << endl;
+  // *out << "    <frame src=\"command\"/>"                             << endl;
+  // *out << "    <frame src=\"comment\"/>"                             << endl;
+  // *out << "  </frameset>"                                            << endl;
+  *out << "  <frameset>"                                             << endl;
   *out << "    <frame src=\"command\"/>"                             << endl;
-  *out << "    <frame src=\"comment\"/>"                             << endl;
   *out << "  </frameset>"                                            << endl;
   *out << "</html>"                                                  << endl;
 }
@@ -1202,7 +1207,7 @@ void emu::daq::manager::Application::commandWebPage(xgi::Input *in, xgi::Output 
       *out << "<td width=\"32\"/>"                                   << endl;
 
       *out << "<td align=\"right\">"                                 << endl;
-      printUserComments( out );
+      // printUserComments( out );
       *out << "</td>"                                                << endl;
       *out << "</table>"                                             << endl;
     }
@@ -3570,6 +3575,9 @@ void emu::daq::manager::Application::exportParams(xdata::InfoSpace *s)
     s->fireItemAvailable("STEPFinished",&STEPFinished_);
     s->addItemRetrieveListener("STEPFinished",this);
 
+    STEPCountsTableDir_ = "/tmp";
+    s->fireItemAvailable("STEPCountsTableDir",&STEPCountsTableDir_);
+
     hardwareMapping_ = "/emu/daq/xml/RUI-to-chamber_mapping.xml";
     s->fireItemAvailable("hardwareMapping",&hardwareMapping_);
 }
@@ -3789,8 +3797,138 @@ void emu::daq::manager::Application::printEventCountsTable
     if ( control ) *out << "</form>"                                                  << endl;
 }
 
+void emu::daq::manager::Application::saveSTEPCountsTable(){
+  stringstream STEPCountsTable, fileName;
+  bool STEPFinished = true;
+  try{
+    emu::soap::Messenger( this ).getParameters( taDescriptors_[0], emu::soap::Parameters().add( "runStartTime" , &runStartTime_ ) );
+    fileName << STEPCountsTableDir_.toString()
+	     << "/EventCounts_"                << runType_.toString()
+	     << "_" << setfill('0') << setw(8) << runNumber_.value_
+	     << "_"                            << runStartTime_.toString()
+	     << ".txt";
+    STEPFinished = printSTEPCountsTableASCII( STEPCountsTable );
+    if ( ! STEPFinished ){
+      LOG4CPLUS_WARN( logger_, "Saving table of counts for unfinished STEP run." );
+    }
+    emu::utils::writeFile( fileName.str(), STEPCountsTable.str() );
+    LOG4CPLUS_INFO( logger_, "Saved table of STEP counts in " << fileName.str() );
+  }
+  catch( xcept::Exception& e ){
+    LOG4CPLUS_ERROR( logger_, "Failed to save table of STEP counts. " << xcept::stdformat_exception_history( e ) );
+  }
+  catch( std::exception& e ){
+    LOG4CPLUS_ERROR( logger_, "Failed to save table of STEP counts. " << e.what() );
+  }
+}
+
+bool emu::daq::manager::Application::printSTEPCountsTableASCII( stringstream& out ){
+  // Prints STEP counts in ASCII table.
+  // Returns true if STEP has finished, false otherwise.
+  bool isFinished = true;
+  emu::soap::Messenger m( this );
+
+  // Write ASCII table
+
+  // Comment lines
+  out << "# For each RUI:\n";
+  out << "#     * 1st row: the counts in the accepted events\n";
+  out << "#     * 2nd row: the counts in the read events\n";
+  out << "# Count for\n";
+  out << "#     * live (connected) input:                  number of events containing data from this input\n";
+  out << "#     * not live (disconnected or killed) input: -1\n";
+  out << "#     * masked (in local DAQ sw) input:          -2\n";
+  out << "#     * masked and not live input:               -3\n";
+  // First row: titles
+  out << "#rui     total";
+  for ( uint32_t i = 0; i < emu::daq::rui::STEPEventCounter::maxDDUInputs_; ++i )
+    out << "   input" << setfill('0') << setw(2) << i;
+  out << "\n";
+
+  // Loop over RUIs and query them for STEP info, and write a table row
+  vector< xdaq::ApplicationDescriptor* >::iterator rui;
+  for(rui = ruiDescriptors_.begin(); rui != ruiDescriptors_.end(); rui++){
+
+    // Get STEP info from emu::daq::rui::Application
+    xdata::String                    persistentDDUError = "";
+    xdata::UnsignedInteger64                eventsRead  = 0;
+    xdata::UnsignedInteger64                totalCount  = 0;
+    xdata::UnsignedInteger64                lowestCount = 0;
+    xdata::Vector<xdata::UnsignedInteger64> counts;
+    xdata::Vector<xdata::UnsignedInteger64> readCounts;
+    xdata::Vector<xdata::Boolean>      masks;
+    xdata::Vector<xdata::Boolean>      liveInputs;
+
+    try{
+      emu::soap::extractParameters( m.sendCommand( *rui, "STEPQuery" ),
+				    emu::soap::Parameters()
+				    .add( "PersistentDDUError", &persistentDDUError )
+				    .add( "EventsRead"        , &eventsRead         )
+				    .add( "TotalCount"        , &totalCount         )
+				    .add( "LowestCount"       , &lowestCount        )
+				    .add( "Counts"            , &counts             )
+				    .add( "ReadCounts"        , &readCounts         )
+				    .add( "Masks"             , &masks              )
+				    .add( "LiveInputs"        , &liveInputs         ) );
+
+      isFinished &= ( (int64_t) lowestCount.value_ >= maxNumberOfEvents_.value_ ); 
+    } catch( emu::daq::manager::exception::Exception e ){
+      LOG4CPLUS_WARN( logger_, "Failed to get STEP info from " 
+		      << (*rui)->getClassName() << (*rui)->getInstance() 
+		      << " : " << xcept::stdformat_exception_history(e));
+      stringstream ss53;
+      ss53 <<  "Failed to get STEP info from " 
+		      << (*rui)->getClassName() << (*rui)->getInstance() 
+		      << " : " ;
+      XCEPT_DECLARE_NESTED( emu::daq::manager::exception::Exception, eObj, ss53.str(), e );
+      this->notifyQualified( "warning", eObj );
+      isFinished = false;
+    } catch (xoap::exception::Exception& e){
+      LOG4CPLUS_WARN( logger_, "Failed to parse STEP info from reply from " 
+		      << (*rui)->getClassName() << (*rui)->getInstance() 
+		      << " : " << xcept::stdformat_exception_history(e));
+      stringstream ss54;
+      ss54 <<  "Failed to parse STEP info from reply from " 
+		      << (*rui)->getClassName() << (*rui)->getInstance() 
+		      << " : " ;
+      XCEPT_DECLARE_NESTED( emu::daq::manager::exception::Exception, eObj, ss54.str(), e );
+      this->notifyQualified( "warning", eObj );
+      isFinished = false;
+    }
+    // First line: counts in accepted events.
+    // First column: emu::daq::rui::Application instance
+    out << setfill('0') << setw(4) << (*rui)->getInstance();
+    // Second column: total number of events
+    out << setfill(' ') << setw(10) << totalCount.value_;
+    // The remaining columns: event count on each DDU input
+    for ( size_t i = 0; i < counts.elements(); ++i ){
+      int64_t statusCode = 0;
+      if ( liveInputs.elementAt(i)->toString() != "true" ) statusCode -= 1;
+      if ( masks     .elementAt(i)->toString() == "true" ) statusCode -= 2;
+      if ( statusCode == 0 ) out << setfill(' ') << setw(10) << dynamic_cast<xdata::UnsignedInteger64*>( counts.elementAt(i) )->value_;
+      else                   out << setfill(' ') << setw(10) << statusCode;
+    }
+    out << "\n";
+    // Second line: counts in accepted events.
+    // First column: emu::daq::rui::Application instance
+    out << setfill('0') << setw(4) << (*rui)->getInstance();
+    // Second column: total number of events.
+    out << setfill(' ') << setw(10) << eventsRead.value_;
+    // The remaining columns: event count on each DDU input
+    for ( size_t i = 0; i < counts.elements(); ++i ){
+      int64_t statusCode = 0;
+      if ( liveInputs.elementAt(i)->toString() != "true" ) statusCode -= 1;
+      if ( masks     .elementAt(i)->toString() == "true" ) statusCode -= 2;
+      if ( statusCode == 0 ) out << setfill(' ') << setw(10) << dynamic_cast<xdata::UnsignedInteger64*>( readCounts.elementAt(i) )->value_;
+      else                   out << setfill(' ') << setw(10) << statusCode;
+    }
+    out << "\n";
+  }
+  return isFinished;
+}
+
 bool emu::daq::manager::Application::printSTEPCountsTable( stringstream& out, bool control ){
-  // Prints STEP counts. 
+  // Prints STEP counts in HTML table. 
   // If control is true, prints checkboxes for masking inputs.
   // Returns true if STEP has finished, false otherwise.
 
@@ -3817,13 +3955,13 @@ bool emu::daq::manager::Application::printSTEPCountsTable( stringstream& out, bo
     out <<       "<input type=\"submit\"";
     out <<           " style=\"float: left; z-index: 1; background-color: #ffffff;\"";
     out <<           " name=\"mask\"";
-    out <<           " title=\"Count selected DDU inputs in.\"";
+    out <<           " title=\"Count selected DDU inputs in. (That is, consider them when deciding whether the run is completed.)\"";
     out <<           " value=\"count in\"";
     out <<       "/> ";
     out <<       "<input type=\"submit\"";
     out <<           " style=\"float: right; z-index: 1; background-color: #cccccc;\"";
     out <<           " name=\"mask\"";
-    out <<           " title=\"Count selected DDU inputs out.\"";
+    out <<           " title=\"Count selected DDU inputs out. (That is, ignore them when deciding whether the run is completed.)\"";
     out <<           " value=\"count out\"";
     out <<       "/>";
     out <<       "<span style=\"z-index: 0;\">DDU input</span>";
@@ -3836,8 +3974,8 @@ bool emu::daq::manager::Application::printSTEPCountsTable( stringstream& out, bo
 
   out << "<tr>"                                                        << endl;
   out <<   "<th/><th/>";
-  out <<   "<th>read</th>";
   out <<   "<th>accepted</th>";
+  out <<   "<th>read</th>";
   for ( uint32_t i = 0; i < emu::daq::rui::STEPEventCounter::maxDDUInputs_; ++i )
     out <<   "<th>" << i << "</th>";
   out << "</tr>"                                                       << endl;
@@ -3849,11 +3987,12 @@ bool emu::daq::manager::Application::printSTEPCountsTable( stringstream& out, bo
   for(rui = ruiDescriptors_.begin(); rui != ruiDescriptors_.end(); rui++){
 
     // Get STEP info from emu::daq::rui::Application
-    xdata::String                      persistentDDUError = "";
+    xdata::String                    persistentDDUError = "";
     xdata::UnsignedInteger64                eventsRead  = 0;
     xdata::UnsignedInteger64                totalCount  = 0;
     xdata::UnsignedInteger64                lowestCount = 0;
     xdata::Vector<xdata::UnsignedInteger64> counts;
+    xdata::Vector<xdata::UnsignedInteger64> readCounts;
     xdata::Vector<xdata::Boolean>      masks;
     xdata::Vector<xdata::Boolean>      liveInputs;
 
@@ -3865,6 +4004,7 @@ bool emu::daq::manager::Application::printSTEPCountsTable( stringstream& out, bo
 				    .add( "TotalCount"        , &totalCount         )
 				    .add( "LowestCount"       , &lowestCount        )
 				    .add( "Counts"            , &counts             )
+				    .add( "ReadCounts"        , &readCounts         )
 				    .add( "Masks"             , &masks              )
 				    .add( "LiveInputs"        , &liveInputs         ) );
 
@@ -3904,7 +4044,8 @@ bool emu::daq::manager::Application::printSTEPCountsTable( stringstream& out, bo
     out << "<tr>"                                                 << endl;
     out << "  <th align=\"left\">";
     out << "      <a href=\"" << href 
-	<<       "\" target=\"_blank\" title=\"click to visit emu::daq::rui::Application\">";
+	<<        "\" target=\"_blank\" title=\"Click to visit emu::daq::rui::Application " << (*rui)->getInstance() 
+        <<        "\">";
     out <<             name.str();
     out << "      </a>";
     out << "  </th>"                                              << endl;
@@ -3913,15 +4054,21 @@ bool emu::daq::manager::Application::printSTEPCountsTable( stringstream& out, bo
     out << "  <th align=\"left\">";
     out << "      <a href=\"" << appDescriptor_->getContextDescriptor()->getURL() << "/"
 	<< hardwareMapping_.toString() << "#RUI." << (*rui)->getInstance()
-	<<       "\" target=\"_blank\" title=\"click to view chambers\">";
+	<<       "\" target=\"_blank\" title=\"Click to view the chambers read out by emu::daq::rui::Application " 
+	<<       (*rui)->getInstance() << ".\">";
     if ( hardwareMnemonics_.find( (*rui)->getInstance() ) != hardwareMnemonics_.end() )
       out << hardwareMnemonics_[(*rui)->getInstance()];
     out << "      </a>";
     out << "  </th>"                                              << endl;
 
 
-    // Third column: number of events read
-    out << "  <td align=\"right\">";
+    // Third column: number of events accepted
+    out << "  <td align=\"right\" title=\"The number of events accepted.\">";
+    out << "    " << totalCount.toString();
+    out << "  </td>"                                              << endl;
+
+    // Fourth column: number of events read
+    out << "  <td align=\"right\" title=\"The number of events read.\">";
     if ( persistentDDUError.toString().size() > 0 ){ // DDU in error
       out << "      <a href=\"" << href << "\""
 	   <<         " title=\"" << persistentDDUError.toString() << "\""
@@ -3936,12 +4083,7 @@ bool emu::daq::manager::Application::printSTEPCountsTable( stringstream& out, bo
     }
     out << "  </td>"                                              << endl;
 
-    // Fourth column: number of events accepted
-    out << "  <td align=\"right\">";
-    out << "    " << totalCount.toString();
-    out << "  </td>"                                              << endl;
-
-    // The remaining 15 columns: event count on each DDU input
+    // The remaining 15 columns: accepted/read event counts on each DDU input
     for ( size_t i = 0; i < counts.elements(); ++i ){
       stringstream DDUInput;
       DDUInput << "EmuRUI." << (*rui)->getInstance() << "." << i;
@@ -3956,17 +4098,19 @@ bool emu::daq::manager::Application::printSTEPCountsTable( stringstream& out, bo
       out << "<a href=\"" 
 	  << appDescriptor_->getContextDescriptor()->getURL() << "/"
 	  << hardwareMapping_.toString() << "#RUI." << (*rui)->getInstance() << "." << i << "\""
-	  << " title=\"click to view chamber\""
+	  << " title=\"Number of accepted events with data from input " << i << ". (Click to view the corresponding chamber.)\""
 	  << " target=\"_blank\">";
-      if ( liveInputs.elementAt(i)->toString() == "true" )
-	out << counts.elementAt(i)->toString();
-      else
-	out << "&#8212;";
+      if ( liveInputs.elementAt(i)->toString() == "true" ) out << counts.elementAt(i)->toString();
+      else                                                 out << "&#8212;";
       out << "</a>";
+      out << "/<span title=\"Number of read events with data from input " << i << ".\">";
+      if ( liveInputs.elementAt(i)->toString() == "true" ) out << readCounts.elementAt(i)->toString();
+      else                                                 out << "&#8212;";
+      out << "</span>";
       if ( control ){
 	out <<       "<input type=\"checkbox\"";
 	out <<             " name=\"" << DDUInput.str() << "\"";
-	out <<             " title=\"DDU Input\"";
+	out <<             " title=\"Select DDU input " << i << ", then click 'count in' to consider it or 'count out' to ignore it.\"";
 	out <<             " alt=\"DDU Input\"";
 	out <<        "/>";
       }
@@ -4844,6 +4988,8 @@ void emu::daq::manager::Application::haltAction(toolbox::Event::Reference e)
 	ss << "Failed to stop EmuDAQ: " << xcept::stdformat_exception_history(ex);
 	XCEPT_RETHROW(toolbox::fsm::exception::Exception, ss.str(), ex);
       }
+
+    if ( runType_.toString().find("STEP",0) != string::npos ) saveSTEPCountsTable();
 
     try
       {

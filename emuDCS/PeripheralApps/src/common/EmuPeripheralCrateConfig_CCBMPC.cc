@@ -18,14 +18,15 @@ namespace emu {
 /////////////////////////////////////////////////////////
 void EmuPeripheralCrateConfig::CCBStatus(xgi::Input * in, xgi::Output * out ) 
   throw (xgi::exception::Exception) {
+  if(!parsed)
+  {  this->Default(in,out);
+     return;
+  }
   //
   char Name[100];
   sprintf(Name,"CCB status, crate=%s, slot=%d",ThisCrateID_.c_str(),thisCCB->slot());
   //
   MyHeader(in,out,Name);
-  //
-  *out << cgicc::h1(Name);
-  *out << cgicc::br();
   //
   *out << cgicc::fieldset().set("style","font-size: 11pt; font-family: arial;");
   *out << std::endl;
@@ -141,6 +142,10 @@ void EmuPeripheralCrateConfig::CCBStatus(xgi::Input * in, xgi::Output * out )
 //
 void EmuPeripheralCrateConfig::CCBUtils(xgi::Input * in, xgi::Output * out ) 
   throw (xgi::exception::Exception) {
+  if(!parsed)
+  {  this->Default(in,out);
+     return;
+  }
   //
   std::vector <std::string> SignalName; 
   char Name[100];
@@ -200,9 +205,6 @@ void EmuPeripheralCrateConfig::CCBUtils(xgi::Input * in, xgi::Output * out )
   sprintf(Name,"CCB utilities, crate=%s, slot=%d",ThisCrateID_.c_str(),thisCCB->slot());
   //
   MyHeader(in,out,Name);
-  //
-  *out << cgicc::h1(Name);
-  *out << cgicc::br();
   //
   *out << cgicc::fieldset().set("style","font-size: 11pt; font-family: arial;");
   *out << std::endl;
@@ -279,10 +281,26 @@ void EmuPeripheralCrateConfig::CCBUtils(xgi::Input * in, xgi::Output * out )
   //
   *out << cgicc::br() << std::endl;
   //
+  std::string CCBCheckConfig =
+    toolbox::toString("/%s/CCBCheckConfig",getApplicationDescriptor()->getURN().c_str());
+  *out << cgicc::form().set("method","GET").set("action",CCBCheckConfig) << std::endl ;
+  *out << cgicc::input().set("type","submit").set("value","Check CCB Configuration");
+  *out << cgicc::form() << std::endl ;
+  //
+  *out << cgicc::br() << std::endl;
+  //
   std::string ccbConfig =
     toolbox::toString("/%s/CCBConfig",getApplicationDescriptor()->getURN().c_str());
   *out << cgicc::form().set("method","GET").set("action",ccbConfig) << std::endl ;
   *out << cgicc::input().set("type","submit").set("value","CCB Configure");
+  *out << cgicc::form() << std::endl ;
+  //
+  *out << cgicc::br() << std::endl;
+  //
+  std::string CCBFPGAReset =
+    toolbox::toString("/%s/CCBFPGAReset",getApplicationDescriptor()->getURN().c_str());
+  *out << cgicc::form().set("method","GET").set("action",CCBFPGAReset) << std::endl ;
+  *out << cgicc::input().set("type","submit").set("value","CCB FPGA Reset");
   *out << cgicc::form() << std::endl ;
   //
   *out << cgicc::br() << std::endl;
@@ -313,6 +331,18 @@ void EmuPeripheralCrateConfig::CCBUtils(xgi::Input * in, xgi::Output * out )
   *out << cgicc::form() << std::endl ;
   //
   *out << cgicc::fieldset();
+  //
+  // Output area
+  //
+  *out << cgicc::form().set("method","GET") << std::endl ;
+  *out << cgicc::pre();
+  *out << cgicc::textarea().set("name","CCB Output").set("rows","30").set("cols","132").set("WRAP","OFF");
+  *out << "Check CCB Configuration Output:" << std::endl;
+  *out << OutputStringCCBStatus.str() << std::endl ;
+  *out << cgicc::textarea();
+  OutputStringCCBStatus.str("");
+  *out << cgicc::pre();
+  *out << cgicc::form() << std::endl ;
   //
 }
 //
@@ -350,6 +380,17 @@ void EmuPeripheralCrateConfig::CCBReadFirmware(xgi::Input * in, xgi::Output * ou
   this->CCBUtils(in,out);
   //
 }
+
+  //
+  void EmuPeripheralCrateConfig::CCBCheckConfig(xgi::Input * in, xgi::Output * out ) 
+    throw (xgi::exception::Exception)
+  {
+    thisCCB->RedirectOutput(&OutputStringCCBStatus);
+    thisCCB->CheckConfig(1);
+    thisCCB->RedirectOutput(&std::cout);
+    std::cout << OutputStringCCBStatus.str() << std::endl;      
+    this->CCBUtils(in,out);
+  }
 
   //
   void EmuPeripheralCrateConfig::CCBConfig(xgi::Input * in, xgi::Output * out ) 
@@ -407,15 +448,16 @@ void EmuPeripheralCrateConfig::CCBReadFirmware(xgi::Input * in, xgi::Output * ou
 //////////////////////////////////////////////////
 void EmuPeripheralCrateConfig::MPCStatus(xgi::Input * in, xgi::Output * out ) 
   throw (xgi::exception::Exception) {
+  if(!parsed)
+  {  this->Default(in,out);
+     return;
+  }
   //
   char Name[100];
   sprintf(Name,"MPC status, crate=%s, slot=%d",
 	  ThisCrateID_.c_str(),thisMPC->slot());
   //
   MyHeader(in,out,Name);
-  //
-  *out << cgicc::h1(Name);
-  *out << cgicc::br();
   //
   *out << cgicc::fieldset().set("style","font-size: 11pt; font-family: arial;") << std::endl;
   //
@@ -463,6 +505,10 @@ void EmuPeripheralCrateConfig::MPCStatus(xgi::Input * in, xgi::Output * out )
 //
 void EmuPeripheralCrateConfig::MPCUtils(xgi::Input * in, xgi::Output * out ) 
   throw (xgi::exception::Exception) {
+  if(!parsed)
+  {  this->Default(in,out);
+     return;
+  }
   //
   char Name[100];
   char buf[200];
@@ -470,9 +516,6 @@ void EmuPeripheralCrateConfig::MPCUtils(xgi::Input * in, xgi::Output * out )
 	  ThisCrateID_.c_str(),thisMPC->slot());
   //
   MyHeader(in,out,Name);
-  //
-  *out << cgicc::h1(Name);
-  *out << cgicc::br();
   //
   *out << cgicc::fieldset().set("style","font-size: 11pt; font-family: arial;") << std::endl ;
   //
@@ -482,6 +525,7 @@ void EmuPeripheralCrateConfig::MPCUtils(xgi::Input * in, xgi::Output * out )
   //
   int power_state[10];
   int powermask = thisMPC->ReadMask();
+  std::cout << "read MPC mask: " << std::hex << powermask << std::dec << std::endl;
   int power_read = powermask;
   for(int icc=0; icc<9; icc++)
   {   power_state[9-icc]= power_read & 1;
@@ -572,6 +616,15 @@ void EmuPeripheralCrateConfig::MPCUtils(xgi::Input * in, xgi::Output * out )
   *out << cgicc::form() << cgicc::br() << std::endl ;
   //
   *out << cgicc::br() << cgicc::br() << std::endl;
+
+  std::string MPCCheckConfig =
+    toolbox::toString("/%s/MPCCheckConfig",getApplicationDescriptor()->getURN().c_str());
+  *out << cgicc::form().set("method","GET").set("action",MPCCheckConfig) << std::endl ;
+  *out << cgicc::input().set("type","submit").set("value","Check MPC Configuration");
+  *out << cgicc::form() << std::endl ;
+  //
+  *out << cgicc::br() << std::endl;
+  //
   std::string mpcConfig =
     toolbox::toString("/%s/MPCConfig",getApplicationDescriptor()->getURN().c_str());
   *out << cgicc::form().set("method","GET").set("action",mpcConfig) << std::endl ;
@@ -581,7 +634,15 @@ void EmuPeripheralCrateConfig::MPCUtils(xgi::Input * in, xgi::Output * out )
   std::string MPCLoadFirmware = toolbox::toString("/%s/MPCLoadFirmware",getApplicationDescriptor()->getURN().c_str());
   *out << cgicc::form().set("method","GET").set("action",MPCLoadFirmware) << std::endl ;
   *out << cgicc::input().set("type","submit").set("value","Load MPC Firmware") << std::endl ;
-  *out << MPCFirmware_;
+  *out << MPCFirmware_ << ".svf";
+  *out << cgicc::form() << std::endl ;
+  //
+  *out << cgicc::hr() << std::endl;
+  //
+  std::string MPCLoadFirmwaremcs = toolbox::toString("/%s/MPCLoadFirmwareMCS",getApplicationDescriptor()->getURN().c_str());
+  *out << cgicc::form().set("method","GET").set("action",MPCLoadFirmwaremcs) << std::endl ;
+  *out << cgicc::input().set("type","submit").set("value","Load MPC Firmware") << std::endl ;
+  *out << MPCFirmware_ << "_0.mcs and " << MPCFirmware_ << "_1.mcs ";
   *out << cgicc::form() << std::endl ;
   //
   *out << cgicc::br();
@@ -663,6 +724,19 @@ void EmuPeripheralCrateConfig::MPCUtils(xgi::Input * in, xgi::Output * out )
     *out << cgicc::form() << std::endl ;
 
   *out << cgicc::fieldset();
+  //
+  // Output area
+  //
+  *out << cgicc::form().set("method","GET") << std::endl ;
+  *out << cgicc::pre();
+  *out << cgicc::textarea().set("name","MPC Output").set("rows","30").set("cols","132").set("WRAP","OFF");
+  *out << "Check MPC Configuration Output:" << std::endl;
+  *out << OutputStringMPCStatus.str() << std::endl ;
+  *out << cgicc::textarea();
+  OutputStringMPCStatus.str("");
+  *out << cgicc::pre();
+  *out << cgicc::form() << std::endl ;
+  //
 }
 //
 void EmuPeripheralCrateConfig::MPCLoadFirmware(xgi::Input * in, xgi::Output * out ) 
@@ -671,14 +745,44 @@ void EmuPeripheralCrateConfig::MPCLoadFirmware(xgi::Input * in, xgi::Output * ou
   int debugMode(0);
   int jch(0);
   int verify(1);
-  std::cout << getLocalDateTime() << " Programming MPC using " << MPCFirmware_ << std::endl;
-  int status = thisMPC->svfLoad(jch,MPCFirmware_.c_str(),debugMode, verify);
+  std::cout << getLocalDateTime() << " Programming MPC using " << MPCFirmware_ << ".svf" << std::endl;
+
+  std::string svffile=MPCFirmware_+".svf";
+  int status = thisMPC->svfLoad(jch,svffile.c_str(),debugMode, verify);
   if (status >= 0){
     std::cout << getLocalDateTime() << " Programming finished with " << status << " Verify Errors occured" << std::endl;
   }
   else{
     std::cout << getLocalDateTime() << " Fatal Error. Exiting with " <<  status << std::endl;
   }
+
+  //
+  //thisCCB->hardReset();
+  //
+  this->MPCUtils(in,out);
+  //
+}
+//
+void EmuPeripheralCrateConfig::MPCLoadFirmwareMCS(xgi::Input * in, xgi::Output * out ) 
+  throw (xgi::exception::Exception) {
+  //
+  int rt_erase1, rt_erase2, rt_write1, rt_write2;
+  std::cout << getLocalDateTime() << " Programming MPC using " << MPCFirmware_ << "_x.mcs" << std::endl;
+
+  rt_erase1=thisMPC->erase_eprom(1);
+  if(rt_erase1!=0) std::cout << "Erase EPROM #1 with error code: " << rt_erase1 << std::endl;
+  rt_erase2=thisMPC->erase_eprom(2);
+  if(rt_erase2!=0) std::cout << "Erase EPROM #2 with error code: " << rt_erase2 << std::endl;
+
+  std::string mcsfile1=MPCFirmware_+"_0.mcs";
+  std::string mcsfile2=MPCFirmware_+"_1.mcs"; 
+  rt_write1=thisMPC->program_eprom(mcsfile1.c_str(), 1);
+  if(rt_write1!=0) std::cout << "Progrom EPROM #1 with error code: " << rt_write1 << std::endl;
+  rt_write2=thisMPC->program_eprom(mcsfile2.c_str(), 2);
+  if(rt_write2!=0) std::cout << "Program EPROM #2 with error code: " << rt_write2 << std::endl;
+
+  std::cout << getLocalDateTime() << " Finished. " << std::endl;
+
   //
   //thisCCB->hardReset();
   //
@@ -689,15 +793,29 @@ void EmuPeripheralCrateConfig::MPCLoadFirmware(xgi::Input * in, xgi::Output * ou
 void EmuPeripheralCrateConfig::MPCReadFirmware(xgi::Input * in, xgi::Output * out ) 
   throw (xgi::exception::Exception) {
   //
-  std::string mcsfile="/tmp/MPC_"+ ThisCrateID_ + ".mcs";
-  std::string jtagfile=XMLDIR+"/mpc.vrf";
-  std::cout << getLocalDateTime() << " Reading MPC firmware; saving as " << mcsfile << std::endl;
+  std::string mcsfile0="/tmp/MPC_"+ ThisCrateID_ + "_0.mcs";
+  std::string mcsfile1="/tmp/MPC_"+ ThisCrateID_ + "_1.mcs";
+  std::string jtagfile0=XMLDIR+"/mpc_0.vrf";
+  std::string jtagfile1=XMLDIR+"/mpc_1.vrf";
+  std::cout << getLocalDateTime() << " Reading MPC firmware; saving as " << mcsfile0 << " and " << mcsfile1 << std::endl;
 
-  thisMPC->read_prom(jtagfile.c_str(),mcsfile.c_str());
+  thisMPC->read_prom(jtagfile0.c_str(),mcsfile0.c_str());
+  thisMPC->read_prom(jtagfile1.c_str(),mcsfile1.c_str());
   //
   this->MPCUtils(in,out);
   //
 }
+
+  void EmuPeripheralCrateConfig::MPCCheckConfig(xgi::Input * in, xgi::Output * out ) 
+    throw (xgi::exception::Exception)
+  {
+    thisMPC->RedirectOutput(&OutputStringMPCStatus);
+    thisMPC->CheckConfig();
+    thisMPC->RedirectOutput(&std::cout);
+    std::cout << OutputStringMPCStatus.str() << std::endl;      
+
+    this->MPCUtils(in,out);
+  }
 
   void EmuPeripheralCrateConfig::MPCConfig(xgi::Input * in, xgi::Output * out ) 
     throw (xgi::exception::Exception)
@@ -778,6 +896,20 @@ void EmuPeripheralCrateConfig::MPCReadFirmware(xgi::Input * in, xgi::Output * ou
     //
     thisCCB->hardReset();
     // thisCCB->HardReset_crate();
+    //
+    this->CCBUtils(in,out);
+    //
+  }
+  //
+  void EmuPeripheralCrateConfig::CCBFPGAReset(xgi::Input * in, xgi::Output * out ) 
+    throw (xgi::exception::Exception)
+  {
+    //
+    cgicc::Cgicc cgi(in);
+    //
+    std::cout << "CCB FPGA Reset" << std::endl;
+    //
+    thisCCB->hard_reset_ccb();
     //
     this->CCBUtils(in,out);
     //
@@ -868,6 +1000,7 @@ void EmuPeripheralCrateConfig::CCBTests(xgi::Input * in, xgi::Output * out )
   MyHeader(in,out,Name);
   //
   char buf[200] ;
+  char sbuf[200];
   //
   *out << cgicc::fieldset().set("style","font-size: 11pt; font-family: arial;") << std::endl ;
   //
@@ -926,7 +1059,154 @@ void EmuPeripheralCrateConfig::CCBTests(xgi::Input * in, xgi::Output * out )
   //
   *out << cgicc::table();
   //
-  *out << cgicc::fieldset() << std::endl;
+  *out << cgicc::fieldset()  << cgicc::br()  << cgicc::br() << std::endl;
+  //
+  // for GEM interface
+  //
+  if( thisCCB->GetHardwareVersion()==2)
+  {
+    *out << cgicc::fieldset().set("style","font-size: 11pt; font-family: arial;") << std::endl ;
+    *out << cgicc::legend("GEM Tests").set("style","color:blue") ;
+    //
+    std::string GEMreadFPGAID = toolbox::toString("/%s/GEMreadFPGAid",getApplicationDescriptor()->getURN().c_str());
+    *out << cgicc::form().set("action", GEMreadFPGAID) << std::endl;
+  
+    *out << "Choose GEM: " << std::endl;
+    *out << cgicc::select().set("name", "GEM") << std::endl;
+  
+    for (unsigned i = 1; i < 7; ++i) {
+      sprintf(sbuf,"%d",i);
+      if (i == iSelectedGEM) {
+        *out << cgicc::option()
+	.set("value", sbuf)
+	.set("selected", "");
+      } else {
+      *out << cgicc::option()
+	.set("value", sbuf);
+      }
+      *out << "GEM " << i << cgicc::option() << std::endl;
+    }
+    *out << cgicc::select() << std::endl;
+    *out << cgicc::input().set("type", "submit")
+    .set("name", "command")
+    .set("value", "Read FPGA IDCode & Status from OptoHybrid board") << std::endl;
+    *out << cgicc::form() << std::endl;
+    *out << cgicc::br() << cgicc::hr() << std::endl;
+    //
+    std::string GEMreadFPGAmon = toolbox::toString("/%s/GEMreadFPGAsysmon",getApplicationDescriptor()->getURN().c_str());
+    *out << cgicc::form().set("action", GEMreadFPGAmon) << std::endl;
+  
+    *out << "Choose GEM: " << std::endl;
+    *out << cgicc::select().set("name", "GEM") << std::endl;
+  
+    for (unsigned i = 1; i < 7; ++i) {
+      sprintf(sbuf,"%d",i);
+      if (i == iSelectedGEM) {
+        *out << cgicc::option()
+	.set("value", sbuf)
+	.set("selected", "");
+      } else {
+      *out << cgicc::option()
+	.set("value", sbuf);
+      }
+      *out << "GEM " << i << cgicc::option() << std::endl;
+    }
+    *out << cgicc::select() << std::endl;
+    *out << cgicc::input().set("type", "submit")
+    .set("name", "command")
+    .set("value", "Read SYSMON from OptoHybrid board's FPGA") << std::endl;
+    *out << cgicc::form() << std::endl;
+    *out << cgicc::br() << cgicc::hr() << std::endl;
+    //
+    std::string GEMprogramFPGA = toolbox::toString("/%s/GEMProgramFPGA",getApplicationDescriptor()->getURN().c_str());
+    *out << cgicc::form().set("action", GEMprogramFPGA) << std::endl;
+  
+    *out << "Choose GEM: " << std::endl;
+    *out << cgicc::select().set("name", "GEM") << std::endl;
+  
+    for (unsigned i = 1; i < 8; ++i) {
+      sprintf(sbuf,"%d",i);
+      if (i == iSelectedGEM) {
+        *out << cgicc::option()
+	.set("value", sbuf)
+	.set("selected", "");
+      } else {
+      *out << cgicc::option()
+	.set("value", sbuf);
+      }
+      if( i==7)
+        *out << "Broadcast" << cgicc::option() << std::endl;
+      else
+        *out << "GEM " << i << cgicc::option() << std::endl;
+    }
+    *out << cgicc::select() << std::endl;
+    *out << cgicc::input().set("type", "submit")
+    .set("name", "command")
+    .set("value", "Program OptoHybrid board's FPGA") << std::endl;
+    *out << cgicc::form() << FirmwareDir_+"ccb/gem_ohv2.mcs" << std::endl;
+    *out << cgicc::br() << cgicc::hr() << std::endl;
+    //
+    std::string GEMprogramPROM = toolbox::toString("/%s/GEMProgramEPROM",getApplicationDescriptor()->getURN().c_str());
+    *out << cgicc::form().set("action", GEMprogramPROM) << std::endl;
+  
+    *out << "Choose GEM: " << std::endl;
+    *out << cgicc::select().set("name", "GEM") << std::endl;
+  
+    for (unsigned i = 1; i < 8; ++i) {
+      sprintf(sbuf,"%d",i);
+      if (i == iSelectedGEM) {
+        *out << cgicc::option()
+	.set("value", sbuf)
+	.set("selected", "");
+      } else {
+      *out << cgicc::option()
+	.set("value", sbuf);
+      }
+      if( i==7)
+        *out << "Broadcast" << cgicc::option() << std::endl;
+      else
+        *out << "GEM " << i << cgicc::option() << std::endl;
+    }
+    *out << cgicc::select() << std::endl;
+    *out << cgicc::input().set("type", "submit")
+    .set("name", "command")
+    .set("value", "Load firmware to OptoHybrid board's EPROM") << std::endl;
+    *out << cgicc::form() << FirmwareDir_+"ccb/gem_ohv2.mcs" << std::endl;
+    *out << cgicc::br() << cgicc::hr() << std::endl;
+    //
+    std::string GEMhardreset = toolbox::toString("/%s/GEMHardreset",getApplicationDescriptor()->getURN().c_str());
+    *out << cgicc::form().set("action", GEMhardreset) << std::endl;
+      *out << cgicc::input().set("type", "submit")
+    .set("name", "command")
+    .set("value", "HardReset to all OptoHybrid boards") << std::endl;
+    *out << cgicc::form() << std::endl;
+    *out << cgicc::br() << cgicc::hr() << std::endl;
+    //
+    *out << cgicc::table().set("border","0");
+    *out << cgicc::td();          
+    std::string GEMsetMUX = toolbox::toString("/%s/GEMSetMUX",getApplicationDescriptor()->getURN().c_str());
+    *out << cgicc::form().set("action", GEMsetMUX) << std::endl;
+    *out << cgicc::input().set("type", "submit")
+    .set("name", "command")
+    .set("value", "Set MUX bit to GBT") << std::endl;
+    *out << cgicc::input().set("type","hidden").set("value","1").set("name","bitv");
+    *out << cgicc::form() << std::endl;
+    *out << cgicc::td();          
+
+    *out << cgicc::td();          
+    *out << cgicc::form().set("action", GEMsetMUX) << std::endl;
+    *out << cgicc::input().set("type", "submit")
+    .set("name", "command")
+    .set("value", "Set MUX bit to CCB") << std::endl;
+    *out << cgicc::input().set("type","hidden").set("value","0").set("name","bitv");
+    *out << cgicc::form() << std::endl;
+    *out << cgicc::td();          
+    *out << cgicc::table() << std::endl;
+    *out << cgicc::br() << std::endl;
+  //
+    *out << cgicc::fieldset() << std::endl;
+  }
+  //
   //
   *out << cgicc::form().set("method","GET") << std::endl ;
   *out << cgicc::textarea().set("name","CrateTestCCBOutput").set("WRAP","OFF").set("rows","20").set("cols","60");
@@ -1092,6 +1372,143 @@ void EmuPeripheralCrateConfig::MPCnewPRBS(xgi::Input * in, xgi::Output * out )
     this->MPCUtils(in,out);
   }
 
+//
+void EmuPeripheralCrateConfig::GEMreadFPGAid(xgi::Input * in, xgi::Output * out ) 
+  throw (xgi::exception::Exception) {
+  //
+  cgicc::Cgicc cgi(in);
+  //
+  std::string cfeb_value = cgi.getElement("gem")->getValue();
+  int gem=atoi(cfeb_value.c_str());
+  if(thisCCB && gem>0 && gem <7)
+  {
+    iSelectedGEM=gem;
+             //
+    thisCCB->RedirectOutput(&OutputCCBTests[current_crate_]);
+    thisCCB->gem_FPGA_IDCode(gem);
+//    thisCCB->gem_FPGA_UserCode(gem);
+    thisCCB->gem_FPGA_Status(gem);
+    thisCCB->RedirectOutput(&std::cout);
+  }
+  //
+  this->CCBTests(in,out);
+  //
+  return;
+}
+
+//
+void EmuPeripheralCrateConfig::GEMreadFPGAsysmon(xgi::Input * in, xgi::Output * out ) 
+  throw (xgi::exception::Exception) {
+  //
+  cgicc::Cgicc cgi(in);
+  //
+  std::string cfeb_value = cgi.getElement("gem")->getValue();
+  int gem=atoi(cfeb_value.c_str());
+  if(thisCCB && gem>0 && gem <7)
+  {
+    iSelectedGEM=gem;
+             //
+    std::vector<float> mon=thisCCB->gem_virtex6_monitor(gem);
+    OutputCCBTests[current_crate_] << "FPGA Core Temperature: " << mon[0] << std::endl;
+    OutputCCBTests[current_crate_] << "FPGA Voltage(ccint): " << mon[1] << std::endl;
+    OutputCCBTests[current_crate_] << "FPGA Voltage(ccaux): " << mon[2] << std::endl;
+  }
+  //
+  this->CCBTests(in,out);
+  //
+  return;
+}
+//
+void EmuPeripheralCrateConfig::GEMProgramFPGA(xgi::Input * in, xgi::Output * out ) 
+  throw (xgi::exception::Exception) {
+  //
+  cgicc::Cgicc cgi(in);
+  //
+  std::string cfeb_value = cgi.getElement("gem")->getValue();
+  int gem=atoi(cfeb_value.c_str());
+  if(thisCCB && gem>0 && gem<8)
+  {
+    iSelectedGEM=gem;
+             //
+    std::string mcsfile = FirmwareDir_+"ccb/gem_ohv2.mcs";
+    std::cout << getLocalDateTime() << " Programming OH board's FPGA for GEM #" << gem << std::endl;
+    std::cout << "Using mcs file: " << mcsfile << std::endl;
+    thisCCB->gem_program_virtex6(mcsfile.c_str(), gem);
+    std::cout << getLocalDateTime() << " Finished programming FPGA." << std::endl;
+  }
+  //
+  this->CCBTests(in,out);
+  //
+  return;
+}
+
+//
+void EmuPeripheralCrateConfig::GEMProgramEPROM(xgi::Input * in, xgi::Output * out ) 
+  throw (xgi::exception::Exception) {
+  //
+  cgicc::Cgicc cgi(in);
+  //
+  std::string cfeb_value = cgi.getElement("gem")->getValue();
+  int gem=atoi(cfeb_value.c_str());
+  if(thisCCB && gem>0 && gem<8)
+  {
+    iSelectedGEM=gem;
+             //
+    std::string svffile1 = XMLDIR+"/virtex6lx130_header.svf";
+    std::string svffile2 = XMLDIR+"/virtex6_trailer.svf";
+    std::string corefile = XMLDIR+"/virtex6lx130_core.mcs";
+    std::string mcsfile = FirmwareDir_+"ccb/gem_ohv2.mcs";
+    std::cout << getLocalDateTime() << " Loading firmware to OH board's EPROM for GEM #" << gem << std::endl;
+    std::cout << "Using mcs file: " << mcsfile << std::endl;
+    std::cout << "Step #1, loading Xilinx Core..."  << std::endl;    
+    thisCCB->gem_program_virtex6(corefile.c_str(), gem);
+    std::cout << "Step #2, erasing EPROM..."  << std::endl;    
+    thisCCB->gem_SVFLoad(gem, svffile1.c_str(), 0, 0);
+    std::cout << "Step #3, programming EPROM with content from MCS file..."  << std::endl;
+    thisCCB->gem_program_eprom(mcsfile.c_str(), gem);
+    std::cout << "Done!"  << std::endl;  
+    std::cout << "Step #4, finalizing..." << std::endl;
+    thisCCB->gem_SVFLoad(gem, svffile2.c_str(), 0, 0);
+    std::cout << getLocalDateTime() << " Finished loading firmware to EPROM." << std::endl;
+  }
+  //
+  this->CCBTests(in,out);
+  //
+  return;
+}
+
+//
+void EmuPeripheralCrateConfig::GEMHardreset(xgi::Input * in, xgi::Output * out ) 
+  throw (xgi::exception::Exception) {
+  //
+  cgicc::Cgicc cgi(in);
+  //
+  if(thisCCB)
+  {
+    thisCCB->gem_hardreset();
+  }
+  //
+  this->CCBTests(in,out);
+  //
+  return;
+}
+//
+void EmuPeripheralCrateConfig::GEMSetMUX(xgi::Input * in, xgi::Output * out ) 
+  throw (xgi::exception::Exception) {
+  //
+  cgicc::Cgicc cgi(in);
+  //
+  std::string bitvst = cgi.getElement("bitv")->getValue();
+  int bitv=atoi(bitvst.c_str());
+  if(thisCCB)
+  {
+    thisCCB->gem_set_MUX_bit(bitv);
+  }
+  //
+  this->CCBTests(in,out);
+  //
+  return;
+}
 
  }  // namespace emu::pc
 }  // namespace emu

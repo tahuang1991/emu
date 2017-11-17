@@ -59,7 +59,6 @@ public:
   void disableAction(toolbox::Event::Reference e) throw (toolbox::fsm::exception::Exception);
   void haltAction(toolbox::Event::Reference e) throw (toolbox::fsm::exception::Exception);
   void stateChanged(toolbox::fsm::FiniteStateMachine &fsm) throw (toolbox::fsm::exception::Exception);
-  void MyHeader(xgi::Input * in, xgi::Output * out, std::string title ) throw (xgi::exception::Exception);
   //
   // What to do when we receive soap messages
   //

@@ -19,6 +19,9 @@
 #include <xercesc/parsers/XercesDOMParser.hpp>
 #include <xercesc/dom/DOMNodeList.hpp>
 
+#include "version.h"
+
+
 // == CMSSW Section
 /*  actually calls  emuDQM/CMSSWLibs/FWCore/MessageLogger/interface/MessageLogger.h */
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
@@ -151,7 +154,12 @@ public:
 
   void setCheckMapping(bool flag)
   {
-     fCheckMapping = flag;
+    fCheckMapping = flag;
+  }
+
+  void enableDeadComparatorsChannelsCheck(bool flag)
+  {
+    fCheckDeadComparatorsChannels = flag;
   }
 
   void saveHistos() {};
@@ -204,10 +212,12 @@ public:
     Logger::getInstance("CSCRawUnpacking").setLogLevel(level);
   }
   void setUnpackingDebug(bool flag)
-  { /*CSCDDUEventData::setDebug(flag);*/
+  {
+    /*CSCDDUEventData::setDebug(flag);*/
   }
 
-  void setDebug(bool flag) {
+  void setDebug(bool flag)
+  {
     debug = flag;
   }
 
@@ -263,18 +273,22 @@ public:
   void updateCSCHistos();
   void updateCSCFractionHistos (std::string cscTag="");
 
-  bool isEventToSave() const {
+  bool isEventToSave() const
+  {
     return fInterestingEvent;
   }
 
   void reset();
-  void lock() {
+  void lock()
+  {
     appBSem_.take();
   }
-  void lock ( struct timeval * timeout ) {
+  void lock ( struct timeval * timeout )
+  {
     appBSem_.take(timeout);
   }
-  void unlock() {
+  void unlock()
+  {
     appBSem_.give();
   }
 
@@ -282,7 +296,7 @@ protected:
 
   ME_List bookMEs(std::string factoryID, std::string prefix);
   MECanvases_List bookMECanvases(std::string factoryID, std::string prefix, std::string title="");
-  CSCCounters bookCounters();
+  CSCCounters bookCounters(std::string cscName="");
 
   void init();
   std::string getCSCFromMap(int crate, int slot, int& csctype, int& cscposition);
@@ -356,6 +370,7 @@ private:
   bool      fCloseL1As; // Close L1A bit from DDU Trailer
   bool      fInterestingEvent;
   bool 	    fCheckMapping;
+  bool	    fCheckDeadComparatorsChannels;
 
   std::string     xmlHistosBookingCfgFile;
   std::string     xmlCanvasesCfgFile;

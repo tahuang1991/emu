@@ -5,6 +5,10 @@ emu::supervisor::CIControl::CIControl( xdaq::Application *parent,
 				       xdata::String partition )
   : emu::supervisor::TCDSControl::TCDSControl( parent, tcdsApplicationDescriptor, partition, "CI" ){}
 
+emu::supervisor::CIControl& emu::supervisor::CIControl::setRunType( xdata::String& runType ){
+  this->emu::supervisor::TCDSControl::setRunType( runType );
+  return *this;
+}
 
 emu::supervisor::CIControl& emu::supervisor::CIControl::configureSequence(){
   // First of all, wait for CI to complete 'Configure' transition
@@ -45,8 +49,7 @@ emu::supervisor::CIControl& emu::supervisor::CIControl::configureSequence(){
 
   
   switch ( runType_ ){
-  case global:
-    // fall through
+  case global: // fall through
   case local:
     // BEGINSEQUENCE configure
     //   DisableL1A
@@ -63,20 +66,21 @@ emu::supervisor::CIControl& emu::supervisor::CIControl::configureSequence(){
     // ENDSEQUENCE
     sendBCommand( data, type, addressOfTTCrx, subaddress, bcommandAddressType );		  
     mSleep( 100 );
-    // Hard reset is needed in order to clear the FIFO of the DDUs 
-    // (in case some events have been left there) so that the resync can zero its
-    // L1A counter. Otherwise, with nonzero L1A counter, the DDU would fail to be
-    // enabled.
-    // Do this from the CIs so that it can be sent in both local and global.
+    // A hard reset is needed to make sure the DDU FIFO is cleared
+    // (in case some events have been left there) so that the subsequent resync 
+    // can zero its L1A register. Otherwise, with nonzero L1A register, 
+    // the DDU would fail to be enabled.
+    // Do this from the CIs so that they can be sent in both local and global.
+    // Not being simultaneous, this resync here could not possibly result
+    // in properly aligned SP fibers. They should be aligned properly by the
+    // simultaneous resync issued by the {C,L}PM on starting/enabling as part of 
+    // the standard TCDS 'Start' Bgo train.
     sendBgo( HardReset );
     mSleep( 500 );
-    // Send resync from PM instead so that it comes in sync across all our partitions 
-    // in order for the TF SP links to be synched. Note that a resync will be issued
-    // by the PM as part of the standard TCDS 'Start' Bgo train.
-    // sendBgo( Resync );
-    // mSleep( 100 );
+    sendBgo( Resync );
+    mSleep( 100 );
     break;
-  case AFEBcalibration:
+  case AFEBcalibration: // fall through
   case CFEBcalibration:
     // BEGINSEQUENCE configure
     //   DisableL1A
@@ -111,7 +115,7 @@ emu::supervisor::CIControl& emu::supervisor::CIControl::configureSequence(){
   return *this;
 }
 
-emu::supervisor::CIControl::CIControl& emu::supervisor::CIControl::enableSequence(){
+emu::supervisor::CIControl& emu::supervisor::CIControl::enableSequence(){
   // First of all, wait for CI to complete 'Enable' transition
   waitForState( "Enabled", 20 );
 
@@ -129,7 +133,7 @@ emu::supervisor::CIControl::CIControl& emu::supervisor::CIControl::enableSequenc
   return *this;
 }
 
-emu::supervisor::CIControl::CIControl& emu::supervisor::CIControl::stopSequence(){
+emu::supervisor::CIControl& emu::supervisor::CIControl::stopSequence(){
   // First of all, wait for CI to complete the 'Stop' transition
   // waitForState( "Halted|Configured", 20 );
   waitForState( "Configured", 20 );
@@ -138,11 +142,10 @@ emu::supervisor::CIControl::CIControl& emu::supervisor::CIControl::stopSequence(
   xdata::String HardReset( "HardReset" );
 
   switch ( runType_ ){
-  case global:
-    // fall through
-  case local:
-    // fall through
-  case AFEBcalibration:
+  case global:           // fall through
+  case local:            // fall through
+  case AFEBcalibration:  // fall through
+  case CFEBcalibration:
     // Hard reset is needed in order to clear the FIFO of the DDUs 
     // (in case some events have been left there) so that the resync can zero its
     // L1A counter. Otherwise, with nonzero L1A counter, the DDU would fail to be
@@ -152,8 +155,6 @@ emu::supervisor::CIControl::CIControl& emu::supervisor::CIControl::stopSequence(
     mSleep( 500 );
     sendBgo( Resync );
     mSleep( 100 );
-    break;
-  case CFEBcalibration:
     break;
   default:
     XCEPT_RAISE( xcept::Exception, "Unknown run type." );

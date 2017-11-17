@@ -610,6 +610,7 @@ DAQMB::DAQMB(Crate * theCrate, Chamber * theChamber, int newslot):
   dmb_smoking_gun_status_ = false;
   //
   theChamber->SetDMB(this);
+  label_ = theChamber->GetLabel();
   //
   cfebs_.clear();
   std::cout << "DMB: crate=" << this->crate() << " slot=" << this->slot() << std::endl;
@@ -795,9 +796,10 @@ void DAQMB::configure() {
    (*MyOutput_) << "doing set_comp_thresh " << set_comp_thresh_ << std::endl;
 
      set_comp_thresh(set_comp_thresh_);
+     set_comp_thresh_bc(set_comp_thresh_);
      //(*MyOutput_) << "doing preamp_initx() " << std::endl;
      preamp_initx();
-
+     udelay(2000);
    //  If the comparator threshold setting is more than 5mV off, re-program the BuckFlash
    //for (int lfeb=0;lfeb<5;lfeb++)
    for(unsigned lfeb=0; lfeb<cfebs_.size();lfeb++){
@@ -817,6 +819,7 @@ void DAQMB::configure() {
      LctL1aDelay(xlatency_);
      //
      
+     (*MyOutput_) << "write buckflash " << std::endl;
      char * flash_content=(char *)malloc(500);
      int n_byts = Fill_BUCK_FLASH_contents(flash_content);
      buckflash_erase();
@@ -992,7 +995,7 @@ bool DAQMB::checkDAQMBXMLValues() {
   }
   else if(hardware_version_==2)
   {
-    std::cout << "ODAMB: checkXMLValues() for crate " << this->crate() << " slot " << this->slot() << std::endl;
+    std::cout << "ODMB: checkXMLValues() for crate " << this->crate() << " slot " << this->slot() << std::endl;
     // check ODMB and DCFEBs here
     bool print_errors=true;
     bool confmatch=true;
@@ -1026,6 +1029,7 @@ bool DAQMB::checkDAQMBXMLValues() {
     cfeb_name.push_back("DCFEB 7 ");
     int cfeb_index, cfebdone=0;
     int donebits = read_cfeb_done();
+    if(!confmatch) std::cout << "ODMB check return false!" << std::endl;
     for(CFEBItr cfebItr = cfebs_.begin(); cfebItr != cfebs_.end(); ++cfebItr)
     {
        cfeb_index = (*cfebItr).number();
@@ -1050,8 +1054,11 @@ bool DAQMB::checkDAQMBXMLValues() {
        confmatch &= compareValues(cfeb_name[cfeb_index]+"Pipeline Depth", pipeline, cfebItr->GetPipelineDepth(), print_errors); 
        int nsample=dcfeb_read_config(*cfebItr, 8);
        confmatch &= compareValues(cfeb_name[cfeb_index]+"Number of Samples", nsample, GetNSamplesCfeb(cfeb_index), print_errors);          
+       if(!confmatch) std::cout << cfeb_name[cfeb_index] << " check return false!" << std::endl;
 
     }
+    if(!confmatch) std::cout << " ODMB+DCFEB check return false!" << std::endl;
+
     return confmatch;
   }
   else return true;
@@ -1254,7 +1261,7 @@ void DAQMB::setcaldelay(int dword)
   }
   else if(hardware_version_==2)
   {
-     WriteRegister(CAL_DLY, dword);
+     odmb_set_Cal_delay(dword);
   }
   //
 }
@@ -1476,7 +1483,7 @@ void DAQMB::set_comp_thresh_bc(float thresh)
    devdo(dv,5,cmd,8,sndbuf,rcvbuf,0);
    cmd[0]=VTX_BYPASS;
    devdo(dv,5,cmd,0,sndbuf,rcvbuf,0);
-   usleep(20);
+   udelay(200);
  }
  else if (hversion==2)
  {
@@ -2679,6 +2686,7 @@ unsigned int  DAQMB::mbfpgauser()
   else
   {
      odmb_fpga_call(VTX6_USERCODE, 0, (char *)&ibrd);
+     if ((ibrd & 0xFFFF) == 0xDBDB) ibrd >>= 16;   // use the high 16-bits if the low 16-bits are 0xDBDB.
   } 
   return ibrd;
 }
@@ -3067,6 +3075,7 @@ for(CFEBItr cfebItr = cfebs_.begin(); cfebItr != cfebs_.end(); ++cfebItr)
       write_cfeb_selector(cfebItr->SelectorBit());
       BuckeyeShift(chip_mask, shft_bits);
   }
+  udelay(200);
 }
   (*MyOutput_) << "done with preamp init " << std::endl;
 }
@@ -3074,19 +3083,44 @@ for(CFEBItr cfebItr = cfebs_.begin(); cfebItr != cfebs_.end(); ++cfebItr)
 
 void DAQMB::set_cal_tim_pulse(int itim)
 {
-  //
-  //(*MyOutput_)<< "setting pulse timing to " << itim << std::endl; 
-  int cal_delay_bits = (calibration_LCT_delay_ & 0xF)
-    | (calibration_l1acc_delay_ & 0x1F) << 4
-    | (itim & 0x1F) << 9
-    | (inject_delay_ & 0x1F) << 14;
-  int dword;
-  dword=(cal_delay_bits)&0xfffff;
-  //
-  setcaldelay(dword);
-  //
-  usleep(100);
-  //
+  if(hardware_version_<=1)
+  {
+    //
+    //(*MyOutput_)<< "setting pulse timing to " << itim << std::endl; 
+    int cal_delay_bits = (calibration_LCT_delay_ & 0xF)
+      | (calibration_l1acc_delay_ & 0x1F) << 4
+      | (itim & 0x1F) << 9
+      | (inject_delay_ & 0x1F) << 14;
+    int dword;
+    dword=(cal_delay_bits)&0xfffff;
+    //
+    setcaldelay(dword);
+    //
+    usleep(100);
+    //
+  }
+  else
+  {
+     int depth;
+     int tfine;
+     tfine=itim % 8;
+     int order[8]={3,2,1,0,7,6,5,4};
+     for(unsigned icfeb = 0; icfeb < cfebs_.size(); ++icfeb)
+     {
+         dcfeb_adc_finedelay(cfebs_[icfeb], order[tfine]);  
+         udelay(100000);
+	 depth = cfebs_[icfeb].GetPipelineDepth() + (itim/8);
+	 std::cout << "i="                    << itim 
+		   << " pipeline depth="      << depth 
+		   << " ("                    << cfebs_[icfeb].GetPipelineDepth() 
+		   << " in XML), fine delay=" << order[tfine] 
+		   << std::endl;
+         dcfeb_set_PipelineDepth(cfebs_[icfeb],  depth);
+         udelay(30000);
+         Pipeline_Restart(cfebs_[icfeb]);
+         udelay(100000);
+     }     
+  }
 
 }
 
@@ -5640,22 +5674,38 @@ void DAQMB::devdoReset(){
 std::string DAQMB::CounterName(int counter){
   //
   std::string name = "NO counter found" ;
-  //
-  if ( counter == 0 ) name = "L1A to LCT delay";
-  if ( counter == 1 ) name = "CFEB DAV delay  ";
-  if ( counter == 2 ) name = "TMB DAV delay   ";
-  if ( counter == 3 ) name = "ALCT DAV delay  ";
-  if ( counter == 4 ) name = "L1A to LCT Scope";
-  if ( counter == 5 ) name = "CFEB DAV Scope  ";
-  if ( counter == 6 ) name = "TMB DAV Scope   ";
-  if ( counter == 7 ) name = "ALCT DAV Scope  ";
-  //
+  if(hardware_version_<=1)
+  {
+     //
+     if ( counter == 0 ) name = "L1A to LCT delay";
+     if ( counter == 1 ) name = "CFEB DAV delay  ";
+     if ( counter == 2 ) name = "TMB DAV delay   ";
+     if ( counter == 3 ) name = "ALCT DAV delay  ";
+     if ( counter == 4 ) name = "L1A to LCT Scope";
+     if ( counter == 5 ) name = "CFEB DAV Scope  ";
+     if ( counter == 6 ) name = "TMB DAV Scope   ";
+     if ( counter == 7 ) name = "ALCT DAV Scope  ";
+    //
+  } 
+  else if(hardware_version_==2)
+  {
+     //
+     if ( counter == 0 ) name = "L1A Match      ";
+     if ( counter == 1 ) name = "L1A Gap        ";
+     if ( counter == 2 ) name = "Packet Received";
+     if ( counter == 3 ) name = "Packet to DDU  ";
+     if ( counter == 4 ) name = "LCT            ";
+     if ( counter == 5 ) name = "Bad CRC        ";
+     if ( counter == 6 ) name = "Fiber Error    ";
+  }
   return name;
   //
 }
 //
 void DAQMB::PrintCounters(){
   //
+ if(hardware_version_<=1)
+ {
   readtimingCounter();
   //
   readtimingScope();
@@ -5692,6 +5742,7 @@ void DAQMB::PrintCounters(){
   for( int i=4; i>-1; i--) std::cout << ((GetActiveDavScope()>>i)&0x1) ;
   std::cout << std::endl ;
   //
+ }
 }
 
 void DAQMB::readtimingCounter()
@@ -5855,10 +5906,17 @@ char * DAQMB::GetCounters()
   }
   else if(hardware_version_==2)
   {
-     read_later(0x300C+0x3F);
-     for(int addr=0x71; addr<=0x77; addr++) read_later(0x300C+addr); 
-     for(int addr=0x21; addr<=0x29; addr++) read_later(0x300C+addr); 
-     read_now(0x300C+0x4A, (char *)NewCounter);
+     for(int addr=1; addr<=9; addr++) read_later(L1A_MATCH_BASE+(addr<<4));    // start 0
+     for(int addr=1; addr<=9; addr++) read_later(L1A_GAP_BASE+(addr<<4));      // start 9
+     for(int addr=1; addr<=9; addr++) read_later(STORED_PACKETS_BASE+(addr<<4));    // start 18
+     for(int addr=1; addr<=9; addr++) read_later(SHIPPED_PACKETS_BASE+(addr<<4));   // start 27
+     for(int addr=1; addr<=9; addr++) read_later(NUM_LCTS_BASE+(addr<<4));     // start 36   
+     for(int addr=1; addr<=9; addr++) read_later(BAD_CRC_BASE+(addr<<4));      // start 45
+     for(int addr=1; addr<=7; addr++) read_later(FIBER_ERROR_BASE+(addr<<4));  // start 54
+     read_later(L1A_COUNTER);        // at 61
+     read_later(L1A_COUNTER2);
+     read_later(DDU_PACKETS);
+     read_now(QPLL_UNLOCKS, (char *)NewCounter);  // at 64
      return (char *)NewCounter;
   }
   else return NULL;
@@ -5873,7 +5931,7 @@ unsigned DAQMB::GetCounter(int counter)
   }
   else if(hardware_version_==2)
   {
-     if(counter>=0 && counter<=18) r=NewCounter[counter];
+     if(counter>=0 && counter<=80) r=NewCounter[counter];
   }
   return r;
 }
@@ -6308,7 +6366,7 @@ void DAQMB::PrintCounters(int user_option){
       //
     }    
     //
-  }else{
+  }else{ // for  hardware_version_ == 2
     (*MyOutput_) << std::setw(20) << "L1A Count: " << std::setw(8) << read_l1a_count() << std::endl;
     (*MyOutput_) << std::setw(20) << "Packets to DDU: " << std::setw(8) << read_num_ddu_packets() << std::endl;
     (*MyOutput_) << std::setw(20) << "QPLL unlocks: " << std::setw(8) << read_num_qpll_unlocks() << std::endl;
@@ -7214,18 +7272,23 @@ int DAQMB::DCSreadAll(char *data)
      for(int j=0;j<8; j++)
      {
         write_later(0x8020, m);
+        vme_delay(10);
         n=(j<<4) + 0xFF89;
         write_later(0x8000, n);
+        vme_delay(20);
         read_later(0x8004);
+        vme_delay(10);
      }
   }
   for(int j=0; j<6; j++)
   {
      // devdo() dev=17, ncmd=16, Cmd[0]=1, Cmd[1]=j
-
+     vme_delay(10);
      write_later(0x7020, 0x0E);
+     vme_delay(10);
      n=(j<<4) + 0xFF89;
      write_later(0x7000, n);
+     vme_delay(20);
      if(j==5) retn=read_now(0x7004, data);
      else     read_later(0x7004);
   }
@@ -7663,7 +7726,7 @@ void DAQMB::dcfeb_fpga_call(int inst, unsigned data, char *outbuf)
   udelay(10);
 }
 
-std::vector<float> DAQMB::dcfeb_fpga_monitor(CFEB & cfeb)
+std::vector<float> DAQMB::dcfeb_fpga_monitor(CFEB & cfeb, bool inDCS)
 {
   // only read out first 3 channels
   
@@ -7707,8 +7770,11 @@ std::vector<float> DAQMB::dcfeb_fpga_monitor(CFEB & cfeb)
         udelay(100);
         adc = (ibrd>>6)&0x3FF;
         if(i<6 && i!=3)
+        {
           // currents in (A) not (mA) !
           readf=adc*2./1024.0;
+          if(i==1) readf *= 2.5;  // extra adjustment for DV3P_2_CUR according to Ben
+        }
         else
         {
           // voltages in (V)
@@ -7717,6 +7783,26 @@ std::vector<float> DAQMB::dcfeb_fpga_monitor(CFEB & cfeb)
         }
         readout.push_back(readf);
      }
+   if(!inDCS)
+   {
+     // read out the Flag and Control registers
+     data=0x43F0000;
+     cfeb_do(10, &comd, 32, &data, rcvbuf, NOW|READ_YES);
+     udelay(100);
+     for(unsigned i=0; i<3; i++)
+     {
+        data += 0x10000;
+        cfeb_do(0, buf, 32, &data, (char *)&ibrd, NOW|READ_YES);
+        udelay(100);
+        adc = ibrd & 0xFFFF;
+        if(i==0)
+          readout[10]=adc;  // Flag stored at readout[10] which was undefined
+        else if(i==2)
+        {
+          readout[15]=adc;  // Control register #1 stored at readout[15] which was undefined
+        }
+     }
+   }
      comd=VTX6_BYPASS;
      cfeb_do(10, &comd, 0, &data, rcvbuf, NOW);
      udelay(10);
@@ -7827,7 +7913,18 @@ void DAQMB::BuckeyeShift(int chip_mask,char shft_bits[6][6], char *shft_out)
   udelay(2000);
   if(readback)  memcpy(shft_out, rcvbuf, 36);
 }
-    
+
+void DAQMB::Set_ReadAnyL1a()
+{
+  if(hardware_version_==2)
+  {
+     for(unsigned icfeb = 0; icfeb < cfebs_.size(); ++icfeb)
+     {
+         dcfeb_Set_ReadAnyL1a(cfebs_[icfeb]);  
+     }
+  }
+}    
+
 void DAQMB::dcfeb_Set_ReadAnyL1a(CFEB & cfeb)
 {
   char tmp[2];
@@ -8087,21 +8184,26 @@ void DAQMB::dcfebprom_read(unsigned nwords, unsigned short *pdata)
 void DAQMB::dcfeb_loadparam(int paramblock, int nwords, unsigned short int  *val)
 {
   /*  The highest four blocks in the eprom are parameter banks of
-      length 16k 16 bit words. the starting
+      length 16k 16 bit words. The starting
       addresses are:
 
-           block 0  007f 0000
-           block 1  007f 4000
-           block 2  007f 8000
-           block 3  007f c000
+           block 0  007f c000        <-- default parameter block 
+           block 1  007f 8000        <-- used for serial number
+           block 2  007f 4000
+           block 3  007f 0000
 
-     the config program takes up the range
-                    0000 0000
-                    0005 4000
+      The next highest 7 blocks in the eprom are parameter banks of regular size with
+      length 64k 16 bit words. The starting
+
+           block 4  007e 0000
+           block 5  007d 0000
+           ...
 
       ref: http://www.xilinx.com/support/documentation/data_sheets/ds617.pdf
 
-                   2-byte words       bytes
+      Other useful numbers:
+
+                     16-bit words      bytes
       eprom size     0x00800000        0x01000000
       mcs size       0x002A0000        0x00540000
       params addr    0x007f0000        0x00fe0000
@@ -8113,6 +8215,7 @@ void DAQMB::dcfeb_loadparam(int paramblock, int nwords, unsigned short int  *val
   unsigned int uaddr,laddr;
   unsigned int nxt_blk_addr;
 
+  if(paramblock<0 || paramblock>10) return;
   if(nwords>2048){
     printf(" Catastrophy:parameter space large rewrite program %d \n",nwords);
     return;
@@ -8121,8 +8224,16 @@ void DAQMB::dcfeb_loadparam(int paramblock, int nwords, unsigned short int  *val
   dcfeb_bpi_enable();
   dcfebprom_timerstop();
   dcfebprom_timerreset();
-  uaddr=0x007f;  // segment address for parameter blocks
-  laddr=paramblock*0x4000;
+  if(paramblock<4)
+  {
+     uaddr=0x007f;  // segment address for parameter blocks
+     laddr=(3-paramblock)*0x4000;
+  }
+  else
+  {
+     uaddr=0x007E - (paramblock-4);
+     laddr=0;
+  }
   fulladdr = (uaddr<<16) + laddr;
 //  printf(" parameter_write fulladdr %04x%04x \n",(uaddr&0xFFFF),(laddr&0xFFFF));
   dcfebprom_timerstart();
@@ -8131,7 +8242,7 @@ void DAQMB::dcfeb_loadparam(int paramblock, int nwords, unsigned short int  *val
   // unlock and erase the block
   dcfebprom_unlockerase();
 
-  udelay(400000);
+  udelay((paramblock<4)?1000000:3000000);
 
   // program with new data from the beginning of the block
   dcfebprom_bufferprogram(nwords,val);
@@ -8157,16 +8268,23 @@ void DAQMB::dcfeb_readparam(int paramblock,int nwords,unsigned short int  *val)
       length 16k 16 bit words. The starting
       addresses are:
 
-           block 0  007f 0000
-           block 1  007f 4000
-           block 2  007f 8000
-           block 3  007f c000
+           block 0  007f c000        <-- default parameter block 
+           block 1  007f 8000        <-- used for serial number
+           block 2  007f 4000
+           block 3  007f 0000
+
+      The next highest 7 blocks in the eprom are parameter banks of regular size with
+      length 64k 16 bit words. The starting
+
+           block 4  007e 0000
+           block 5  007d 0000
+           ...
 
       ref: http://www.xilinx.com/support/documentation/data_sheets/ds617.pdf 
    */
   
   unsigned int uaddr,laddr;
-  if(paramblock<0 || paramblock>3) return;
+  if(paramblock<0 || paramblock>10) return;
   
   if(nwords>2048){
     printf(" Catastrophy: parameter space too large: %d\n",nwords);
@@ -8174,12 +8292,79 @@ void DAQMB::dcfeb_readparam(int paramblock,int nwords,unsigned short int  *val)
   }
   dcfeb_bpi_reset();
   dcfeb_bpi_enable();
-  uaddr=0x007f;  // segment address for parameter blocks
-  laddr=paramblock*0x4000;
-  printf(" parameter_read fulladdr %04x%04x \n",(uaddr&0xFFFF),(laddr&0xFFFF));
+  if(paramblock<4)
+  {
+     uaddr=0x007f;  // segment address for parameter blocks
+     laddr=(3-paramblock)*0x4000;
+  }
+  else
+  {
+     uaddr=0x007E - (paramblock-4);
+     laddr=0;
+  }
+//  printf(" parameter_read fulladdr %04x%04x; first word: %04x \n",(uaddr&0xFFFF),(laddr&0xFFFF), val[0]&0xFFFF);
   dcfebprom_loadaddress(uaddr,laddr);
   dcfebprom_read(nwords,val);
   dcfeb_bpi_disable();
+}
+
+void DAQMB::dcfeb_erase_param(CFEB & cfeb)
+{
+  // erase all parameter blocks searched by the firmware
+
+  /*  The highest four blocks in the eprom are parameter banks of
+      length 16k 16 bit words. The starting
+      addresses are:
+
+           block 0  007f c000        <-- default parameter block 
+           block 1  007f 8000        <-- used for serial number
+           block 2  007f 4000
+           block 3  007f 0000
+
+      The next highest 7 blocks in the eprom are parameter banks of regular size with
+      length 64k 16 bit words. The starting
+
+           block 4  007e 0000
+           block 5  007d 0000
+           ...
+
+      ref: http://www.xilinx.com/support/documentation/data_sheets/ds617.pdf
+
+*/
+  unsigned int fulladdr;
+  unsigned int uaddr,laddr;
+
+  std::cout << "Erasing all parameter blocks on DCFEB #" << cfeb.number()+1 << "..." << std::endl;
+  write_cfeb_selector(cfeb.SelectorBit());
+
+  dcfeb_bpi_reset();
+  dcfeb_bpi_enable();
+  dcfebprom_timerstop();
+  dcfebprom_timerreset();
+  dcfebprom_timerstart();
+  for(int paramblock=0; paramblock<11; paramblock++)
+  {
+     if(paramblock==1) continue;
+     if(paramblock<4)
+     {
+        uaddr=0x007f;  // segment address for parameter blocks
+        laddr=(3-paramblock)*0x4000;
+     }
+     else
+     {
+        uaddr=0x007E - (paramblock-4);
+        laddr=0;
+     }
+     fulladdr = (uaddr<<16) + laddr;
+
+     dcfebprom_loadaddress(uaddr,laddr);
+     // unlock and erase the block
+     dcfebprom_unlockerase();
+
+     udelay((paramblock<4)?1000000:3000000);
+  }
+  dcfeb_bpi_disable();
+  udelay(10);
 }
 
 void DAQMB::dcfeb_readfirmware_mcs(CFEB & cfeb, const char *filename)
@@ -8189,10 +8374,10 @@ void DAQMB::dcfeb_readfirmware_mcs(CFEB & cfeb, const char *filename)
    unsigned read_size=0x800;
    unsigned short *buf;
    FILE *mcsfile;
-   int total_blocks=1335;
+   int total_blocks=4096; // use 1335 for only the firmware part of the prom
 // int readback_size=read_size*total_blocks*2=5468160; 
 // XC6VLX130T's configuration bitstream (firmware) is exactly 5464972 bytes:
-   const int FIRMWARE_SIZE=5464972;
+   const int FIRMWARE_SIZE=16777216; // use 5464972 for only the firmware part of the prom
 
    mcsfile=fopen(filename, "w");
    if(mcsfile==NULL)
@@ -8202,13 +8387,15 @@ void DAQMB::dcfeb_readfirmware_mcs(CFEB & cfeb, const char *filename)
    }
 
    write_cfeb_selector(cfeb.SelectorBit());
-   buf=(unsigned short *)malloc(8*1024*1024);
+   buf=(unsigned short *)malloc(16*1024*1024); // can use 8*1024*1024 if only reading the firmware part of the prom
    if(buf==NULL) return;
    dcfeb_bpi_reset();
    dcfeb_bpi_enable();
    
    for(int i=0; i< total_blocks; i++)
    {
+       std::cout << "Block " << i << " / " << total_blocks << std::endl;
+
        uaddr = (fulladdr >> 16);
        laddr = fulladdr &0xffff;
        dcfebprom_loadaddress(uaddr, laddr);
@@ -8228,25 +8415,61 @@ void DAQMB::dcfeb_readfirmware_mcs(CFEB & cfeb, const char *filename)
 
 void DAQMB::dcfeb_configure(CFEB & cfeb) 
 {
+   // For each DCFEB, try to find a good parameter block with lowest block number and then use it.
+   // block 0 has the highest address.
+
    const int DCFEB_PARAMETERS=34;
    int number_ = cfeb.number();
+   int real_block=-1;
    bool changed=false;
    unsigned short int bufload[34], oldbuf[34];
 
    write_cfeb_selector(cfeb.SelectorBit());
    if(cfeb.GetHardwareVersion() == 2)
    {
-      dcfeb_readparam(3, DCFEB_PARAMETERS, oldbuf);
-
       set_dcfeb_parambuffer(cfeb, bufload);  
-      for(int i=0; i<DCFEB_PARAMETERS;i++)
+      for(int b=0; b<11; b++)
       {
-          if(bufload[i]!=oldbuf[i]) changed=true;
+          if(b==1) continue;
+          dcfeb_readparam(b, DCFEB_PARAMETERS, oldbuf);
+          for(int i=0; i<DCFEB_PARAMETERS;i++)
+          {
+             if(bufload[i]!=oldbuf[i]) changed=true;
+          }
+          if(changed)
+          {  
+             std::cout << "Write configuration parameters to EPROM on DCFEB #" << number_+1 << " in block " << b << std::endl;
+             dcfeb_loadparam(b, DCFEB_PARAMETERS, bufload);
+             ::usleep(1);
+             // verify if the parameters are in place 
+             dcfeb_readparam(b, DCFEB_PARAMETERS, oldbuf);
+             if(oldbuf[0]==0x4321) { real_block=b; break; }
+          }
+          else { real_block=b; break; }
       }
-      if(changed)
-      {  
-          std::cout << "Write configuration parameters to EPROM on DCFEB #" << number_+1 << std::endl;
-          dcfeb_loadparam(3, DCFEB_PARAMETERS, bufload);
+      if(real_block==-1) std::cout << "ERROR: Failed to write DCFEB parameters to any block. " << std::endl; 
+      else if(real_block<6) std::cout << "DCFEB #" << number_+1 << " parameters are in block " << real_block << std::endl;
+   }
+}
+
+void DAQMB::dcfeb_print_parameters(CFEB & cfeb) 
+{
+   const int DCFEB_PARAMETERS=34;
+   int number = cfeb.number();
+   unsigned short int bufload[34];
+
+   write_cfeb_selector(cfeb.SelectorBit());
+   if(cfeb.GetHardwareVersion() == 2)
+   {
+      std::cout << "Configuration Parameters for DCFEB #" << number+1 << std::endl;
+      for(int block=0; block<11; block++)
+      {
+         std::cout << "---- From parameter block #" << block << " ----" << std::endl;
+         dcfeb_readparam(block, DCFEB_PARAMETERS, bufload);
+         for(int i=0; i<DCFEB_PARAMETERS;i++)
+         {
+            std::cout << i << "   " << std::hex << "0x" << bufload[i] << std::dec  << std::endl;
+         }
       }
    }
 }
@@ -8266,7 +8489,7 @@ unsigned  DAQMB::dcfeb_readreg_virtex6(CFEB & cfeb,int test){
   return out;         
 }
 
-void DAQMB::dcfeb_program_eprom(CFEB & cfeb, const char *mcsfile, int broadcast)
+void DAQMB::dcfeb_program_eprom(CFEB & cfeb, const char *mcsfile, int offset, int broadcast)
 {
    unsigned int fulladdr;
    unsigned int uaddr,laddr;
@@ -8279,6 +8502,12 @@ void DAQMB::dcfeb_program_eprom(CFEB & cfeb, const char *mcsfile, int broadcast)
 
    // each write call takes 0x400 words
    const int WRITE_SIZE=0x400;  // in words
+
+   if(offset<0 || offset>76) 
+   {
+      std::cout << "ERROR: Invalid block address offset :" << offset << std::endl;
+      offset = 0;
+   }
 
 // 1. read mcs file
    char *bufin;
@@ -8328,7 +8557,8 @@ void DAQMB::dcfeb_program_eprom(CFEB & cfeb, const char *mcsfile, int broadcast)
 // 2. erase eprom
    blocks=FIRMWARE_SIZE/BLOCK_SIZE;
    if((FIRMWARE_SIZE%BLOCK_SIZE)>0) blocks++;
-   std::cout << "Erasing EPROM..." << std::endl;
+   blocks += offset;
+   std::cout << "Erasing EPROM...total blocks: " << blocks  << std::endl;
    for(i=0; i<blocks; i++)
    {
       uaddr=i;
@@ -8339,7 +8569,7 @@ void DAQMB::dcfeb_program_eprom(CFEB & cfeb, const char *mcsfile, int broadcast)
       // unlock and erase the block
       dcfebprom_unlockerase();
 
-      udelay(2000000);
+      udelay(3000000);
    }
 
 // 3. write eprom
@@ -8350,7 +8580,7 @@ void DAQMB::dcfeb_program_eprom(CFEB & cfeb, const char *mcsfile, int broadcast)
    if(lastblock>0) blocks++;
    else lastblock=WRITE_SIZE;
    std::cout << "Start programming EPROM..." << std::endl;
-   fulladdr=0;
+   fulladdr=offset*0x10000;
    for(i=0; i<blocks; i++)  
    {
    dcfeb_bpi_disable();
@@ -8415,7 +8645,7 @@ void DAQMB::dcfeb_program_virtex6(CFEB & cfeb, const char *mcsfile, int broadcas
    }
    int tag=0;
    memcpy(&tag, bufin+0x600000, 4);
-   if( (tag & 0x00F0FFFF)==0x00B0FEDC) 
+   if(broadcast==-1 ||  (tag & 0x00F0FFFF)==0x00B0FEDC) 
    {
        std::cout << "Firmware tag (DCFEB) verified!" << std::endl;
    }
@@ -8433,8 +8663,7 @@ void DAQMB::dcfeb_program_virtex6(CFEB & cfeb, const char *mcsfile, int broadcas
       bufin[i*2+1]=c;
    }
 
-
-   if(broadcast)
+   if(broadcast>0)
       write_cfeb_selector(0x7F);   // broadcast to all DCFEBs
    else
       write_cfeb_selector(cfeb.SelectorBit());
@@ -8461,6 +8690,7 @@ void DAQMB::dcfeb_program_virtex6(CFEB & cfeb, const char *mcsfile, int broadcas
      udelay(100);
      comd=VTX6_ISC_PROGRAM; 
      cfeb_do(10, &comd, 0, &tmp, rcvbuf, NOW);
+     udelay(10000);
     for(int i=0; i<blocks; i++)
     {
        cfeb_do(0, &comd, 32, bufin+4*i, rcvbuf, NOW);
@@ -8490,7 +8720,7 @@ void DAQMB::dcfeb_program_virtex6(CFEB & cfeb, const char *mcsfile, int broadcas
     comd=VTX6_BYPASS;
     cfeb_do(10, &comd, 0, &tmp, rcvbuf, NOW);
     udelay(10);
-    std::cout << "FPGA configuration done!" << std::endl;             
+    std::cout << "DCFEB FPGA configuration done bits = 0x" << std::hex << read_cfeb_done() << std::dec << std::endl;
     free(bufin);
 }
 
@@ -8673,6 +8903,21 @@ int DAQMB::LVDB_map(int chn)
      if(lvdb_mapping_==1) return lvdb7_f[chn];
      else if(lvdb_mapping_==2) return lvdb7_b[chn];
      else return chn;
+}
+
+void DAQMB::power_cycle_cfeb(int cfeb)
+{
+   unsigned short pmask, oldpwr;
+   if(cfeb>=0 && cfeb<=7)
+   {
+      pmask= (1<<LVDB_map(cfeb));
+      oldpwr=ReadRegister(read_POWER_MASK);            
+      WriteRegister(set_POWER_MASK, oldpwr^pmask);
+      sleep(1);
+      WriteRegister(set_POWER_MASK, oldpwr);
+      sleep(1);
+      std::cout<<"Power-cycle CFEB #" << cfeb+1 << std::endl;
+   }
 }
 
 // ODMB discrete logic JTAG port.This method has exactly the same interface as cfeb_do(). 
@@ -8862,21 +9107,25 @@ std::vector<float> DAQMB::odmb_fpga_adc()
   return readout;
 }
 
-int DAQMB::DCSread2(char *data)
+int DAQMB::DCSread2(char *data, int read_dcfeb)
 {
 
 // add DCFEB monitoring info here
 //     loop through all DCFEBs
 //     {    1. DCFEB SYSMON
 //          2. DCFEB ADC
+//          3. DCFEB SEU
 //     }
-
+// read_dcfeb flag: bit 0 (1)--read SYSMON
+//                  bit 1 (2)--read ADC
+//                  bit 2 (4)--read SEU
   int retn=0;
   short *data2= (short *)data;
   int TOTAL_SYSMON=19;
   int TOTAL_ADC=8;
-  int TOTAL_DCFEB=TOTAL_SYSMON+TOTAL_ADC;
-  int TOTAL_ODMB=9;
+  int TOTAL_SEU=3;
+  int TOTAL_DCFEB=TOTAL_SYSMON+TOTAL_ADC+TOTAL_SEU;;
+  int TOTAL_ODMB=9+3;  // 3 reserved
 
   if (hardware_version_!=2) return 0;
 
@@ -8884,25 +9133,54 @@ int DAQMB::DCSread2(char *data)
 
   for(unsigned lfeb=0; lfeb<cfebs_.size();lfeb++)
   {
-      std::vector<float> fsysmon=dcfeb_fpga_monitor(cfebs_[lfeb]);
-      int febnum=cfebs_[lfeb].number();
+    int febnum=cfebs_[lfeb].number();
+    if(read_dcfeb&1)
+    {
+      std::vector<float> fsysmon=dcfeb_fpga_monitor(cfebs_[lfeb], true);
       for(unsigned i=0; i<fsysmon.size(); i++)
       {
-         data2[febnum*TOTAL_DCFEB+i]=int(fsysmon[i]*100);
+         if(i==10 || i==15)
+            data2[febnum*TOTAL_DCFEB+i]=int(fsysmon[i]);
+         else
+            data2[febnum*TOTAL_DCFEB+i]=int(fsysmon[i]*100);
       }
       fsysmon.clear();
+    }
+    if(read_dcfeb&2)
+    {
       std::vector<float> dadc=dcfeb_adc(cfebs_[lfeb]);
       for(unsigned i=0; i<dadc.size(); i++)
       {
-         data2[febnum*TOTAL_DCFEB+TOTAL_SYSMON+i]=int(dadc[i]*100);
+        data2[febnum*TOTAL_DCFEB+TOTAL_SYSMON+i]=int(dadc[i]*100);
       }
-      retn += TOTAL_DCFEB;
+    }
+    if(read_dcfeb&4)
+    {
+      data2[febnum*TOTAL_DCFEB+TOTAL_SYSMON+TOTAL_ADC]=0x3FF & SEM_read_status(cfebs_[lfeb]);
+      data2[febnum*TOTAL_DCFEB+TOTAL_SYSMON+TOTAL_ADC+1]=SEM_read_errcnt(cfebs_[lfeb]);
+      data2[febnum*TOTAL_DCFEB+TOTAL_SYSMON+TOTAL_ADC+2]=dcfeb_qpll_lost_count(cfebs_[lfeb]);  // #3 replaced with QPLL lost counter
+    }
   }
+  retn += 7*TOTAL_DCFEB;
   std::vector<float> dsysmon=odmb_fpga_adc();
   for(unsigned int i=0; i<dsysmon.size(); i++)
   {
       data2[retn+i]=int(dsysmon[i]*100);
   }        
+  // read DCFEB fiber link error counters
+  unsigned short fiber_error[7];
+  for(int addr=1; addr<=7; addr++) 
+  {
+      if (addr<7) read_later(FIBER_ERROR_BASE+(addr<<4));
+      else read_now(FIBER_ERROR_BASE+(addr<<4), (char *)fiber_error);
+  }
+  unsigned short link_status=0;
+  for(int i=6; i>=0; i--) 
+  {
+      link_status <<=1;
+      if(fiber_error[i]) link_status |= 1;
+  }
+  data2[retn+dsysmon.size()] = link_status; 
   retn += TOTAL_ODMB;
   return retn;
 }
@@ -9563,6 +9841,7 @@ void DAQMB::odmb_program_virtex6(const char *mcsfile)
      udelay(100);
      comd=VTX6_ISC_PROGRAM; 
      dlog_do(10, &comd, 0, &tmp, rcvbuf, NOW);
+     udelay(10000);
     for(int i=0; i<blocks; i++)
     {
        dlog_do(0, &comd, 32, bufin+4*i, rcvbuf, NOW);
@@ -9655,7 +9934,7 @@ void DAQMB::chan2shift(int chan[16],unsigned int shft_bits[3]){
 void DAQMB::set_dcfeb_parambuffer(CFEB &cfeb, unsigned short int bufload[34]){
     unsigned number = cfeb.number();
     bufload[0]=0x4321;                         //ready (not 0xffff)
-    float dthresh=0.05;
+    float dthresh=comp_thresh_cfeb_[number];
     int comp_thresh=int(4095*((3.5-dthresh)/3.5));
     int pipeline_depth = cfeb.GetPipelineDepth();
 
@@ -9759,6 +10038,22 @@ void DAQMB::autoload_readback_wrd(CFEB &cfeb, char wrd[2])
     dcfeb_hub(cfeb, REG_RD_WRD, 16, &tmp, buf, READ_YES|NOW);
     memcpy(wrd, buf, 2);
     return;
+}
+
+void DAQMB::dcfeb_toggle_daq_txdisable(CFEB &cfeb)
+{
+  char tmp[2];
+  dcfeb_hub(cfeb, TOGGLE_DAQ_TDIS, 0, tmp, tmp, NOW);
+  udelay(200000);
+  return;
+}
+
+void DAQMB::dcfeb_toggle_trig_txdisable(CFEB &cfeb)
+{
+  char tmp[2];
+  dcfeb_hub(cfeb, TOGGLE_TRG_TDIS, 0, tmp, tmp, NOW);
+  udelay(200000);
+  return;
 }
 
 void DAQMB::dcfeb_set_TMBTxMode(int cfeb_number, int mode){
@@ -10175,7 +10470,7 @@ float DAQMB::get_best_pipeline_depth(const unsigned lower_depth,
   odmb_set_kill_mask(original_kill);
   for(unsigned dcfeb(0); dcfeb<cfebs_.size() && dcfeb<7; ++dcfeb){
     odmb_set_kill_mask(0xFFFFu);
-    dcfeb_set_PipelineDepth(cfebs_[dcfeb], original_delay[dcfeb]);
+    dcfeb_set_PipelineDepth(cfebs_[dcfeb], original_depth[dcfeb]);
     dcfeb_fine_delay(cfebs_[dcfeb], original_delay[dcfeb]);
     Pipeline_Restart(cfebs_[dcfeb]);
     odmb_rst_dcfeb_fifo(0x7Fu);
@@ -10375,7 +10670,7 @@ void DAQMB::odmb_write_device_delay(const unsigned device, const unsigned delay)
 
 // OSU's SEM(Single Event Upset) related routines
 // provided by Bingxuan Liu
-void DAQMB::SEM_read_status(CFEB &cfeb, char status[2]){
+unsigned DAQMB::SEM_read_status(CFEB &cfeb){
      // Function 37:
      // SEM Status and Configuration Frame Address Register (FAR) capture and shift
      //	[0] = status_initialization;
@@ -10388,52 +10683,45 @@ void DAQMB::SEM_read_status(CFEB &cfeb, char status[2]){
      //	[7] = 1'b0;
      //	[8] = CRC error;
      //	[9] = double error detected;
-      unsigned tmp = 0x5555;
-      char buf[4]; 
-      dcfeb_hub(cfeb, SEM_STATUS,16, &tmp, buf, READ_YES|NOW);
-      memcpy(status, buf, 2);
-      return;
+      unsigned tmp = 0x5555, rb;
+      dcfeb_hub(cfeb, SEM_STATUS,16, &tmp, (char *)&rb, READ_YES|NOW);
+      return (rb & 0xFFFF);
 }
 
-int DAQMB::SEM_multibit_info(char status[2]){
-  int tmp;
-  tmp=0;
-  if((status[1]&0x02)!=0x00)tmp=1;
+int DAQMB::SEM_multibit_info(unsigned status){
+  int tmp=0;
+  if((status & 0x200)!=0x00)tmp=1;
   return tmp;
 }
 
 
-void DAQMB::SEM_unpack_status(char status[2]){
+void DAQMB::SEM_unpack_status(unsigned status){
   // unpack SEM status
   printf("UNPACKED STATUS \n");
-  if((status[0]&0x01)!=0x00)printf("state:initialization\n");
-  if((status[0]&0x02)!=0x00)printf("state:observation\n");
-  if((status[0]&0x04)!=0x00)printf("state:correction\n");
-  if((status[0]&0x08)!=0x00)printf("state:classification\n");
-  if((status[0]&0x10)!=0x00)printf("state:injection\n");
-  if((status[0]&0x20)!=0x00)printf("essential bit set\n");
-  if((status[0]&0x40)!=0x00)printf("uncorrectable bit set\n");
-  if((status[1]&0x01)!=0x00)printf("crc error bit set \n");
-  if((status[1]&0x02)!=0x00)printf("double error bit set\n");
+  if((status & 0x01)!=0x00)printf("state:initialization\n");
+  if((status & 0x02)!=0x00)printf("state:observation\n");
+  if((status & 0x04)!=0x00)printf("state:correction\n");
+  if((status & 0x08)!=0x00)printf("state:classification\n");
+  if((status & 0x10)!=0x00)printf("state:injection\n");
+  if((status & 0x20)!=0x00)printf("essential bit set\n");
+  if((status & 0x40)!=0x00)printf("uncorrectable bit set\n");
+  if((status & 0x100)!=0x00)printf("crc error bit set \n");
+  if((status & 0x200)!=0x00)printf("double error bit set\n");
 }
 
-void DAQMB::SEM_read_seu_address_linear(CFEB &cfeb, char blkadd[3]){
-      unsigned tmp = 0x555555;
-      char buf[4]; 
-      dcfeb_hub(cfeb,SEM_SEU_ADD_LINEAR,24, &tmp, buf, READ_YES|NOOP_YES|NOW);
-      memcpy(blkadd, buf, 3);
-      return;
+unsigned DAQMB::SEM_read_seu_address_linear(CFEB &cfeb){
+      unsigned tmp = 0x555555, rb;
+      dcfeb_hub(cfeb,SEM_SEU_ADD_LINEAR, 24, &tmp, (char *)&rb, READ_YES|NOOP_YES|NOW);
+      return (rb & 0xFFFFFF);
 }
 
-void DAQMB::SEM_read_seu_address_physical(CFEB &cfeb, char faradd[3]){
-      unsigned tmp = 0x55555555;
-      char buf[4]; 
-      dcfeb_hub(cfeb,SEM_SEU_ADD_PHYSICAL, 24, &tmp, buf, READ_YES|NOOP_YES|NOW);
-      memcpy(faradd, buf, 3);
-      return;
+unsigned DAQMB::SEM_read_seu_address_physical(CFEB &cfeb){
+      unsigned tmp = 0x55555555, rb;
+      dcfeb_hub(cfeb,SEM_SEU_ADD_PHYSICAL, 24, &tmp, (char *)&rb, READ_YES|NOOP_YES|NOW);
+      return (rb & 0xFFFFFF);
 }
 
-void DAQMB::SEM_read_errcnt(CFEB &cfeb, char *singleflip,char *multiflip){
+unsigned DAQMB::SEM_read_errcnt(CFEB &cfeb){
 //
 // Function 39:
 //
@@ -10441,12 +10729,9 @@ void DAQMB::SEM_read_errcnt(CFEB &cfeb, char *singleflip,char *multiflip){
 // 16 bit word
 //	[15:8] = multi_bit_err_cnt;
 //	[7:0]  = sngl_bit_err_cnt;
-      unsigned tmp = 0xd5eedfba;
-      char buf[4]; 
-      dcfeb_hub(cfeb,SEM_ERRCNT_READ, 24, &tmp, buf, READ_YES|NOW);
-      memcpy(&singleflip[0], buf, 1);
-      memcpy(&multiflip[0], buf+1, 1);
-      return;
+      unsigned tmp = 0xd5eedfba, rb;
+      dcfeb_hub(cfeb,SEM_ERRCNT_READ, 16, &tmp, (char *)&rb, READ_YES|NOW);
+      return (rb & 0xFFFF);
 }
 
 void DAQMB::SEM_control(CFEB &cfeb){
@@ -10856,7 +11141,7 @@ int DAQMB::SVFLoad(int dev, const char *fn, int db, int verify )
 	    send_packages++ ;
             if(!readprom)
             {
-               if ( (send_packages%one_pct)==0 ) 
+               if ( total_packages>=100 && (send_packages%one_pct)==0 ) 
                   std::cout << "Sending " << std::dec << send_packages/one_pct << "%..." << std::endl;
 	       if ( send_packages == total_packages ) std::cout << "Done!" << std::endl;
             }
@@ -11171,6 +11456,928 @@ int DAQMB::SVFLoad(int dev, const char *fn, int db, int verify )
   }
   fclose(dwnfp);
   return errcntr; 
+}
+
+void DAQMB::dcfeb_program_eprom_Xilinx(CFEB & cfeb, const char *mcsfile, int broadcast)
+{
+//
+// program DCFEB's EPROM after loading the Xilinx Core into the FPGA.
+//
+   unsigned short comd, tmp;
+   if(hardware_version_<=1) return;
+   const int FIRMWARE_SIZE=5464972; // in bytes
+   char *bufin, bufcmd[128], c;
+   bufin=(char *)malloc(16*1024*1024);
+   if(bufin==NULL)  return;
+   bzero(bufcmd, 128);
+   FILE *fin=fopen(mcsfile,"r");
+   if(fin==NULL ) 
+   { 
+      free(bufin);  
+      std::cout << "ERROR: Unable to open MCS file :" << mcsfile << std::endl;
+      return; 
+   }
+   int mcssize=read_mcs(bufin, fin);
+   fclose(fin);
+   std::cout << "Read MCS size: " << std::dec << mcssize << " bytes" << std::endl;
+   if(mcssize<FIRMWARE_SIZE)
+   {
+       std::cout << "ERROR: Wrong MCS file. Quit..." << std::endl;
+       free(bufin);
+       return;
+   }
+   int tag=0;
+   memcpy(&tag, bufin+0x600000, 4);
+   if( (tag & 0x00F0FFFF)==0x00B0FEDC) 
+   {
+       std::cout << "Firmware tag (DCFEB) verified!" << std::endl;
+   }
+   else
+   {
+       std::cout << "ERROR: Firmware tag (DCFEB) not found in MCS file. Quit..." << std::endl; 
+       free(bufin);
+       return;
+                  
+   }
+
+/*
+// byte swap
+   for(int i=0; i<FIRMWARE_SIZE/2; i++)
+   {  c=bufin[i*2];
+      bufin[i*2]=bufin[i*2+1];
+      bufin[i*2+1]=c;
+   }
+*/
+     int blocks=FIRMWARE_SIZE/1024;  // firmware size must be in units of 8192-bit units
+     if (FIRMWARE_SIZE%1024)
+     {  
+         for(int i=0; i<1024; i++) bufin[FIRMWARE_SIZE+i]=0xFF;  // pad the last block with 0xFF
+         blocks++;
+     }
+     int p1pct=blocks/100;
+     int j=0, pcnts=0;
+
+    getTheController()->SetUseDelay(true);
+    if(broadcast>0)
+       write_cfeb_selector(0x7F);   // broadcast to all DCFEBs
+    else
+       write_cfeb_selector(cfeb.SelectorBit());
+
+    for(int i=0; i<blocks; i++)
+    {
+       comd=VTX6_USR2; 
+       cfeb_do(10, &comd, 0, &tmp, rcvbuf, NOW);
+       udelay(1000);
+       cfeb_do(0, &comd, 8192, bufin+1024*i, rcvbuf, NOW);
+       udelay(100);
+       comd=VTX6_BYPASS; 
+       cfeb_do(10, &comd, 0, &tmp, rcvbuf, NOW);
+       if(i==0)
+       {
+          comd=VTX6_USR3; 
+          cfeb_do(10, &comd, 0, &tmp, rcvbuf, NOW);
+          udelay(10000);
+          bufcmd[0]=0x0E;
+          cfeb_do(0, &comd, 1024, bufcmd, rcvbuf, NOW);
+          comd=VTX6_BYPASS; 
+          cfeb_do(10, &comd, 0, &tmp, rcvbuf, NOW);
+          udelay(100000);
+       }
+       udelay(150000);
+       comd=VTX6_USR3; 
+       cfeb_do(10, &comd, 0, &tmp, rcvbuf, NOW);
+       udelay(10000);
+       bufcmd[0]=0xA0;
+       cfeb_do(0, &comd, 1024, bufcmd, rcvbuf, NOW);
+       comd=VTX6_BYPASS; 
+       cfeb_do(10, &comd, 0, &tmp, rcvbuf, NOW);
+       comd=VTX6_BYPASS; 
+       cfeb_do(10, &comd, 0, &tmp, rcvbuf, NOW);
+       j++;
+       if(p1pct>0 && j==p1pct)
+       {  pcnts++;
+          if(pcnts<100) std::cout << "Sending " << pcnts <<"%..." << std::endl;
+          j=0;
+       }   
+    }
+    std::cout << "Sending 100%..." << std::endl;
+
+    comd=VTX6_BYPASS;
+    cfeb_do(10, &comd, 0, &tmp, rcvbuf, NOW);
+}
+
+// This function tests the DCFEB PROM using the unused blocks (doesn't touch the firmware and parameter blocks)
+// Test procedure was defined by Ben Bylsma and it goes like this:
+//   1) Readback block, check for blank (all ones), count all blocks initially not blank
+//   2) Erase block, readback, check for blank, count all blocks failing erase
+//   3) Program all zero’s, readback, check for zeroed, count all blocks failing zero test
+//   4) Erase block, readback, check for blank, count all failing erase after zeroed
+// All results are logged in the log file with the provided filename
+// These are the unused PROM blocks with which this function is working: 43 to 47, 49 to 126, and parameter blocks 127 and 128
+// This function returns the number of total EEPROM errors. There are also special return codes for errors that stop the test:
+//   -1 means error while running the test
+//   -2 means that DCFEB FPGA was not configured before the start of the test
+int DAQMB::dcfeb_prom_test2(CFEB & cfeb, const char *filename, const char * dumpFilename, const bool fastCheck)
+{
+   std::stringstream msg;
+   std::ofstream logFile;
+   std::ofstream dumpFile;
+
+   unsigned int fulladdr;
+   unsigned int uaddr,laddr;
+   unsigned int i, blocks, lastblock;
+   unsigned short *buf;
+
+   const int PROM_SIZE=16777216/2; // in words
+
+   // each eprom block has 0x10000 words
+   const int BLOCK_SIZE=0x10000; // in words
+
+   // each write call takes 0x400 words
+   const int WRITE_SIZE=0x400;  // in words
+
+   // each read call takes 0x800 words
+   const unsigned READ_SIZE=0x800; // in words 
+
+// open log files
+   logFile.open(filename);
+   dumpFile.open(dumpFilename);
+   if (!logFile.is_open())
+   {
+      std::cout << "Unable to open file to write :" << filename << std::endl;
+      return -1;
+   }
+
+   if (!dumpFile.is_open())
+   {
+      std::cout << "Unable to open file to write :" << filename << std::endl;
+      return -1;
+   }
+
+// check if the DCFEB FPGA is configured
+   int donebits = read_cfeb_done();
+   int isConfigured = (donebits >> cfeb.number()) & 1;
+   if (!isConfigured)
+   {
+      msg << std::endl << "FPGA of this DCFEB is not configured (before starting the test) -- skipping this DCFEB" << std::endl;
+      dcfeb_prom_log(&msg, &logFile);
+      return -2;
+   }
+
+   std::cout << "Starting DCFEB EEPROM test 2" << std::endl;
+
+// prepare buffers and stuff
+   char *bufw_char;
+   bufw_char=(char *)malloc(WRITE_SIZE * 2);
+   if(bufw_char==NULL)  return -1;
+   unsigned short *bufw= (unsigned short *)bufw_char;
+   // fill it with zeros
+   long blankWord64 = 0xFFFFFFFFFFFFFFFF;
+   long zeroWord64  = 0x0000000000000000;
+   for (i=0; i < 256; i++) {
+       memcpy(bufw_char + i*8, &zeroWord64, 8);
+   }
+
+   char *bufr_char;
+   bufr_char = (char*) malloc(READ_SIZE * 0x20 * 2);
+   if(bufr_char == NULL) return -1;
+   unsigned short * bufr = (unsigned short *) bufr_char;
+  
+ 
+   write_cfeb_selector(cfeb.SelectorBit());
+
+//####################################################################################
+// 1) Readback blocks, check for blank (all ones), count all blocks initially not blank
+//####################################################################################
+
+   msg << std::endl << ">>>>> Step 1: check if all unused blocks are blank <<<<<" << std::endl << std::endl;
+   dcfeb_prom_log(&msg, &logFile);
+
+   dcfeb_bpi_reset();
+   dcfeb_bpi_enable();
+   
+   int numErrors1 = 0;
+   for(int i=43; i <= 128; i++)
+   {
+       if (i == 48) continue; // leave this block alone - that has the DCFEB marker
+
+       int bitflips = dcfeb_prom_check_block(i, bufr, blankWord64, &dumpFile, fastCheck);
+
+       if (bitflips == 0)
+       {
+          msg << "Block " << i << ": OK" << std::endl;
+          dcfeb_prom_log(&msg, &logFile);
+       }
+       else 
+       {
+          msg << "Block " << i << ": BAD! number of bitflips = " << bitflips << " (block dumped to " << dumpFilename << ")" << std::endl;
+          dcfeb_prom_log(&msg, &logFile);
+          numErrors1++;
+       }
+
+   }
+   dcfeb_bpi_disable();
+
+   msg << ">>>>> Step 1 finished: number of blocks that initially were not blank = " << numErrors1 << " <<<<<" << std::endl;
+   dcfeb_prom_log(&msg, &logFile);
+
+//####################################################################################
+// 2) Erase blocks, readback, check for blank, count all blocks failing erase
+//####################################################################################
+
+   msg << std::endl << ">>>>> Step 2: erase all unused blocks and check if they are blank <<<<<" << std::endl << std::endl;
+   dcfeb_prom_log(&msg, &logFile);
+
+   // erase prom
+
+   dcfeb_bpi_reset();
+   dcfeb_bpi_enable();
+   dcfebprom_timerstop();
+   dcfebprom_timerreset();
+   dcfebprom_timerstart();
+
+   blocks=PROM_SIZE/BLOCK_SIZE;
+   if((PROM_SIZE%BLOCK_SIZE)>0) blocks++;
+   msg << "Erasing..." << std::endl;
+   dcfeb_prom_log(&msg, &logFile);
+   for(i=43; i<blocks; i++)
+   {
+      if (i == 48) continue; // leave this block alone - that has the DCFEB marker
+
+      std::cout << "Erasing block " << i << " / " << blocks << std::endl;
+
+      // erase the 64K banks
+      if (i < blocks - 1) {
+          uaddr=i;
+          laddr=0;
+
+          dcfebprom_loadaddress(uaddr,laddr);
+          // unlock and erase the block
+          dcfebprom_unlockerase();
+
+          dcfebprom_clearstatus();
+          int bpi_status;
+          for(int j=0;j<200;j++)
+          {
+             udelay(100000);
+             bpi_status=dcfeb_bpi_status();
+             if((bpi_status&0x0080)==0x0080) { std::cout << "Finish at loop " << j << std::endl;  break; }
+          }          
+          if((bpi_status&0x0080)!=0x0080)
+          {
+             msg << "Error: BPI Status wrong after erasing!" << std::endl;
+             dcfeb_prom_log(&msg, &logFile);
+             logFile.close();
+             dumpFile.close();
+             return -1;
+          }
+          // udelay(5000000);
+      }
+      
+      // erase the 16K banks (except the last two where we have the DCFEB serial number and parameters)
+      if (i == blocks - 1) {
+          for (int j=0; j < 2; j++) {  // this should go up to 4, but I don't want to erase the last two 16K blocks where we have the DCFEB serial number and parameters
+	      std::cout << "Erasing parameter space block " << j << std::endl;
+              uaddr = i;
+              laddr = j * 0x4000;
+
+              dcfebprom_loadaddress(uaddr,laddr);
+              // unlock and erase the block
+              dcfebprom_unlockerase();
+
+          dcfebprom_clearstatus();
+          int bpi_status;
+          for(int j=0;j<200;j++)
+          {
+             udelay(100000);
+             bpi_status=dcfeb_bpi_status();
+             if((bpi_status&0x0080)==0x0080) { std::cout << "Finish at loop " << j << std::endl;  break; }
+          }          
+          if((bpi_status&0x0080)!=0x0080)
+          {
+             msg << "Error: BPI Status wrong after erasing!" << std::endl;
+             dcfeb_prom_log(&msg, &logFile);
+             logFile.close();
+             dumpFile.close();
+             return -1;
+          }
+
+             // udelay(5000000);
+	  }
+      }
+   }
+
+   dcfeb_bpi_disable();
+
+   msg << "Erase finished successfully" << std::endl;
+   dcfeb_prom_log(&msg, &logFile);
+
+   // readback and check
+
+   dcfeb_bpi_reset();
+   dcfeb_bpi_enable();
+   
+   int numErrors2 = 0;
+   for(int i=43; i <= 128; i++)
+   {
+       if (i == 48) continue; // leave this block alone - that has the DCFEB marke
+
+       int bitflips = dcfeb_prom_check_block(i, bufr, blankWord64, &dumpFile, fastCheck);
+
+       if (bitflips == 0)
+       {
+          msg << "Block " << i << ": OK" << std::endl;
+          dcfeb_prom_log(&msg, &logFile);
+       }
+       else 
+       {
+          msg << "Block " << i << ": BAD! number of bitflips = " << bitflips << " (block dumped to " << dumpFilename << ")" << std::endl;
+          dcfeb_prom_log(&msg, &logFile);
+          numErrors2++;
+       }
+
+   }
+   dcfeb_bpi_disable();
+
+   msg << ">>>>> Step 2 finished: number of blocks that were not blank after erase = " << numErrors2 << " <<<<<" << std::endl;
+   dcfeb_prom_log(&msg, &logFile);
+
+//######################################################################################
+// 3) Program all zero’s, readback, check for zeroed, count all blocks failing zero test
+//######################################################################################
+
+   msg << std::endl << ">>>>> Step 3: program the unused blocks with zeros and check if they are indeed zeros <<<<<" << std::endl << std::endl;
+   dcfeb_prom_log(&msg, &logFile);
+
+   blocks=PROM_SIZE/WRITE_SIZE - 0x10 * 2; // all prom except the last two 16K blocks
+   lastblock=PROM_SIZE%WRITE_SIZE;
+   int p1pct=blocks/100;
+   if(lastblock>0) blocks++;
+   else lastblock=WRITE_SIZE;
+   msg << "Programming with zeros..." << std::endl;
+   dcfeb_prom_log(&msg, &logFile);
+   fulladdr=0;
+   for(i=0x40 * 43; i<blocks; i++)  
+   {
+      if ((i >= 0x40 * 48) && (i < 0x40 * 49)) continue; // leave block 48 alone - that has the DCFEB marker
+
+      fulladdr = i * WRITE_SIZE;
+      uaddr = (fulladdr >> 16);
+      laddr = fulladdr &0xffff;
+
+      // if fastCheck is ture, then only write to the first and second 0x800 size block of each 64K and 16K PROM blocks
+      if (fastCheck && ((laddr != 0x0000) && (laddr != WRITE_SIZE) && !((uaddr == 0x7F) && (((laddr == 0x4000) || (laddr == 0x4400)) && (laddr<0x8000))))) {
+          continue;
+      }
+
+      dcfeb_bpi_disable();
+      udelay(1000);
+      dcfeb_bpi_reset();
+      dcfeb_bpi_enable();
+      dcfebprom_timerstop();
+      dcfebprom_timerreset();
+      dcfebprom_timerstart();
+      udelay(1000);
+      dcfebprom_clearstatus();
+
+      int nwords=WRITE_SIZE;
+      if(i==blocks-1) nwords=lastblock;
+      std::cout << "Writing to address " << std::hex << fulladdr << std::dec << " with " << nwords << " zero words" << std::endl;
+      // printf(" load address %04x%04x \n",(uaddr&0xFFFF),(laddr&0xFFFF));
+      dcfebprom_loadaddress(uaddr,laddr);
+      // program with new data from the beginning of the block
+      dcfebprom_bufferprogram(nwords,bufw);
+      udelay(120000);
+   }
+   msg << "Programming finished" << std::endl;
+   dcfeb_prom_log(&msg, &logFile);
+
+   uaddr = (fulladdr >> 16);
+   laddr = fulladdr &0xffff;
+   dcfebprom_loadaddress(uaddr,laddr);
+   dcfebprom_lock();
+   udelay(500000);
+   dcfeb_bpi_disable();
+
+   // readback and check
+
+   dcfeb_bpi_reset();
+   dcfeb_bpi_enable();
+   
+   int numErrors3 = 0;
+   for(int i=43; i <= 128; i++)
+   {
+       if (i == 48) continue; // leave this block alone - that has the DCFEB marker
+
+       int bitflips = dcfeb_prom_check_block(i, bufr, zeroWord64, &dumpFile, fastCheck);
+
+       if (bitflips == 0)
+       {
+          msg << "Block " << i << ": OK" << std::endl;
+          dcfeb_prom_log(&msg, &logFile);
+       }
+       else 
+       {
+          msg << "Block " << i << ": BAD! number of bitflips = " << bitflips << " (block dumped to " << dumpFilename << ")" << std::endl;
+          dcfeb_prom_log(&msg, &logFile);
+          numErrors3++;
+       }
+
+   }
+   dcfeb_bpi_disable();
+
+   msg << ">>>>> Step 3 finished: number of blocks that were not zero after programming = " << numErrors3 << " <<<<<" << std::endl;
+   dcfeb_prom_log(&msg, &logFile);
+
+//####################################################################################
+// 4) Erase blocks, readback, check for blank, count all failing erase after zeroed
+//####################################################################################
+
+   msg << std::endl << ">>>>> Step 4: erase all unused blocks again and check if they are blank <<<<<" << std::endl << std::endl;
+   dcfeb_prom_log(&msg, &logFile);
+
+   // erase prom
+
+   dcfeb_bpi_reset();
+   dcfeb_bpi_enable();
+   dcfebprom_timerstop();
+   dcfebprom_timerreset();
+   dcfebprom_timerstart();
+
+   blocks=PROM_SIZE/BLOCK_SIZE;
+   if((PROM_SIZE%BLOCK_SIZE)>0) blocks++;
+   msg << "Erasing..." << std::endl;
+   dcfeb_prom_log(&msg, &logFile);
+   for(i=43; i<blocks; i++)
+   {
+      if (i == 48) continue; // leave this block alone - that has the DCFEB marker
+
+      std::cout << "Erasing block " << i << " / " << blocks << std::endl;
+
+      // erase the 64K banks
+      if (i < blocks - 1) {
+          uaddr=i;
+          laddr=0;
+
+          dcfebprom_loadaddress(uaddr,laddr);
+          // unlock and erase the block
+          dcfebprom_unlockerase();
+
+          dcfebprom_clearstatus();
+          int bpi_status;
+          for(int j=0;j<200;j++)
+          {
+             udelay(100000);
+             bpi_status=dcfeb_bpi_status();
+             if((bpi_status&0x0080)==0x0080) { std::cout << "Finish at loop " << j << std::endl;  break; }
+          }          
+          if((bpi_status&0x0080)!=0x0080)
+          {
+             msg << "Error: BPI Status wrong after erasing!" << std::endl;
+             dcfeb_prom_log(&msg, &logFile);
+             logFile.close();
+             dumpFile.close();
+             return -1;
+          }
+          // udelay(5000000);
+      }
+      
+      // erase the 16K banks (except the last two where we have the DCFEB serial number and parameters)
+      if (i == blocks - 1) {
+          for (int j=0; j < 2; j++) {  // this should go up to 4, but I don't want to erase the last two 16K blocks where we have the DCFEB serial number and parameters
+	      std::cout << "Erasing parameter space block " << j << std::endl;
+              uaddr = i;
+              laddr = j * 0x4000;
+
+              dcfebprom_loadaddress(uaddr,laddr);
+              // unlock and erase the block
+              dcfebprom_unlockerase();
+
+          dcfebprom_clearstatus();
+          int bpi_status;
+          for(int j=0;j<200;j++)
+          {
+             udelay(100000);
+             bpi_status=dcfeb_bpi_status();
+             if((bpi_status&0x0080)==0x0080) { std::cout << "Finish at loop " << j << std::endl;  break; }
+          }          
+          if((bpi_status&0x0080)!=0x0080)
+          {
+             msg << "Error: BPI Status wrong after erasing!" << std::endl;
+             dcfeb_prom_log(&msg, &logFile);
+             logFile.close();
+             dumpFile.close();
+             return -1;
+          }
+
+             // udelay(5000000);
+	  }
+      }
+   }
+
+   dcfeb_bpi_disable();
+   
+   msg << "Erase finished successfully" << std::endl;
+   dcfeb_prom_log(&msg, &logFile);
+
+   // readback and check
+
+   dcfeb_bpi_reset();
+   dcfeb_bpi_enable();
+   
+   int numErrors4 = 0;
+   for(int i=43; i <= 128; i++)
+   {
+       if (i == 48) continue; // leave this block alone - that has the DCFEB marke
+
+       int bitflips = dcfeb_prom_check_block(i, bufr, blankWord64, &dumpFile, fastCheck);
+
+       if (bitflips == 0)
+       {
+          msg << "Block " << i << ": OK" << std::endl;
+          dcfeb_prom_log(&msg, &logFile);
+       }
+       else 
+       {
+          msg << "Block " << i << ": BAD! number of bitflips = " << bitflips << " (block dumped to " << dumpFilename << ")" << std::endl;
+          dcfeb_prom_log(&msg, &logFile);
+          numErrors4++;
+       }
+
+   }
+   dcfeb_bpi_disable();
+
+   msg << ">>>>> Step 4 finished: number of blocks that were not blank after the second erase = " << numErrors4 << " <<<<<" << std::endl;
+   dcfeb_prom_log(&msg, &logFile);
+
+//####################################################################################
+// Summary
+//####################################################################################
+
+   msg << std::endl << "=============================== Summary (number of errors) ===============================" << std::endl;
+   msg << "step1: " << numErrors1 << std::endl;
+   msg << "step2: " << numErrors2 << std::endl;
+   msg << "step3: " << numErrors3 << std::endl;
+   msg << "step4: " << numErrors4 << std::endl;
+   dcfeb_prom_log(&msg, &logFile);
+
+//####################################################################################
+// DONE
+//####################################################################################
+
+   logFile.close();
+   dumpFile.close();
+   free(bufw_char);
+   free(bufr_char);
+   std::cout << " Done testing the PROM!" << std::endl;
+   return numErrors1 + numErrors2 + numErrors3 + numErrors4;
+}
+
+// this function reads a block from the DCFEB PROM and checks if all 64bit words in that block match the given check word
+// note, BPI should be set enabled and ready before calling this function
+// blocks 0 - 126 are 64Kword blocks and 127 - 130 are 16Kword
+// it returns the number of bitflips found
+// if the number of bitflips is not zero, it dumps the block in the given dump file (in human readable ascii format)
+// if partialRead is true then only the beginning of the block is checked (1Kword)
+int DAQMB::dcfeb_prom_check_block(const int blockNum, unsigned short * readBuf, const long checkWord64, std::ofstream * dumpFile, const bool partialRead)
+{
+   const unsigned READ_SIZE=0x800; // in words 
+   const int READ_BLOCKS_64K=0x20; // in READ_SIZE
+   const int READ_BLOCKS_16K=0x8;  // in READ_SIZE
+   
+   unsigned int fulladdr;
+   unsigned int uaddr,laddr;
+   
+   if(readBuf==NULL) return -1;
+
+   // read the block
+  
+   int startChunk = blockNum < 127 ? blockNum * READ_BLOCKS_64K : (127 * READ_BLOCKS_64K) + ((blockNum - 127) * READ_BLOCKS_16K);
+   int readChunks = partialRead ? 1 : (blockNum < 127 ? READ_BLOCKS_64K : READ_BLOCKS_16K);
+
+   for(int i=0; i < readChunks; i++)
+   {
+       fulladdr = startChunk * READ_SIZE + i * READ_SIZE;
+       uaddr = (fulladdr >> 16);
+       laddr = fulladdr &0xffff;
+
+       //std::cout << "Reading address 0x" << std::hex << fulladdr << std::dec << std::endl;
+       
+       dcfebprom_loadaddress(uaddr, laddr);
+
+       dcfebprom_read(READ_SIZE, readBuf + i * READ_SIZE);
+
+   }
+
+   // check it
+
+   int bitflips = 0;
+   long readWord64 = 0;
+   char * bufChar = (char *) readBuf;
+   int blockLenBytes = (readChunks * READ_SIZE) * 2;
+   for (int i=0; i < blockLenBytes; i += 8)
+   {
+      memcpy(&readWord64, bufChar + i, 8);
+      if (readWord64 != checkWord64)
+      {
+         //std::cout << "bad word: " << std::hex << readWord64 << std::dec << std::endl;
+         long diff = readWord64 ^ checkWord64;
+         for (int j=0; j < 64; j++)
+         {
+            bitflips += (diff >> j) & 1;
+         }
+      }
+   }
+
+   // dump the block to a file if there are any bitflips
+
+   if (bitflips > 0)
+   {
+      (*dumpFile) << "===================== block " << blockNum << " =====================" << std::endl;
+      (*dumpFile) << std::hex;
+      (*dumpFile) << "Doesn't match this check word: 0x" << std::setw(16) << std::setfill('0') << checkWord64 << std::endl;
+      dumpFile->fill('0');
+      for (int i=0; i < blockLenBytes; i += 16)
+      {
+         memcpy(&readWord64, bufChar + i, 8);
+         (*dumpFile) << std::setw(16) << std::setfill('0') << readWord64;
+         memcpy(&readWord64, bufChar + i + 8, 8);
+         (*dumpFile) << std::setw(16) << std::setfill('0') << readWord64 << std::endl;
+      }
+      (*dumpFile) << std::dec << std::endl;
+   }
+
+   return bitflips;
+}
+
+// this function sends the given msgStream to the log file stream as well as std::cout
+void DAQMB::dcfeb_prom_log(std::stringstream * msgStream, std::ofstream * logFile)
+{
+   std::string s = msgStream->str();
+   std::cout << s;
+   (*logFile) << s;
+   msgStream->str(std::string());
+}
+
+// this function tests the DCFEB PROM by erasing unused blocks and writing special markers in every unused block
+// then it reads those addresses where the markers are expected to be and checks that they are indeed there
+void DAQMB::dcfeb_prom_test(CFEB & cfeb, const char *filename)
+{
+   unsigned int fulladdr;
+   unsigned int uaddr,laddr;
+   unsigned int i, blocks, lastblock;
+   unsigned short *buf;
+   int total_read_blocks=4096;//1335;
+
+   const int PROM_SIZE=16777216/2;//5464972/2; // in words
+
+   // each eprom block has 0x10000 words
+   const int BLOCK_SIZE=0x10000; // in words
+
+   // each write call takes 0x400 words
+   const int WRITE_SIZE=0x400;  // in words
+
+   const unsigned READ_SIZE=0x800; // in words
+
+   std::cout << "Starting DCFEB EEPROM test" << std::endl;
+
+// 1. prepare the data to be written
+   char *bufin;
+   bufin=(char *)malloc(16*1024*1024);
+   if(bufin==NULL)  return;
+   unsigned short *bufw= (unsigned short *)bufin;
+   // fill all prom with blanks
+   long blankWord64 = 0xFFFFFFFFFFFFFFFF;
+   for (i=0; i < 2097152; i++) {
+       memcpy(bufin + i*8, &blankWord64, 8);
+   }
+   
+   // insert special markers at certain positions of unused blocks
+   long marker64 = 0xbaadbeefdead1234;
+   for (i=0x62; i < 0xFE; i+=2) {
+     memcpy(bufin + (i << 16) + (((i - 0x60)/2) * 0x10), &marker64, 8);
+   }
+   memcpy(bufin + 0xFE0000, &marker64, 8);
+   memcpy(bufin + 0xFE8000, &marker64, 8);
+   memcpy(bufin + 0xFF0000, &marker64, 8);
+   //memcpy(bufin + 0xFF8000, &marker64, 8); // DCFEB parameters are stored here
+
+
+//###################
+
+//##################
+
+
+   write_cfeb_selector(cfeb.SelectorBit());
+
+   dcfeb_bpi_reset();
+   dcfeb_bpi_enable();
+   dcfebprom_timerstop();
+   dcfebprom_timerreset();
+   dcfebprom_timerstart();
+
+// 2. erase eprom
+   blocks=PROM_SIZE/BLOCK_SIZE;
+   if((PROM_SIZE%BLOCK_SIZE)>0) blocks++;
+   std::cout << "Erasing EPROM..." << std::endl;
+   for(i=0x31; i<blocks; i++)
+   {
+      std::cout << "Erasing block " << i << " / " << blocks << std::endl;
+
+      // erase the 64K banks
+      if (i < blocks - 1) {
+          uaddr=i;
+          laddr=0;
+
+          dcfebprom_loadaddress(uaddr,laddr);
+          // unlock and erase the block
+          dcfebprom_unlockerase();
+
+          dcfebprom_clearstatus();
+          int bpi_status;
+          for(int j=0;j<200;j++)
+          {
+             udelay(100000);
+             bpi_status=dcfeb_bpi_status();
+             if((bpi_status&0x0080)==0x0080) { std::cout << "Finish at loop " << j << std::endl;  break; }
+          }          
+          if((bpi_status&0x0080)!=0x0080)
+          {
+             std::cout << "Error: BPI Status wrong after erasing!" << std::endl;
+             return;
+          }
+          // udelay(5000000);
+      }
+      
+      // erase the 16K banks (except the last two where we have the DCFEB serial number and parameters)
+      if (i == blocks - 1) {
+          for (int j=0; j < 2; j++) {  // this should go up to 4, but I don't want to erase the last two 16K blocks where we have the DCFEB serial number and parameters
+	      std::cout << "Erasing parameter space block " << j << std::endl;
+              uaddr = i;
+              laddr = j * 0x4000;
+
+              dcfebprom_loadaddress(uaddr,laddr);
+              // unlock and erase the block
+              dcfebprom_unlockerase();
+
+          dcfebprom_clearstatus();
+          int bpi_status;
+          for(int j=0;j<200;j++)
+          {
+             udelay(100000);
+             bpi_status=dcfeb_bpi_status();
+             if((bpi_status&0x0080)==0x0080) { std::cout << "Finish at loop " << j << std::endl;  break; }
+          }          
+          if((bpi_status&0x0080)!=0x0080)
+          {
+             std::cout << "Error: BPI Status wrong after erasing!" << std::endl;
+             return;
+          }
+
+             // udelay(5000000);
+	  }
+      }
+   }
+
+// 3. write eprom
+   blocks=PROM_SIZE/WRITE_SIZE;
+   lastblock=PROM_SIZE%WRITE_SIZE;
+   int p1pct=blocks/100;
+   int j=0, pcnts=0;
+   if(lastblock>0) blocks++;
+   else lastblock=WRITE_SIZE;
+   std::cout << "Start programming EPROM..." << std::endl;
+   fulladdr=0;
+   for(i=0x40 * 0x31; i<blocks; i++)  
+   {
+
+      fulladdr = i * WRITE_SIZE;
+      uaddr = (fulladdr >> 16);
+      laddr = fulladdr &0xffff;
+
+      // only write to the first and second 0x800 size block of each 64K and 16K PROM blocks
+      if ((laddr != 0x0000) && (laddr != WRITE_SIZE) && !((uaddr == 0x7F) && ((laddr%0x4000==0) && (laddr<0xc000)))) {
+          continue;
+      }
+
+      dcfeb_bpi_disable();
+      udelay(1000);
+      dcfeb_bpi_reset();
+      dcfeb_bpi_enable();
+      dcfebprom_timerstop();
+      dcfebprom_timerreset();
+      dcfebprom_timerstart();
+      udelay(1000);
+      dcfebprom_clearstatus();
+
+      int nwords=WRITE_SIZE;
+      if(i==blocks-1) nwords=lastblock;
+      std::cout << "Writing to address " << std::hex << fulladdr << std::dec << " with " << nwords << std::endl;
+      // printf(" load address %04x%04x \n",(uaddr&0xFFFF),(laddr&0xFFFF));
+      dcfebprom_loadaddress(uaddr,laddr);
+      // program with new data from the beginning of the block
+      dcfebprom_bufferprogram(nwords,bufw+i*WRITE_SIZE);
+      udelay(120000);
+       j++;
+       if(j==p1pct)
+       {  pcnts++;
+          if(pcnts<100) std::cout << "Sending " << pcnts <<"%..." << std::endl;
+          j=0;
+       }   
+   }
+    std::cout << "Sending 100%..." << std::endl;
+   uaddr = (fulladdr >> 16);
+   laddr = fulladdr &0xffff;
+   // printf(" lock address %04x%04x \n",(uaddr&0xFFFF),(laddr&0xFFFF));
+   dcfebprom_loadaddress(uaddr,laddr);
+   dcfebprom_lock();
+   udelay(500000);
+   dcfeb_bpi_disable();
+
+// 4. read back
+   buf=(unsigned short *)malloc(16*1024*1024);
+   if(buf==NULL) return;
+   dcfeb_bpi_reset();
+   dcfeb_bpi_enable();
+   
+   for(int i=0x20 * 0x31; i< total_read_blocks; i++)
+   {
+//       std::cout << "Block " << i << " / " << total_read_blocks << std::endl;
+      
+       fulladdr = i * READ_SIZE;
+       uaddr = (fulladdr >> 16);
+       laddr = fulladdr &0xffff;
+
+       // only write to the first and second 0x800 size block of each 64K and 16K PROM blocks
+       if ((laddr != 0x0000) && (laddr != WRITE_SIZE) && !((uaddr >= 0x7F) && (laddr % 0x4000==0))) {
+           continue;
+       }
+
+       std::cout << "Reading address 0x" << std::hex << fulladdr << std::dec << std::endl;
+       
+       dcfebprom_loadaddress(uaddr, laddr);
+
+       dcfebprom_read(READ_SIZE, buf+i*READ_SIZE);
+
+   }
+   dcfeb_bpi_disable();
+
+   std::cout << "Done reading back the EEPROM" << std::endl << std::endl;
+   std::cout << "Checking if the markers are found in the readback data" << std::endl;
+   std::cout << "Checking 64K blocks" << std::endl;
+
+   char *bufread= (char *)buf;
+   long readWord64 = 0;
+   for (i=0x62; i < 0xFE; i+=2) {
+     memcpy(&readWord64, bufread + (i << 16) + (((i - 0x60)/2) * 0x10), 8);
+     if (readWord64 != marker64) {
+     	std::cout << "WARNING: Didn't find marker at address " << std::hex << ((i << 16) + (((i - 0x60)/2) * 0x10)) << std::dec << std::endl;
+	std::cout << "Was expecting " << std::hex << marker64 << " but got " << readWord64 << std::dec << std::endl;
+     }
+   }
+
+   std::cout << "Checking 16K blocks" << std::endl;
+
+   memcpy(&readWord64, bufread + 0xFE0000, 8);
+   if (readWord64 != marker64) {
+     std::cout << "WARNING: Didn't find marker at address " << std::hex << 0xFE0000 << std::dec << std::endl;
+   }
+   memcpy(&readWord64, bufread + 0xFE8000, 8);
+   if (readWord64 != marker64) {
+     std::cout << "WARNING: Didn't find marker at address " << std::hex << 0xFE8000 << std::dec << std::endl;
+   }
+//   memcpy(&readWord64, bufread + 0xFF0000, 8);
+//   if (readWord64 != marker64) {
+//     std::cout << "WARNING: Didn't find marker at address " << std::hex << 0xFF0000 << std::dec << std::endl;
+//   }
+
+
+   free(buf);
+   free(bufin);
+   std::cout << " Done reading back!" << std::endl;
+   return;
+}
+  
+int DAQMB::cfeb_load_eprom(int ncfeb, const char  *svffile, int db, int verify )
+{
+     // ncfeb = -1 : broadcast to all CFEBs
+     // ncfeb = 0-4: CFEB#1-CFEB#5
+     int i=-2;
+     bool go=false;
+     if(ncfeb==-1)
+     {
+         write_cfeb_selector(0x1F);  // broadcast to all CFEBs
+         go=true;
+     }
+     else
+     {
+         for(unsigned i=0; i<cfebs_.size(); i++)
+         {
+            if( cfebs_[i].number()==ncfeb) { write_cfeb_selector(cfebs_[i].SelectorBit()); go=true; }
+         }
+     }
+     if(go) i=SVFLoad(CFEB_PROM, svffile, db, verify);
+     return i;
 }
 
 } // namespace emu::pc

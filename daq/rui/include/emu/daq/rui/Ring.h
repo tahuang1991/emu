@@ -2,6 +2,7 @@
 // Adapted (and fixed) from Bruce Eckel's Thinking in C++, 2nd Ed
 // http://www.codeguru.com/cpp/tic/tic0234.shtml
 
+#include <cstddef> // for size_t
 #include <list>
 
 template<class T>

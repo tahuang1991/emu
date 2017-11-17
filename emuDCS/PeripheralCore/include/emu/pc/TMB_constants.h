@@ -318,14 +318,14 @@ static const unsigned long int	alct_startup_status_adr = 0x000146; //ADR_ALCT_ST
 static const unsigned long int	v6_snap12_qpll_adr      = 0x000148; //ADR_V6_SNAP12_QPLL
 
 //GTX link control and monitoring
-static const unsigned long int  v6_gtx_rx_all_adr       = 0x00014A;  //ADR_V6_GTX_RX_ALL //GTX link control and monitoring
-static const unsigned long int  v6_gtx_rx0_adr          = 0x00014C;  //ADR_V6_GTX_RX0
-static const unsigned long int  v6_gtx_rx1_adr          = 0x00014E;  //ADR_V6_GTX_RX1
-static const unsigned long int  v6_gtx_rx2_adr          = 0x000150;  //ADR_V6_GTX_RX2
-static const unsigned long int  v6_gtx_rx3_adr          = 0x000152;  //ADR_V6_GTX_RX3
-static const unsigned long int  v6_gtx_rx4_adr          = 0x000154;  //ADR_V6_GTX_RX4
-static const unsigned long int  v6_gtx_rx5_adr          = 0x000156;  //ADR_V6_GTX_RX5
-static const unsigned long int  v6_gtx_rx6_adr          = 0x000158;  //ADR_V6_GTX_RX6
+static const unsigned long int  dcfeb_gtx_rx_all_adr       = 0x00014A;  //ADR_V6_GTX_RX_ALL //GTX link control and monitoring
+static const unsigned long int  dcfeb_gtx_rx0_adr          = 0x00014C;  //ADR_V6_GTX_RX0
+static const unsigned long int  dcfeb_gtx_rx1_adr          = 0x00014E;  //ADR_V6_GTX_RX1
+static const unsigned long int  dcfeb_gtx_rx2_adr          = 0x000150;  //ADR_V6_GTX_RX2
+static const unsigned long int  dcfeb_gtx_rx3_adr          = 0x000152;  //ADR_V6_GTX_RX3
+static const unsigned long int  dcfeb_gtx_rx4_adr          = 0x000154;  //ADR_V6_GTX_RX4
+static const unsigned long int  dcfeb_gtx_rx5_adr          = 0x000156;  //ADR_V6_GTX_RX5
+static const unsigned long int  dcfeb_gtx_rx6_adr          = 0x000158;  //ADR_V6_GTX_RX6
 
 static const unsigned long int	v6_sysmon_adr	        = 0x00015A;  //ADR_V6_SYSMON
 
@@ -353,8 +353,12 @@ static const unsigned long int  hcm623_adr              = 0x000176;
 static const unsigned long int  hcm645_adr              = 0x000178;
 
 //CFEB enable and mask extension bits for cfeb_inj_adr and seq_trig_en_adr: ADR_V6_EXTEND
- static const unsigned long int  dcfeb_inj_seq_trig_adr = 0x00017A;
-
+static const unsigned long int dcfeb_inj_seq_trig_adr   = 0x00017A;
+static const unsigned long int mpc0_frame0_fifo_adr     = 0x00017C;
+static const unsigned long int mpc0_frame1_fifo_adr     = 0x00017E;
+static const unsigned long int mpc1_frame0_fifo_adr     = 0x000180;
+static const unsigned long int mpc1_frame1_fifo_adr     = 0x000182;
+static const unsigned long int mpc_frames_fifo_ctrl_adr = 0x000184;
 // config timers on OTMB
 static const unsigned long int tmb_mez_fpga_jtag_count_adr   = 0x000186;
 static const unsigned long int tmb_power_up_time_adr    = 0x000188;
@@ -364,9 +368,29 @@ static const unsigned long int alct_load_cfg_time_adr   = 0x00018E;
 static const unsigned long int gtx_phaser_lock_time_adr = 0x000190;
 static const unsigned long int gtx_sync_done_time_adr   = 0x000192;
 
+// config new trigger algorithm
+static const unsigned long int algo2016_ctrl_adr = 0x000198;
+
+//GTX link control and monitoring for the GEM
+static const unsigned long int  gem_gtx_rx0_adr          = 0x000300;  //ADR_GEM_GTX_RX0
+static const unsigned long int  gem_gtx_rx1_adr          = 0x000302;  //ADR_GEM_GTX_RX1
+static const unsigned long int  gem_gtx_rx2_adr          = 0x000304;  //ADR_GEM_GTX_RX2
+static const unsigned long int  gem_gtx_rx3_adr          = 0x000306;  //ADR_GEM_GTX_RX3
+
+static const unsigned long int  phaser_gem_rxd_adr  = 0x000308;  // ADR_GEM_PHASER
+static const unsigned long int  phaser_gemA_rxd_adr = 0x000308;  // ADR_GEMA_PHASER
+static const unsigned long int  phaser_gemB_rxd_adr = 0x00030A;  // ADR_GEMB_PHASER
+
+static const unsigned long int gem_debug_fifo_ctrl_adr   = 0x00030c; // GEM Debug FIFO Control Address
+static const unsigned long int gem_debug_fifo_data_adr   = 0x00030e; // GEM Debug FIFO Data Address
+static const unsigned long int gem_tbins_adr             = 0x000310; // GEM Time Bin Readout Control Address
+static const unsigned long int gem_cfg_adr               = 0x000312; // GEM Configuration Address
+static const unsigned long int gem_cnt_ctrl_adr          = 0x000314; // GEM Counter Register Control Address
+static const unsigned long int gem_cnt_rdata_adr         = 0x000316; // GEM Counter Register Data Address
+
 //
 static const int LARGEST_VME_ADDRESS = badbits445_adr;
-static const int OTMB_LARGEST_VME_ADDRESS = gtx_sync_done_time_adr;
+static const int OTMB_LARGEST_VME_ADDRESS = algo2016_ctrl_adr;
 //
 //
 // TMB counter indices:
@@ -376,10 +400,22 @@ const int ECC_TRIGGER_PATH_TWO_ERRORS_COUNTER_INDEX           = 4;
 const int ECC_TRIGGER_PATH_MORE_THAN_TWO_ERRORS_COUNTER_INDEX = 5;
 const int ALCT_RAW_HITS_READOUT_COUNTER_INDEX                 = 10;
 const int CLCT_PRETRIGGER_COUNTER_INDEX                       = 13;
-const int LCT_SENT_TO_MPC_COUNTER_INDEX                       = 48; 
-const int LCT_ACCEPTED_BY_MPC_COUNTER_INDEX                   = 50; 
-const int L1A_IN_TMB_WINDOW_COUNTER_INDEX                     = 54; 
+const int LCT_SENT_TO_MPC_COUNTER_INDEX                       = 50; 
+const int LCT_ACCEPTED_BY_MPC_COUNTER_INDEX                   = 52; 
+const int L1A_IN_TMB_WINDOW_COUNTER_INDEX                     = 56; 
 //
+//
+
+static const unsigned OTMB_BPI_Reset   = 0x28020;
+static const unsigned OTMB_BPI_Disable = 0x28024;
+static const unsigned OTMB_BPI_Enable  = 0x28028;
+static const unsigned OTMB_BPI_Write   = 0x2802C;
+static const unsigned OTMB_BPI_Read    = 0x28030;
+static const unsigned OTMB_BPI_Read_n  = 0x28034;
+static const unsigned OTMB_BPI_Status  = 0x28038;
+static const unsigned OTMB_BPI_Timer_l = 0x2803C;
+static const unsigned OTMB_BPI_Timer_h = 0x28040;
+
 //
 /////////////////////////////////////////////////////////////////////////////////////
 // Bit mappings for VME registers
@@ -546,7 +582,7 @@ const int ddd_state_machine_clock0d_lock_expected     =  1 ;
 const int ddd_state_machine_clock1_lock_vmereg        =  vme_dddsm_adr;
 const int ddd_state_machine_clock1_lock_bitlo         = 10;
 const int ddd_state_machine_clock1_lock_bithi         = 10;
-const int ddd_state_machine_clock1_lock_expected      =  0;  
+const int ddd_state_machine_clock1_lock_expected      =  1;
 //
 const int ddd_state_machine_clock_alct_lock_vmereg    =  vme_dddsm_adr;
 const int ddd_state_machine_clock_alct_lock_bitlo     = 11;
@@ -558,20 +594,21 @@ const int ddd_state_machine_clockd_alct_lock_bitlo    = 12;
 const int ddd_state_machine_clockd_alct_lock_bithi    = 12;
 const int ddd_state_machine_clockd_alct_lock_expected =  1;  
 //
-const int ddd_state_machine_clock_cfeb_lock_vmereg     =  vme_dddsm_adr;
-const int ddd_state_machine_clock_cfeb_lock_bitlo      = 13;
-const int ddd_state_machine_clock_cfeb_lock_bithi      = 13;
-const int ddd_state_machine_clock_cfeb_lock_expected   =  0;  
+const int ddd_state_machine_clock_mpc_lock_vmereg     =  vme_dddsm_adr;
+const int ddd_state_machine_clock_mpc_lock_bitlo      = 13;
+const int ddd_state_machine_clock_mpc_lock_bithi      = 13;
+const int ddd_state_machine_clock_mpc_lock_expected   =  1;
 //
 const int ddd_state_machine_clock_dcc_lock_vmereg     =  vme_dddsm_adr;
 const int ddd_state_machine_clock_dcc_lock_bitlo      = 14;
 const int ddd_state_machine_clock_dcc_lock_bithi      = 14;
 const int ddd_state_machine_clock_dcc_lock_expected   =  1;  
 //
+// this is not really the RPC lock. It actually checks if the RPC done bit is somehow a clock
 const int ddd_state_machine_clock_rpc_lock_vmereg     =  vme_dddsm_adr;
 const int ddd_state_machine_clock_rpc_lock_bitlo      = 15;
 const int ddd_state_machine_clock_rpc_lock_bithi      = 15;
-// Expected value for RPC clock lock depends on rpc_exists_ for this TMB...
+const int ddd_state_machine_clock_rpc_lock_expected   = 0;
 //
 //
 //------------------------------------------------------------------
@@ -1428,6 +1465,138 @@ const int mpc_output_enable_default   =  1;
 //
 //
 //------------------------------------------------------------------
+//0X88 = ADR_MPC0_FRAME0:  MPC0 Frame0 Data Sent to MPC
+//------------------------------------------------------------------
+const int mpc0_frame0_alct_first_key_vmereg         = mpc0_frame0_adr;
+const int mpc0_frame0_alct_first_key_bitlo          = 0;
+const int mpc0_frame0_alct_first_key_bithi          = 6;
+const int mpc0_frame0_alct_first_key_default        = 0;
+//
+//
+const int mpc0_frame0_clct_first_pat_vmereg         = mpc0_frame0_adr;
+const int mpc0_frame0_clct_first_pat_bitlo          =  7;
+const int mpc0_frame0_clct_first_pat_bithi          = 10;
+const int mpc0_frame0_clct_first_pat_default        =  0;
+//
+//
+const int mpc0_frame0_lct_first_quality_vmereg      = mpc0_frame0_adr;
+const int mpc0_frame0_lct_first_quality_bitlo       = 11;
+const int mpc0_frame0_lct_first_quality_bithi       = 14;
+const int mpc0_frame0_lct_first_quality_default     =  0;
+//
+//
+const int mpc0_frame0_first_vpf_vmereg              = mpc0_frame0_adr;
+const int mpc0_frame0_first_vpf_bitlo               = 15;
+const int mpc0_frame0_first_vpf_bithi               = 15;
+const int mpc0_frame0_first_vpf_default             =  0;
+//
+//
+//------------------------------------------------------------------
+//0X8A = ADR_MPC0_FRAME1:  MPC0 Frame1 Data Sent to MPC
+//------------------------------------------------------------------
+const int mpc0_frame1_clct_first_key_vmereg         = mpc0_frame1_adr;
+const int mpc0_frame1_clct_first_key_bitlo          = 0;
+const int mpc0_frame1_clct_first_key_bithi          = 7;
+const int mpc0_frame1_clct_first_key_default        = 0;
+//
+//
+const int mpc0_frame1_clct_first_bend_vmereg        = mpc0_frame1_adr;
+const int mpc0_frame1_clct_first_bend_bitlo         = 8;
+const int mpc0_frame1_clct_first_bend_bithi         = 8;
+const int mpc0_frame1_clct_first_bend_default       = 0;
+//
+//
+const int mpc0_frame1_sync_err_vmereg               = mpc0_frame1_adr;
+const int mpc0_frame1_sync_err_bitlo                = 9;
+const int mpc0_frame1_sync_err_bithi                = 9;
+const int mpc0_frame1_sync_err_default              = 0;
+//
+//
+const int mpc0_frame1_alct_first_bxn_vmereg         = mpc0_frame1_adr;
+const int mpc0_frame1_alct_first_bxn_bitlo          = 10;
+const int mpc0_frame1_alct_first_bxn_bithi          = 10;
+const int mpc0_frame1_alct_first_bxn_default        =  0;
+//
+//
+const int mpc0_frame1_clct_first_bx0_local_vmereg   = mpc0_frame1_adr;
+const int mpc0_frame1_clct_first_bx0_local_bitlo    = 11;
+const int mpc0_frame1_clct_first_bx0_local_bithi    = 11;
+const int mpc0_frame1_clct_first_bx0_local_default  =  0;
+//
+//
+const int mpc0_frame1_csc_id_vmereg                 = mpc0_frame1_adr;
+const int mpc0_frame1_csc_id_bitlo                  = 12;
+const int mpc0_frame1_csc_id_bithi                  = 15;
+const int mpc0_frame1_csc_id_default                = 0;
+//
+//
+//------------------------------------------------------------------
+//0X8C = ADR_MPC1_FRAME0:  MPC1 Frame0 Data Sent to MPC
+//------------------------------------------------------------------
+const int mpc1_frame0_alct_second_key_vmereg        = mpc1_frame0_adr;
+const int mpc1_frame0_alct_second_key_bitlo         = 0;
+const int mpc1_frame0_alct_second_key_bithi         = 6;
+const int mpc1_frame0_alct_second_key_default       = 0;
+//
+//
+const int mpc1_frame0_clct_second_pat_vmereg        = mpc1_frame0_adr;
+const int mpc1_frame0_clct_second_pat_bitlo         =  7;
+const int mpc1_frame0_clct_second_pat_bithi         = 10;
+const int mpc1_frame0_clct_second_pat_default       =  0;
+//
+//
+const int mpc1_frame0_lct_second_quality_vmereg     = mpc1_frame0_adr;
+const int mpc1_frame0_lct_second_quality_bitlo      = 11;
+const int mpc1_frame0_lct_second_quality_bithi      = 14;
+const int mpc1_frame0_lct_second_quality_default    =  0;
+//
+//
+const int mpc1_frame0_second_vpf_vmereg             = mpc1_frame0_adr;
+const int mpc1_frame0_second_vpf_bitlo              = 15;
+const int mpc1_frame0_second_vpf_bithi              = 15;
+const int mpc1_frame0_second_vpf_default            = 0;
+//
+//
+//------------------------------------------------------------------
+//0X8E = ADR_MPC1_FRAME1:  MPC1 Frame1 Data Sent to MPC
+//------------------------------------------------------------------
+const int mpc1_frame1_clct_second_key_vmereg        = mpc1_frame1_adr;
+const int mpc1_frame1_clct_second_key_bitlo         = 0;
+const int mpc1_frame1_clct_second_key_bithi         = 7;
+const int mpc1_frame1_clct_second_key_default       = 0;
+//
+//
+const int mpc1_frame1_clct_second_bend_vmereg       = mpc1_frame1_adr;
+const int mpc1_frame1_clct_second_bend_bitlo        = 8;
+const int mpc1_frame1_clct_second_bend_bithi        = 8;
+const int mpc1_frame1_clct_second_bend_default      = 0;
+//
+//
+const int mpc1_frame1_sync_err_vmereg               = mpc1_frame1_adr;
+const int mpc1_frame1_sync_err_bitlo                = 9;
+const int mpc1_frame1_sync_err_bithi                = 9;
+const int mpc1_frame1_sync_err_default              = 0;
+//
+//
+const int mpc1_frame1_alct_second_bxn_vmereg        = mpc1_frame1_adr;
+const int mpc1_frame1_alct_second_bxn_bitlo         = 10;
+const int mpc1_frame1_alct_second_bxn_bithi         = 10;
+const int mpc1_frame1_alct_second_bxn_default       =  0;
+//
+//
+const int mpc1_frame1_clct_second_bx0_local_vmereg  = mpc1_frame1_adr;
+const int mpc1_frame1_clct_second_bx0_local_bitlo   = 11;
+const int mpc1_frame1_clct_second_bx0_local_bithi   = 11;
+const int mpc1_frame1_clct_second_bx0_local_default = 0;
+//
+//
+const int mpc1_frame1_csc_id_vmereg                 = mpc1_frame1_adr;
+const int mpc1_frame1_csc_id_bitlo                  = 12;
+const int mpc1_frame1_csc_id_bithi                  = 15;
+const int mpc1_frame1_csc_id_default                = 0;
+//
+//
+//------------------------------------------------------------------
 //0X98 = ADR_SCP_CTRL:  Scope control
 //------------------------------------------------------------------
 const int scope_in_readout_vmereg    =  scp_ctrl_adr;
@@ -1581,6 +1750,11 @@ const int mpc_tx_delay_vmereg            =  tmbtim_adr;
 const int mpc_tx_delay_bitlo             =  8;
 const int mpc_tx_delay_bithi             = 11;
 const int mpc_tx_delay_default           =  0;
+//
+const int clct_match_window_size_vmereg  =  tmbtim_adr;
+const int clct_match_window_size_bitlo   = 12;
+const int clct_match_window_size_bithi   = 15;
+const int clct_match_window_size_default =  3;
 //
 //
 //------------------------------------------------------------------
@@ -1795,11 +1969,11 @@ const int jtag_state_machine_sreset_bitlo         =  1;
 const int jtag_state_machine_sreset_bithi         =  1;
 const int jtag_state_machine_sreset_default       =  0;
 //
-// greg, this needs to be changed to allow selection of ALCT userPROM format
-const int jtag_state_machine_autostart_vmereg     =  jtag_sm_ctrl_adr;
-const int jtag_state_machine_autostart_bitlo      =  2;
-const int jtag_state_machine_autostart_bithi      =  2;
-const int jtag_state_machine_autostart_expected   =  1;   //expect JTAG state machine to have auto-started
+const int jtag_state_machine_select_vmereg     =  jtag_sm_ctrl_adr;
+const int jtag_state_machine_select_bitlo      =  2;
+const int jtag_state_machine_select_bithi      =  2;
+const int jtag_state_machine_select_default    =  0;
+const int jtag_state_machine_select_expected   =  0;   //expect old data format
 //
 const int jtag_state_machine_busy_vmereg          =  jtag_sm_ctrl_adr;
 const int jtag_state_machine_busy_bitlo           =  3;
@@ -2359,6 +2533,7 @@ const int alct_tx_posneg_default       =  0;
 //--------------------------------------------------------------
 const int cfeb0_rx_clock_delay_vmereg   =  phaser_cfeb0_rxd_adr;
 const int cfeb0_rx_clock_delay_default  =  3;                   //default value in nanoseconds (not the VME register values) 
+const int cfeb0_rx_fine_delay_default   =  0;
 const int cfeb0_rx_posneg_default       =  0; 
 //
 //--------------------------------------------------------------
@@ -2366,6 +2541,7 @@ const int cfeb0_rx_posneg_default       =  0;
 //--------------------------------------------------------------
 const int cfeb1_rx_clock_delay_vmereg   =  phaser_cfeb1_rxd_adr;
 const int cfeb1_rx_clock_delay_default  =  3;                   //default value in nanoseconds (not the VME register values) 
+const int cfeb1_rx_fine_delay_default   =  0;
 const int cfeb1_rx_posneg_default       =  0; 
 //
 //--------------------------------------------------------------
@@ -2373,6 +2549,7 @@ const int cfeb1_rx_posneg_default       =  0;
 //--------------------------------------------------------------
 const int cfeb2_rx_clock_delay_vmereg   =  phaser_cfeb2_rxd_adr;
 const int cfeb2_rx_clock_delay_default  =  3;                   //default value in nanoseconds (not the VME register values) 
+const int cfeb2_rx_fine_delay_default   =  0;
 const int cfeb2_rx_posneg_default       =  0; 
 //
 //--------------------------------------------------------------
@@ -2380,6 +2557,7 @@ const int cfeb2_rx_posneg_default       =  0;
 //--------------------------------------------------------------
 const int cfeb3_rx_clock_delay_vmereg   =  phaser_cfeb3_rxd_adr;
 const int cfeb3_rx_clock_delay_default  =  3;                   //default value in nanoseconds (not the VME register values) 
+const int cfeb3_rx_fine_delay_default   =  0;
 const int cfeb3_rx_posneg_default       =  0; 
 //
 //--------------------------------------------------------------
@@ -2387,6 +2565,7 @@ const int cfeb3_rx_posneg_default       =  0;
 //--------------------------------------------------------------
 const int cfeb4_rx_clock_delay_vmereg   =  phaser_cfeb4_rxd_adr;
 const int cfeb4_rx_clock_delay_default  =  3;                   //default value in nanoseconds (not the VME register values) 
+const int cfeb4_rx_fine_delay_default   =  0;
 const int cfeb4_rx_posneg_default       =  0; 
 //
 //--------------------------------------------------------------
@@ -2394,6 +2573,7 @@ const int cfeb4_rx_posneg_default       =  0;
 //--------------------------------------------------------------
 const int cfeb5_rx_clock_delay_vmereg   =  phaser_cfeb5_rxd_adr; // for compatibility, will be removed
 const int cfeb5_rx_clock_delay_default  =  3;                   //default value in nanoseconds (not the VME register values) 
+const int cfeb5_rx_fine_delay_default  = 0;
 const int cfeb5_rx_posneg_default       =  0; 
 //
 //--------------------------------------------------------------
@@ -2401,6 +2581,7 @@ const int cfeb5_rx_posneg_default       =  0;
 //--------------------------------------------------------------
 const int cfeb6_rx_clock_delay_vmereg   =  phaser_cfeb6_rxd_adr; // for compatibility, will be removed
 const int cfeb6_rx_clock_delay_default  =  3;                   //default value in nanoseconds (not the VME register values) 
+const int cfeb6_rx_fine_delay_default  = 0;         
 const int cfeb6_rx_posneg_default       =  0; 
 //
 //--------------------------------------------------------------
@@ -2408,6 +2589,7 @@ const int cfeb6_rx_posneg_default       =  0;
 //--------------------------------------------------------------
 const int cfeb0123_rx_clock_delay_vmereg   =  phaser_cfeb0123_rxd_adr;
 const int cfeb0123_rx_clock_delay_default  =  3;                   //default value in nanoseconds (not the VME register values) 
+const int cfeb0123_rx_fine_delay_default  = 0;                  
 const int cfeb0123_rx_posneg_default       =  0; 
 //
 //--------------------------------------------------------------
@@ -2415,7 +2597,32 @@ const int cfeb0123_rx_posneg_default       =  0;
 //--------------------------------------------------------------
 const int cfeb456_rx_clock_delay_vmereg   =  phaser_cfeb456_rxd_adr;
 const int cfeb456_rx_clock_delay_default  =  3;                   //default value in nanoseconds (not the VME register values) 
+const int cfeb456_rx_fine_delay_default  = 0;                   
 const int cfeb456_rx_posneg_default       =  0; 
+//
+//--------------------------------------------------------------
+//[0X308] = ADR_PHASER9:  values in the xml file for gem_rxd
+//--------------------------------------------------------------
+const int gem_rx_clock_delay_vmereg   =  phaser_gem_rxd_adr;
+const int gem_rx_clock_delay_default  =  3; // default value in nanoseconds (not the VME register values)
+const int gem_rx_posneg_default       =  0;
+const int gem_rx_fine_delay_default   =  0;
+//
+//--------------------------------------------------------------
+//[0X308] = ADR_PHASER9:  values in the xml file for gemA_rxd
+//--------------------------------------------------------------
+const int gemA_rx_clock_delay_vmereg   =  phaser_gemA_rxd_adr;
+const int gemA_rx_clock_delay_default  =  3; // default value in nanoseconds (not the VME register values)
+const int gemA_rx_posneg_default       =  0;
+const int gemA_rx_fine_delay_default   =  0;
+//
+//--------------------------------------------------------------
+//[0X30A] = ADR_PHASER10:  values in the xml file for gemB_rxd
+//--------------------------------------------------------------
+const int gemB_rx_clock_delay_vmereg   =  phaser_gemB_rxd_adr;
+const int gemB_rx_clock_delay_default  =  3; // default value in nanoseconds (not the VME register values)
+const int gemB_rx_posneg_default       =  0;
+const int gemB_rx_fine_delay_default   =  0;
 //
 //---------------------------------------------------------------------
 // 0X11C = ADR_DELAY0_INT:  CFEB to TMB "interstage" delays
@@ -2618,49 +2825,141 @@ const int qpll_lostlock_count_bithi       =  15;
 //
 //---------------------------------------------------------------------
 // 0X14C - 0X158 = ADR_V6_GTX_RX: GTX link control and monitoring
+// 0X300 - 0X306 = ADR_GEM_GTX_RX[0-3]: GTX link control and monitoring for GEM
 //---------------------------------------------------------------------
-const int gtx_rx0_enable_vmereg         =  v6_gtx_rx0_adr;
-const int gtx_rx1_enable_vmereg         =  v6_gtx_rx1_adr;
-const int gtx_rx2_enable_vmereg         =  v6_gtx_rx2_adr;
-const int gtx_rx3_enable_vmereg         =  v6_gtx_rx3_adr;
-const int gtx_rx4_enable_vmereg         =  v6_gtx_rx4_adr;
-const int gtx_rx5_enable_vmereg         =  v6_gtx_rx5_adr;
-const int gtx_rx6_enable_vmereg         =  v6_gtx_rx6_adr;
-const int gtx_rx_enable_bitlo           =  0;
-const int gtx_rx_enable_bithi           =  0;
-const int gtx_rx_enable_default         =  1;
+const int gtx_rx0_enable_vmereg              =  dcfeb_gtx_rx0_adr;
+const int gtx_rx1_enable_vmereg              =  dcfeb_gtx_rx1_adr;
+const int gtx_rx2_enable_vmereg              =  dcfeb_gtx_rx2_adr;
+const int gtx_rx3_enable_vmereg              =  dcfeb_gtx_rx3_adr;
+const int gtx_rx4_enable_vmereg              =  dcfeb_gtx_rx4_adr;
+const int gtx_rx5_enable_vmereg              =  dcfeb_gtx_rx5_adr;
+const int gtx_rx6_enable_vmereg              =  dcfeb_gtx_rx6_adr;
+const int gem_gtx_rx0_enable_vmereg          =  gem_gtx_rx0_adr;
+const int gem_gtx_rx1_enable_vmereg          =  gem_gtx_rx1_adr;
+const int gem_gtx_rx2_enable_vmereg          =  gem_gtx_rx2_adr;
+const int gem_gtx_rx3_enable_vmereg          =  gem_gtx_rx3_adr;
+const int gtx_rx_enable_bitlo               =  0;
+const int gtx_rx_enable_bithi               =  0;
+const int gtx_rx_enable_default             =  1;
 
-const int gtx_rx0_reset_vmereg          =  v6_gtx_rx0_adr;
-const int gtx_rx1_reset_vmereg          =  v6_gtx_rx1_adr;
-const int gtx_rx2_reset_vmereg          =  v6_gtx_rx2_adr;
-const int gtx_rx3_reset_vmereg          =  v6_gtx_rx3_adr;
-const int gtx_rx4_reset_vmereg          =  v6_gtx_rx4_adr;
-const int gtx_rx5_reset_vmereg          =  v6_gtx_rx5_adr;
-const int gtx_rx6_reset_vmereg          =  v6_gtx_rx6_adr;
-const int gtx_rx_reset_bitlo            =  1;
-const int gtx_rx_reset_bithi            =  1;
-const int gtx_rx_reset_default          =  0;
+const int gtx_rx0_reset_vmereg              =  dcfeb_gtx_rx0_adr;
+const int gtx_rx1_reset_vmereg              =  dcfeb_gtx_rx1_adr;
+const int gtx_rx2_reset_vmereg              =  dcfeb_gtx_rx2_adr;
+const int gtx_rx3_reset_vmereg              =  dcfeb_gtx_rx3_adr;
+const int gtx_rx4_reset_vmereg              =  dcfeb_gtx_rx4_adr;
+const int gtx_rx5_reset_vmereg              =  dcfeb_gtx_rx5_adr;
+const int gtx_rx6_reset_vmereg              =  dcfeb_gtx_rx6_adr;
+const int gem_gtx_rx0_reset_vmereg          =  gem_gtx_rx0_adr;
+const int gem_gtx_rx1_reset_vmereg          =  gem_gtx_rx1_adr;
+const int gem_gtx_rx2_reset_vmereg          =  gem_gtx_rx2_adr;
+const int gem_gtx_rx3_reset_vmereg          =  gem_gtx_rx3_adr;
+const int gtx_rx_reset_bitlo               =  1;
+const int gtx_rx_reset_bithi               =  1;
+const int gtx_rx_reset_default             =  0;
 
-const int gtx_rx0_prbs_test_enable_vmereg       =  v6_gtx_rx0_adr;
-const int gtx_rx1_prbs_test_enable_vmereg       =  v6_gtx_rx1_adr;
-const int gtx_rx2_prbs_test_enable_vmereg       =  v6_gtx_rx2_adr;
-const int gtx_rx3_prbs_test_enable_vmereg       =  v6_gtx_rx3_adr;
-const int gtx_rx4_prbs_test_enable_vmereg       =  v6_gtx_rx4_adr;
-const int gtx_rx5_prbs_test_enable_vmereg       =  v6_gtx_rx5_adr;
-const int gtx_rx6_prbs_test_enable_vmereg       =  v6_gtx_rx6_adr;
-const int gtx_rx_prbs_test_enable_bitlo        =  2;
-const int gtx_rx_prbs_test_enable_bithi        =  2;
-const int gtx_rx_prbs_test_enable_default      =  0;
+const int gtx_rx0_prbs_test_enable_vmereg              =  dcfeb_gtx_rx0_adr;
+const int gtx_rx1_prbs_test_enable_vmereg              =  dcfeb_gtx_rx1_adr;
+const int gtx_rx2_prbs_test_enable_vmereg              =  dcfeb_gtx_rx2_adr;
+const int gtx_rx3_prbs_test_enable_vmereg              =  dcfeb_gtx_rx3_adr;
+const int gtx_rx4_prbs_test_enable_vmereg              =  dcfeb_gtx_rx4_adr;
+const int gtx_rx5_prbs_test_enable_vmereg              =  dcfeb_gtx_rx5_adr;
+const int gtx_rx6_prbs_test_enable_vmereg              =  dcfeb_gtx_rx6_adr;
+const int gem_gtx_rx0_prbs_test_enable_vmereg          =  gem_gtx_rx0_adr;
+const int gem_gtx_rx1_prbs_test_enable_vmereg          =  gem_gtx_rx1_adr;
+const int gem_gtx_rx2_prbs_test_enable_vmereg          =  gem_gtx_rx2_adr;
+const int gem_gtx_rx3_prbs_test_enable_vmereg          =  gem_gtx_rx3_adr;
+const int gtx_rx_prbs_test_enable_bitlo               =  2;
+const int gtx_rx_prbs_test_enable_bithi               =  2;
+const int gtx_rx_prbs_test_enable_default             =  0;
 
-const int gtx_rx0_ready_vmereg          =  v6_gtx_rx0_adr;
-const int gtx_rx1_ready_vmereg          =  v6_gtx_rx1_adr;
-const int gtx_rx2_ready_vmereg          =  v6_gtx_rx2_adr;
-const int gtx_rx3_ready_vmereg          =  v6_gtx_rx3_adr;
-const int gtx_rx4_ready_vmereg          =  v6_gtx_rx4_adr;
-const int gtx_rx5_ready_vmereg          =  v6_gtx_rx5_adr;
-const int gtx_rx6_ready_vmereg          =  v6_gtx_rx6_adr;
-const int gtx_rx_ready_bitlo           =  3;
-const int gtx_rx_ready_bithi           =  3;
+const int gtx_rx0_ready_vmereg              =  dcfeb_gtx_rx0_adr;
+const int gtx_rx1_ready_vmereg              =  dcfeb_gtx_rx1_adr;
+const int gtx_rx2_ready_vmereg              =  dcfeb_gtx_rx2_adr;
+const int gtx_rx3_ready_vmereg              =  dcfeb_gtx_rx3_adr;
+const int gtx_rx4_ready_vmereg              =  dcfeb_gtx_rx4_adr;
+const int gtx_rx5_ready_vmereg              =  dcfeb_gtx_rx5_adr;
+const int gtx_rx6_ready_vmereg              =  dcfeb_gtx_rx6_adr;
+const int gem_gtx_rx0_ready_vmereg          =  gem_gtx_rx0_adr;
+const int gem_gtx_rx1_ready_vmereg          =  gem_gtx_rx1_adr;
+const int gem_gtx_rx2_ready_vmereg          =  gem_gtx_rx2_adr;
+const int gem_gtx_rx3_ready_vmereg          =  gem_gtx_rx3_adr;
+const int gtx_rx_ready_bitlo               =  3;
+const int gtx_rx_ready_bithi               =  3;
+//
+
+//GTX link is locked (over 15 BX with clean data frames)
+const int gtx_rx0_link_good_vmereg              =  dcfeb_gtx_rx0_adr;
+const int gtx_rx1_link_good_vmereg              =  dcfeb_gtx_rx1_adr;
+const int gtx_rx2_link_good_vmereg              =  dcfeb_gtx_rx2_adr;
+const int gtx_rx3_link_good_vmereg              =  dcfeb_gtx_rx3_adr;
+const int gtx_rx4_link_good_vmereg              =  dcfeb_gtx_rx4_adr;
+const int gtx_rx5_link_good_vmereg              =  dcfeb_gtx_rx5_adr;
+const int gtx_rx6_link_good_vmereg              =  dcfeb_gtx_rx6_adr;
+const int gem_gtx_rx0_link_good_vmereg          =  gem_gtx_rx0_adr;
+const int gem_gtx_rx1_link_good_vmereg          =  gem_gtx_rx1_adr;
+const int gem_gtx_rx2_link_good_vmereg          =  gem_gtx_rx2_adr;
+const int gem_gtx_rx3_link_good_vmereg          =  gem_gtx_rx3_adr;
+const int gtx_rx_link_good_bitlo               =  4;
+const int gtx_rx_link_good_bithi               =  4;
+
+//GTX link had an error (bad data frame) since last reset
+const int gtx_rx0_link_had_error_vmereg              =  dcfeb_gtx_rx0_adr;
+const int gtx_rx1_link_had_error_vmereg              =  dcfeb_gtx_rx1_adr;
+const int gtx_rx2_link_had_error_vmereg              =  dcfeb_gtx_rx2_adr;
+const int gtx_rx3_link_had_error_vmereg              =  dcfeb_gtx_rx3_adr;
+const int gtx_rx4_link_had_error_vmereg              =  dcfeb_gtx_rx4_adr;
+const int gtx_rx5_link_had_error_vmereg              =  dcfeb_gtx_rx5_adr;
+const int gtx_rx6_link_had_error_vmereg              =  dcfeb_gtx_rx6_adr;
+const int gem_gtx_rx0_link_had_error_vmereg          =  gem_gtx_rx0_adr;
+const int gem_gtx_rx1_link_had_error_vmereg          =  gem_gtx_rx1_adr;
+const int gem_gtx_rx2_link_had_error_vmereg          =  gem_gtx_rx2_adr;
+const int gem_gtx_rx3_link_had_error_vmereg          =  gem_gtx_rx3_adr;
+const int gtx_rx_link_had_error_bitlo               =  5;
+const int gtx_rx_link_had_error_bithi               =  5;
+
+//GTX link had over 100 errors since last reset
+const int gtx_rx0_link_bad_vmereg              =  dcfeb_gtx_rx0_adr;
+const int gtx_rx1_link_bad_vmereg              =  dcfeb_gtx_rx1_adr;
+const int gtx_rx2_link_bad_vmereg              =  dcfeb_gtx_rx2_adr;
+const int gtx_rx3_link_bad_vmereg              =  dcfeb_gtx_rx3_adr;
+const int gtx_rx4_link_bad_vmereg              =  dcfeb_gtx_rx4_adr;
+const int gtx_rx5_link_bad_vmereg              =  dcfeb_gtx_rx5_adr;
+const int gtx_rx6_link_bad_vmereg              =  dcfeb_gtx_rx6_adr;
+const int gem_gtx_rx0_link_bad_vmereg          =  gem_gtx_rx0_adr;
+const int gem_gtx_rx1_link_bad_vmereg          =  gem_gtx_rx1_adr;
+const int gem_gtx_rx2_link_bad_vmereg          =  gem_gtx_rx2_adr;
+const int gem_gtx_rx3_link_bad_vmereg          =  gem_gtx_rx3_adr;
+const int gtx_rx_link_bad_bitlo               =  6;
+const int gtx_rx_link_bad_bithi               =  6;
+
+const int gtx_rx0_pol_swap_vmereg              =  dcfeb_gtx_rx0_adr;
+const int gtx_rx1_pol_swap_vmereg              =  dcfeb_gtx_rx1_adr;
+const int gtx_rx2_pol_swap_vmereg              =  dcfeb_gtx_rx2_adr;
+const int gtx_rx3_pol_swap_vmereg              =  dcfeb_gtx_rx3_adr;
+const int gtx_rx4_pol_swap_vmereg              =  dcfeb_gtx_rx4_adr;
+const int gtx_rx5_pol_swap_vmereg              =  dcfeb_gtx_rx5_adr;
+const int gtx_rx6_pol_swap_vmereg              =  dcfeb_gtx_rx6_adr;
+const int gem_gtx_rx0_pol_swap_vmereg          =  gem_gtx_rx0_adr;
+const int gem_gtx_rx1_pol_swap_vmereg          =  gem_gtx_rx1_adr;
+const int gem_gtx_rx2_pol_swap_vmereg          =  gem_gtx_rx2_adr;
+const int gem_gtx_rx3_pol_swap_vmereg          =  gem_gtx_rx3_adr;
+const int gtx_rx_pol_swap_bitlo               =  7;
+const int gtx_rx_pol_swap_bithi               =  7;
+
+const int gtx_rx0_error_count_vmereg              =  dcfeb_gtx_rx0_adr;
+const int gtx_rx1_error_count_vmereg              =  dcfeb_gtx_rx1_adr;
+const int gtx_rx2_error_count_vmereg              =  dcfeb_gtx_rx2_adr;
+const int gtx_rx3_error_count_vmereg              =  dcfeb_gtx_rx3_adr;
+const int gtx_rx4_error_count_vmereg              =  dcfeb_gtx_rx4_adr;
+const int gtx_rx5_error_count_vmereg              =  dcfeb_gtx_rx5_adr;
+const int gtx_rx6_error_count_vmereg              =  dcfeb_gtx_rx6_adr;
+const int gem_gtx_rx0_error_count_vmereg          =  gem_gtx_rx0_adr;
+const int gem_gtx_rx1_error_count_vmereg          =  gem_gtx_rx1_adr;
+const int gem_gtx_rx2_error_count_vmereg          =  gem_gtx_rx2_adr;
+const int gem_gtx_rx3_error_count_vmereg          =  gem_gtx_rx3_adr;
+const int gtx_rx_error_count_bitlo               =  8;
+const int gtx_rx_error_count_bithi               =  15;
+
 //
 //---------------------------------------------------------------------
 // 0X15C ADR_V6_CFEB_BADBITS_CTRL: CFEB Bad Bits Control/Status (See Adr 0x122) (extra DCFEB Bad Bits on OTMB)
@@ -2678,60 +2977,6 @@ const int dcfeb_badbits_block_default  =  0;
 const int dcfeb_badbits_found_vmereg   =  dcfeb_badbits_ctrl_adr;
 const int dcfeb_badbits_found_bitlo    = 4;
 const int dcfeb_badbits_found_bithi    = 5;
-//
-
-//GTX link is locked (over 15 BX with clean data frames)
-const int gtx_rx0_link_good_vmereg      =  v6_gtx_rx0_adr;
-const int gtx_rx1_link_good_vmereg      =  v6_gtx_rx1_adr;
-const int gtx_rx2_link_good_vmereg      =  v6_gtx_rx2_adr;
-const int gtx_rx3_link_good_vmereg      =  v6_gtx_rx3_adr;
-const int gtx_rx4_link_good_vmereg      =  v6_gtx_rx4_adr;
-const int gtx_rx5_link_good_vmereg      =  v6_gtx_rx5_adr;
-const int gtx_rx6_link_good_vmereg      =  v6_gtx_rx6_adr;
-const int gtx_rx_link_good_bitlo       =  4;
-const int gtx_rx_link_good_bithi       =  4;
-
-//GTX link had an error (bad data frame) since last reset
-const int gtx_rx0_link_had_error_vmereg =  v6_gtx_rx0_adr;
-const int gtx_rx1_link_had_error_vmereg =  v6_gtx_rx1_adr;
-const int gtx_rx2_link_had_error_vmereg =  v6_gtx_rx2_adr;
-const int gtx_rx3_link_had_error_vmereg =  v6_gtx_rx3_adr;
-const int gtx_rx4_link_had_error_vmereg =  v6_gtx_rx4_adr;
-const int gtx_rx5_link_had_error_vmereg =  v6_gtx_rx5_adr;
-const int gtx_rx6_link_had_error_vmereg =  v6_gtx_rx6_adr;
-const int gtx_rx_link_had_error_bitlo  =  5;
-const int gtx_rx_link_had_error_bithi  =  5;
-
-//GTX link had over 100 errors since last reset
-const int gtx_rx0_link_bad_vmereg       =  v6_gtx_rx0_adr;
-const int gtx_rx1_link_bad_vmereg       =  v6_gtx_rx1_adr;
-const int gtx_rx2_link_bad_vmereg       =  v6_gtx_rx2_adr;
-const int gtx_rx3_link_bad_vmereg       =  v6_gtx_rx3_adr;
-const int gtx_rx4_link_bad_vmereg       =  v6_gtx_rx4_adr;
-const int gtx_rx5_link_bad_vmereg       =  v6_gtx_rx5_adr;
-const int gtx_rx6_link_bad_vmereg       =  v6_gtx_rx6_adr;
-const int gtx_rx_link_bad_bitlo        =  6;
-const int gtx_rx_link_bad_bithi        =  6;
-
-const int gtx_rx0_pol_swap_vmereg       =  v6_gtx_rx0_adr;
-const int gtx_rx1_pol_swap_vmereg       =  v6_gtx_rx1_adr;
-const int gtx_rx2_pol_swap_vmereg       =  v6_gtx_rx2_adr;
-const int gtx_rx3_pol_swap_vmereg       =  v6_gtx_rx3_adr;
-const int gtx_rx4_pol_swap_vmereg       =  v6_gtx_rx4_adr;
-const int gtx_rx5_pol_swap_vmereg       =  v6_gtx_rx5_adr;
-const int gtx_rx6_pol_swap_vmereg       =  v6_gtx_rx6_adr;
-const int gtx_rx_pol_swap_bitlo        =  7;
-const int gtx_rx_pol_swap_bithi        =  7;
-
-const int gtx_rx0_error_count_vmereg    =  v6_gtx_rx0_adr;
-const int gtx_rx1_error_count_vmereg    =  v6_gtx_rx1_adr;
-const int gtx_rx2_error_count_vmereg    =  v6_gtx_rx2_adr;
-const int gtx_rx3_error_count_vmereg    =  v6_gtx_rx3_adr;
-const int gtx_rx4_error_count_vmereg    =  v6_gtx_rx4_adr;
-const int gtx_rx5_error_count_vmereg    =  v6_gtx_rx5_adr;
-const int gtx_rx6_error_count_vmereg    =  v6_gtx_rx6_adr;
-const int gtx_rx_error_count_bitlo     =  8;
-const int gtx_rx_error_count_bithi     =  15;
 
 //
 //------------------------------------------------------------------
@@ -2756,523 +3001,938 @@ const int cfebs_enabled_extend_bithi                 =   7;
 const int cfebs_enabled_extend_readback_vmereg       = dcfeb_inj_seq_trig_adr;
 const int cfebs_enabled_extend_readback_bitlo        =   8;
 const int cfebs_enabled_extend_readback_bithi        =   9;
-
+//
+//
+//------------------------------------------------------------------
+//0X17C = ADR_MPC0_FRAME0_FIFO:  MPC0 Frame0 Data Sent to MPC and Stored in FIFO
+//------------------------------------------------------------------
+const int mpc0_frame0_fifo_alct_first_key_vmereg         = mpc0_frame0_fifo_adr;
+const int mpc0_frame0_fifo_alct_first_key_bitlo          = 0;
+const int mpc0_frame0_fifo_alct_first_key_bithi          = 6;
+const int mpc0_frame0_fifo_alct_first_key_default        = 0;
+//
+//
+const int mpc0_frame0_fifo_clct_first_pat_vmereg         = mpc0_frame0_fifo_adr;
+const int mpc0_frame0_fifo_clct_first_pat_bitlo          = 7;
+const int mpc0_frame0_fifo_clct_first_pat_bithi          = 10;
+const int mpc0_frame0_fifo_clct_first_pat_default        = 0;
+//
+//
+const int mpc0_frame0_fifo_lct_first_quality_vmereg      = mpc0_frame0_fifo_adr;
+const int mpc0_frame0_fifo_lct_first_quality_bitlo       = 11;
+const int mpc0_frame0_fifo_lct_first_quality_bithi       = 14;
+const int mpc0_frame0_fifo_lct_first_quality_default     = 0;
+//
+//
+const int mpc0_frame0_fifo_first_vpf_vmereg              = mpc0_frame0_fifo_adr;
+const int mpc0_frame0_fifo_first_vpf_bitlo               = 15;
+const int mpc0_frame0_fifo_first_vpf_bithi               = 15;
+const int mpc0_frame0_fifo_first_vpf_default             = 0;
+//
+//
+//------------------------------------------------------------------
+//0X17E = ADR_MPC0_FRAME1_FIFO:  MPC0 Frame1 Data Sent to MPC and Stored in FIFO
+//------------------------------------------------------------------
+const int mpc0_frame1_fifo_clct_first_key_vmereg         = mpc0_frame1_fifo_adr;
+const int mpc0_frame1_fifo_clct_first_key_bitlo          = 0;
+const int mpc0_frame1_fifo_clct_first_key_bithi          = 7;
+const int mpc0_frame1_fifo_clct_first_key_default        = 0;
+//
+//
+const int mpc0_frame1_fifo_clct_first_bend_vmereg        = mpc0_frame1_fifo_adr;
+const int mpc0_frame1_fifo_clct_first_bend_bitlo         = 8;
+const int mpc0_frame1_fifo_clct_first_bend_bithi         = 8;
+const int mpc0_frame1_fifo_clct_first_bend_default       = 0;
+//
+//
+const int mpc0_frame1_fifo_sync_err_vmereg               = mpc0_frame1_fifo_adr;
+const int mpc0_frame1_fifo_sync_err_bitlo                = 9;
+const int mpc0_frame1_fifo_sync_err_bithi                = 9;
+const int mpc0_frame1_fifo_sync_err_default              = 0;
+//
+//
+const int mpc0_frame1_fifo_alct_first_bxn_vmereg         = mpc0_frame1_fifo_adr;
+const int mpc0_frame1_fifo_alct_first_bxn_bitlo          = 10;
+const int mpc0_frame1_fifo_alct_first_bxn_bithi          = 10;
+const int mpc0_frame1_fifo_alct_first_bxn_default        = 0;
+//
+//
+const int mpc0_frame1_fifo_clct_first_bx0_local_vmereg   = mpc0_frame1_fifo_adr;
+const int mpc0_frame1_fifo_clct_first_bx0_local_bitlo    = 11;
+const int mpc0_frame1_fifo_clct_first_bx0_local_bithi    = 11;
+const int mpc0_frame1_fifo_clct_first_bx0_local_default  = 0;
+//
+//
+const int mpc0_frame1_fifo_csc_id_vmereg                 = mpc0_frame1_fifo_adr;
+const int mpc0_frame1_fifo_csc_id_bitlo                  = 12;
+const int mpc0_frame1_fifo_csc_id_bithi                  = 15;
+const int mpc0_frame1_fifo_csc_id_default                = 0;
+//
+//
+//------------------------------------------------------------------
+//0X180 = ADR_MPC1_FRAME0_FIFO:  MPC1 Frame0 Data Sent to MPC and Stored in FIFO
+//------------------------------------------------------------------
+const int mpc1_frame0_fifo_alct_second_key_vmereg        = mpc1_frame0_fifo_adr;
+const int mpc1_frame0_fifo_alct_second_key_bitlo         = 0;
+const int mpc1_frame0_fifo_alct_second_key_bithi         = 6;
+const int mpc1_frame0_fifo_alct_second_key_default       = 0;
+//
+//
+const int mpc1_frame0_fifo_clct_second_pat_vmereg        = mpc1_frame0_fifo_adr;
+const int mpc1_frame0_fifo_clct_second_pat_bitlo         = 7;
+const int mpc1_frame0_fifo_clct_second_pat_bithi         = 10;
+const int mpc1_frame0_fifo_clct_second_pat_default       = 0;
+//
+//
+const int mpc1_frame0_fifo_lct_second_quality_vmereg     = mpc1_frame0_fifo_adr;
+const int mpc1_frame0_fifo_lct_second_quality_bitlo      = 11;
+const int mpc1_frame0_fifo_lct_second_quality_bithi      = 14;
+const int mpc1_frame0_fifo_lct_second_quality_default    = 0;
+//
+//
+const int mpc1_frame0_fifo_second_vpf_vmereg             = mpc1_frame0_fifo_adr;
+const int mpc1_frame0_fifo_second_vpf_bitlo              = 15;
+const int mpc1_frame0_fifo_second_vpf_bithi              = 15;
+const int mpc1_frame0_fifo_second_vpf_default            = 0;
+//
+//
+//------------------------------------------------------------------
+//0X182 = ADR_MPC1_FRAME1_FIFO:  MPC1 Frame1 Data Sent to MPC
+//------------------------------------------------------------------
+const int mpc1_frame1_fifo_clct_second_key_vmereg        = mpc1_frame1_fifo_adr;
+const int mpc1_frame1_fifo_clct_second_key_bitlo         = 0;
+const int mpc1_frame1_fifo_clct_second_key_bithi         = 7;
+const int mpc1_frame1_fifo_clct_second_key_default       = 0;
+//
+//
+const int mpc1_frame1_fifo_clct_second_bend_vmereg       = mpc1_frame1_fifo_adr;
+const int mpc1_frame1_fifo_clct_second_bend_bitlo        = 8;
+const int mpc1_frame1_fifo_clct_second_bend_bithi        = 8;
+const int mpc1_frame1_fifo_clct_second_bend_default      = 0;
+//
+//
+const int mpc1_frame1_fifo_sync_err_vmereg               = mpc1_frame1_fifo_adr;
+const int mpc1_frame1_fifo_sync_err_bitlo                = 9;
+const int mpc1_frame1_fifo_sync_err_bithi                = 9;
+const int mpc1_frame1_fifo_sync_err_default              = 0;
+//
+//
+const int mpc1_frame1_fifo_alct_second_bxn_vmereg        = mpc1_frame1_fifo_adr;
+const int mpc1_frame1_fifo_alct_second_bxn_bitlo         = 10;
+const int mpc1_frame1_fifo_alct_second_bxn_bithi         = 10;
+const int mpc1_frame1_fifo_alct_second_bxn_default       = 0;
+//
+//
+const int mpc1_frame1_fifo_clct_second_bx0_local_vmereg  = mpc1_frame1_fifo_adr;
+const int mpc1_frame1_fifo_clct_second_bx0_local_bitlo   = 11;
+const int mpc1_frame1_fifo_clct_second_bx0_local_bithi   = 11;
+const int mpc1_frame1_fifo_clct_second_bx0_local_default = 0;
+//
+//
+const int mpc1_frame1_fifo_csc_id_vmereg                 = mpc1_frame1_fifo_adr;
+const int mpc1_frame1_fifo_csc_id_bitlo                  = 12;
+const int mpc1_frame1_fifo_csc_id_bithi                  = 15;
+const int mpc1_frame1_fifo_csc_id_default                = 0;
+//
+//
+//------------------------------------------------------------------
+//0X184 = ADR_MPC_FRAMES_FIFO_CTRL:  Controls FIFO
+//------------------------------------------------------------------
+const int mpc_frames_fifo_ctrl_wr_en_vmereg              = mpc_frames_fifo_ctrl_adr;
+const int mpc_frames_fifo_ctrl_wr_en_bitlo               = 0;
+const int mpc_frames_fifo_ctrl_wr_en_bithi               = 0;
+const int mpc_frames_fifo_ctrl_wr_en_default             = 1;
+//
+//
+const int mpc_frames_fifo_ctrl_rd_en_vmereg              = mpc_frames_fifo_ctrl_adr;
+const int mpc_frames_fifo_ctrl_rd_en_bitlo               = 1;
+const int mpc_frames_fifo_ctrl_rd_en_bithi               = 1;
+const int mpc_frames_fifo_ctrl_rd_en_default             = 0;
+//
+//
+const int mpc_frames_fifo_ctrl_full_vmereg               = mpc_frames_fifo_ctrl_adr;
+const int mpc_frames_fifo_ctrl_full_bitlo                = 2;
+const int mpc_frames_fifo_ctrl_full_bithi                = 2;
+const int mpc_frames_fifo_ctrl_full_default              = 0;
+//
+//
+const int mpc_frames_fifo_ctrl_wr_ack_vmereg             = mpc_frames_fifo_ctrl_adr;
+const int mpc_frames_fifo_ctrl_wr_ack_bitlo              = 3;
+const int mpc_frames_fifo_ctrl_wr_ack_bithi              = 3;
+const int mpc_frames_fifo_ctrl_wr_ack_default            = 0;
+//
+//
+const int mpc_frames_fifo_ctrl_overflow_vmereg           = mpc_frames_fifo_ctrl_adr;
+const int mpc_frames_fifo_ctrl_overflow_bitlo            = 4;
+const int mpc_frames_fifo_ctrl_overflow_bithi            = 4;
+const int mpc_frames_fifo_ctrl_overflow_default          = 0;
+//
+//
+const int mpc_frames_fifo_ctrl_empty_vmereg              = mpc_frames_fifo_ctrl_adr;
+const int mpc_frames_fifo_ctrl_empty_bitlo               = 5;
+const int mpc_frames_fifo_ctrl_empty_bithi               = 5;
+const int mpc_frames_fifo_ctrl_empty_default             = 0;
+//
+//
+const int mpc_frames_fifo_ctrl_prog_full_vmereg          = mpc_frames_fifo_ctrl_adr;
+const int mpc_frames_fifo_ctrl_prog_full_bitlo           = 6;
+const int mpc_frames_fifo_ctrl_prog_full_bithi           = 6;
+const int mpc_frames_fifo_ctrl_prog_full_default         = 0;
+//
+//
+const int mpc_frames_fifo_ctrl_sbiterr_vmereg            = mpc_frames_fifo_ctrl_adr;
+const int mpc_frames_fifo_ctrl_sbiterr_bitlo             = 7;
+const int mpc_frames_fifo_ctrl_sbiterr_bithi             = 7;
+const int mpc_frames_fifo_ctrl_sbiterr_default           = 0;
+//
+//
+const int mpc_frames_fifo_ctrl_sditter_vmereg            = mpc_frames_fifo_ctrl_adr;
+const int mpc_frames_fifo_ctrl_sditter_bitlo             = 8;
+const int mpc_frames_fifo_ctrl_sditter_bithi             = 8;
+const int mpc_frames_fifo_ctrl_sditter_default           = 0;
+//
+//
+//------------------------------------------------------------------
+//0X198 = ADR_NEWALGO_CTRL:  Controls parameters of new trigger algorithm  (Yuriy, 2016)
+//------------------------------------------------------------------
+const int use_dead_time_zone_vmereg  = algo2016_ctrl_adr;
+const int use_dead_time_zone_bitlo   = 0;
+const int use_dead_time_zone_bithi   = 0;
+const int use_dead_time_zone_default = 1;
+//
+//
+const int dead_time_zone_size_vmereg  = algo2016_ctrl_adr;
+const int dead_time_zone_size_bitlo   = 1;
+const int dead_time_zone_size_bithi   = 5;
+const int dead_time_zone_size_default = 15;
+//
+//
+const int use_dynamic_dead_time_zone_vmereg  = algo2016_ctrl_adr;
+const int use_dynamic_dead_time_zone_bitlo   = 6;
+const int use_dynamic_dead_time_zone_bithi   = 6;
+const int use_dynamic_dead_time_zone_default = 1;
+//
+//
+const int clct_to_alct_vmereg  = algo2016_ctrl_adr;
+const int clct_to_alct_bitlo   = 7;
+const int clct_to_alct_bithi   = 7;
+const int clct_to_alct_default = 1;
+//
+//
+const int drop_used_clcts_vmereg  = algo2016_ctrl_adr;
+const int drop_used_clcts_bitlo   = 8;
+const int drop_used_clcts_bithi   = 8;
+const int drop_used_clcts_default = 0;
+//
+//
+const int cross_bx_algorithm_vmereg  = algo2016_ctrl_adr;
+const int cross_bx_algorithm_bitlo   = 9;
+const int cross_bx_algorithm_bithi   = 9;
+const int cross_bx_algorithm_default = 1; // for now this improvement is switched off by default because it is not fully functional in firmware
+//
+//
+const int clct_use_corrected_bx_vmereg  = algo2016_ctrl_adr;
+const int clct_use_corrected_bx_bitlo   = 10;
+const int clct_use_corrected_bx_bithi   = 10;
+const int clct_use_corrected_bx_default = 1; // for now this improvement is switched off by default because it is not fully functional in firmware
+//
+//
+//-----------------------------------------------------------------------------
+// 0X310 ADR_GEM_TBINS
+//-----------------------------------------------------------------------------
+const int gem_fifo_tbins_vmereg           = gem_tbins_adr;
+const int gem_fifo_tbins_bitlo            = 0;
+const int gem_fifo_tbins_bithi            = 4;
+const int gem_fifo_tbins_default          = 7;
+//
+//
+const int gem_fifo_pretrig_vmereg         = gem_tbins_adr;
+const int gem_fifo_pretrig_bitlo          = 5;
+const int gem_fifo_pretrig_bithi          = 9;
+const int gem_fifo_pretrig_default        = 2;
+//
+//
+const int gem_fifo_decouple_vmereg        = gem_tbins_adr;
+const int gem_fifo_decouple_bitlo         = 10;
+const int gem_fifo_decouple_bithi         = 10;
+const int gem_fifo_decouple_default       = 0;
+//
+//
+const int gem_read_enable_vmereg          = gem_tbins_adr;
+const int gem_read_enable_bitlo           = 11;
+const int gem_read_enable_bithi           = 11;
+const int gem_read_enable_default         = 0;
+//
+//
+const int gem_zero_supress_enable_vmereg  = gem_tbins_adr;
+const int gem_zero_supress_enable_bitlo   = 12;
+const int gem_zero_supress_enable_bithi   = 12;
+const int gem_zero_supress_enable_default = 0;
+//
+//
+//-----------------------------------------------------------------------------
+// 0X312 ADR_GEM_CFG
+//-----------------------------------------------------------------------------
+//
+const int gemA_rxd_int_delay_vmereg          = gem_cfg_adr;
+const int gemA_rxd_int_delay_bitlo           = 0;
+const int gemA_rxd_int_delay_bithi           = 3;
+const int gemA_rxd_int_delay_default         = 0;
+//
+//
+const int gemB_rxd_int_delay_vmereg          = gem_cfg_adr;
+const int gemB_rxd_int_delay_bitlo           = 4;
+const int gemB_rxd_int_delay_bithi           = 7;
+const int gemB_rxd_int_delay_default         = 0;
+//
+//
+const int decouple_gem_rxd_int_delay_vmereg  = gem_cfg_adr;
+const int decouple_gem_rxd_int_delay_bitlo   = 8;
+const int decouple_gem_rxd_int_delay_bithi   = 8;
+const int decouple_gem_rxd_int_delay_default = 0;
+//
+//
+const int gem_readout_mask_vmereg            = gem_cfg_adr;
+const int gem_readout_mask_bitlo             = 9;
+const int gem_readout_mask_bithi             = 12;
+const int gem_readout_mask_default           = 0xf;
+//
 //
 //////////////////////////////////////////////
 // Bit mapping for TMB Raw Hits
 //////////////////////////////////////////////
-//-----------
-// header 0
-//-----------
-// beginning of cathode record marker
-const int h0_beginning_of_cathode_header_number =  0;
-const int h0_beginning_of_cathode_lo_bit        =  0;
-const int h0_beginning_of_cathode_hi_bit        = 11;
-//
-// marker 6
-const int h0_marker_6_header_number             =  0;
-const int h0_marker_6_lo_bit                    = 12;
-const int h0_marker_6_hi_bit                    = 14;
-//
-//-----------
-// header 1
-//-----------
-// number of time bins per CFEB in dump
-const int h1_nTbins_per_cfeb_header_number =  1;
-const int h1_nTbins_per_cfeb_lo_bit        =  0;
-const int h1_nTbins_per_cfeb_hi_bit        =  4;
-//
-// CFEBs read out for this event
-const int h1_cfebs_read_header_number      =  1;
-const int h1_cfebs_read_lo_bit             =  5;
-const int h1_cfebs_read_hi_bit             =  9;
-//
-// fifo mode
-// 0 = no raw hits, full header (if buffer was available at pretrigger)
-// 1 = all 5 CFEBs raw hits, full header (if buffer was available at pretrigger)
-// 2 = Local raw hits, full header (if buffer was available at pretrigger)
-// 3 = no raw hits, short header
-// 4 = no raw hits, no header
-const int h1_fifo_mode_header_number       =  0;
-const int h1_fifo_mode_lo_bit              = 12;
-const int h1_fifo_mode_hi_bit              = 14;
-//
-//-----------
-// header 2
-//-----------
-// L1A received and pushed on L1A stack
-const int h2_l1a_counter_header_number =  2;
-const int h2_l1a_counter_lo_bit        =  0;
-const int h2_l1a_counter_hi_bit        =  3;
-//
-// Chamber ID number (= slot/2 or slot/2-1 if slot>12 at power up)
-const int h2_csc_id_header_number      =  2;
-const int h2_csc_id_lo_bit             =  4;
-const int h2_csc_id_hi_bit             =  7;
-//
-// module ID number (= VME slot at power up)
-const int h2_board_id_header_number    =  2;
-const int h2_board_id_lo_bit           =  8;
-const int h2_board_id_hi_bit           = 12;
-//
-// L1A pop type mode:  
-// 0 = Normal CLCT trigger with buffer data and L1A window match
-// 1 = ALCT-only trigger, no data buffers
-// 2 = L1A-only, no matching TMB trigger, no buffer data
-// 3 = TMB triggered, no L1A-window match, event has buffer data
-const int h2_l1a_type_header_number    =  2;
-const int h2_l1a_type_lo_bit           = 13;
-const int h2_l1a_type_hi_bit           = 14;
-//
-//-----------
-// header 3
-//-----------
-// Bunch-crossing number pushed on L1A stack on L1A arrival
-const int h3_bxn_counter_header_number   =  3;
-const int h3_bxn_counter_lo_bit          =  0;
-const int h3_bxn_counter_hi_bit          = 11;
-//
-// record type: 
-//   0 = rawhits no   , header full
-//   1 = rawhits full , header full
-//   2 = rawhits local, header full
-//   3 = rawhits no   , header short (no buffer was available at pretrigger)
-const int h3_record_type_header_number   =  3;
-const int h3_record_type_lo_bit          = 12;
-const int h3_record_type_hi_bit          = 13;
-//
-// internal logic analyzer scop data included in readout
-const int h3_scope_in_data_header_number =  3;
-const int h3_scope_in_data_lo_bit        = 14;
-const int h3_scope_in_data_hi_bit        = 14;
-//
-//-----------
-// header 4
-//-----------
-// Number of header words
-const int h4_nheader_words_header_number   =  4;
-const int h4_nheader_words_lo_bit          =  0;
-const int h4_nheader_words_hi_bit          =  4;
-//
-// Number of CFEBs readout
-const int h4_nCFEBs_read_header_number     =  4;
-const int h4_nCFEBs_read_lo_bit            =  5;
-const int h4_nCFEBs_read_hi_bit            =  7;
-//
-// Number of CFEBs readout
-const int h4_has_buffer_data_header_number =  4;
-const int h4_has_buffer_data_lo_bit        =  8;
-const int h4_has_buffer_data_hi_bit        =  8;
-//
-// Number time bins in readout before pretrigger
-const int h4_fifo_pretrig_header_number    =  4;
-const int h4_fifo_pretrig_lo_bit           =  9;
-const int h4_fifo_pretrig_hi_bit           = 13;
-//
-//-----------
-// header 5
-//-----------
-// L1A number at CLCT pretrigger
-const int h5_l1a_at_pretrig_header_number                   =  5;
-const int h5_l1a_at_pretrig_lo_bit                          =  0;
-const int h5_l1a_at_pretrig_hi_bit                          =  3;
-//
-// trigger source vector
-const int h5_trigger_source_vector_header_number            =  5;
-const int h5_trigger_source_vector_lo_bit                   =  4;
-const int h5_trigger_source_vector_hi_bit                   = 11;
-//
-// trigger source halfstrip or distrip
-const int h5_trigger_source_halfstrip_distrip_header_number =  5;
-const int h5_trigger_source_halfstrip_distrip_lo_bit        = 12;
-const int h5_trigger_source_halfstrip_distrip_hi_bit        = 12;
-//
-//-----------
-// header 6
-//-----------
-// Active CFEB list sent to DMB
-const int h6_aff_to_dmb_header_number  =  6;
-const int h6_aff_to_dmb_lo_bit         =  0;
-const int h6_aff_to_dmb_hi_bit         =  4;
-//
-// List of instantiated CFEBs
-const int h6_cfeb_exists_header_number =  6;
-const int h6_cfeb_exists_lo_bit        =  5;
-const int h6_cfeb_exists_hi_bit        =  9;
-//
+
+// First 4 words must conform to DDU specification
+
+// Beginning of Cathode record marker
+const int h0_beginning_of_cathode_lo_bit   =0;
+const int h0_beginning_of_cathode_hi_bit   =11;
+
+// BXN pushed on L1A stack at L1A arrival
+const int h1_r_l1a_bxn_win_lo_bit   =0;
+const int h1_r_l1a_bxn_win_hi_bit   =11;
+
+// L1As received and pushed on L1A stack
+const int h2_r_l1a_cnt_win_lo_bit   =0;
+const int h2_r_l1a_cnt_win_hi_bit   =11;
+
+// Readout counter
+const int h3_readout_counter_lo_bit   =0;
+const int h3_readout_counter_hi_bit   =11;
+
+
+// Next 4 words for short mode
+
+// TMB module ID number = VME slot
+const int h4_board_id_lo_bit   =0;
+const int h4_board_id_hi_bit   =4;
+
+// Chamber ID number
+const int h4_csc_id_lo_bit   =5;
+const int h4_csc_id_hi_bit   =8;
+
 // Run info
-const int h6_run_info_header_number    =  6;
-const int h6_run_info_lo_bit           = 10;
-const int h6_run_info_hi_bit           = 13;
-//
-//-----------
-// header 7
-//-----------
-// bunch crossing number at CLCT pretrigger
-const int h7_bxn_at_clct_pretrig_header_number =  7;
-const int h7_bxn_at_clct_pretrig_lo_bit        =  0;
-const int h7_bxn_at_clct_pretrig_hi_bit        = 11;
-//
-// bunch crossing number synchronization error
-const int h7_sync_err_header_number            =  7;
-const int h7_sync_err_lo_bit                   = 12;
-const int h7_sync_err_hi_bit                   = 12;
-//
-//-----------
-// header 8
-//-----------
-// CLCT0 pattern trigger (after drift) LSBS
-const int h8_clct0_lsbs_header_number =  8;
-const int h8_clct0_lsbs_lo_bit        =  0;
-const int h8_clct0_lsbs_hi_bit        = 14;
-//
-//-----------
-// header 9
-//-----------
-// CLCT1 pattern trigger (after drift) LSBS
-const int h9_clct1_lsbs_header_number =  9;
-const int h9_clct1_lsbs_lo_bit        =  0;
-const int h9_clct1_lsbs_hi_bit        = 14;
-//
-//-----------
-// header 10
-//-----------
-// CLCT0 pattern trigger (after drift) MSBS
-const int h10_clct0_msbs_header_number            = 10;
-const int h10_clct0_msbs_lo_bit                   =  0;
-const int h10_clct0_msbs_hi_bit                   =  5;
-//
-// CLCT1 pattern trigger (after drift) MSBS
-const int h10_clct1_msbs_header_number            = 10;
-const int h10_clct1_msbs_lo_bit                   =  6;
-const int h10_clct1_msbs_hi_bit                   = 11;
-//
-// CLCT0 had invalid pattern after drift
-const int h10_clct0_invalid_pattern_header_number = 10;
-const int h10_clct0_invalid_pattern_lo_bit        = 12;
-const int h10_clct0_invalid_pattern_hi_bit        = 12;
-//
-//-----------
-// header 11
-//-----------
-// ALCT and CLCT matched in time
-const int h11_alct_clct_match_header_number           = 11;
-const int h11_alct_clct_match_lo_bit                  =  0;
-const int h11_alct_clct_match_hi_bit                  =  0;
-//
-// ALCT trigger only
-const int h11_alct_trig_only_header_number            = 11;
-const int h11_alct_trig_only_lo_bit                   =  1;
-const int h11_alct_trig_only_hi_bit                   =  1;
-//
-// CLCT trigger only
-const int h11_clct_trig_only_header_number            = 11;
-const int h11_clct_trig_only_lo_bit                   =  2;
-const int h11_clct_trig_only_hi_bit                   =  2;
-//
-// ALCT-CLCT0 bunch crossing difference
-const int h11_clct0_alct_bxn_diff_header_number       = 11;
-const int h11_clct0_alct_bxn_diff_lo_bit              =  3;
-const int h11_clct0_alct_bxn_diff_hi_bit              =  4;
-//
-// ALCT-CLCT1 bunch crossing difference
-const int h11_clct1_alct_bxn_diff_header_number       = 11;
-const int h11_clct1_alct_bxn_diff_lo_bit              =  5;
-const int h11_clct1_alct_bxn_diff_hi_bit              =  6;
-//
-// Location of ALCT in CLCT match window
-const int h11_alct_in_clct_match_window_header_number = 11;
-const int h11_alct_in_clct_match_window_lo_bit        =  7;
-const int h11_alct_in_clct_match_window_hi_bit        = 10;
-//
-// triad persistence
-const int h11_triad_persistence_header_number         = 11;
-const int h11_triad_persistence_lo_bit                = 11;
-const int h11_triad_persistence_hi_bit                = 14;
-//
-//-----------
-// header 12
-//-----------
-// MPC muon0 frame 0 LSBs
-const int h12_mpc0_frame0_lsbs_header_number = 12;
-const int h12_mpc0_frame0_lsbs_lo_bit        =  0;
-const int h12_mpc0_frame0_lsbs_hi_bit        = 14;
-//
-//-----------
-// header 13
-//-----------
-// MPC muon0 frame 1 LSBs
-const int h13_mpc0_frame1_lsbs_header_number = 13;
-const int h13_mpc0_frame1_lsbs_lo_bit        =  0;
-const int h13_mpc0_frame1_lsbs_hi_bit        = 14;
-//
-//-----------
-// header 14
-//-----------
-// MPC muon1 frame 0 LSBs
-const int h14_mpc1_frame0_lsbs_header_number = 14;
-const int h14_mpc1_frame0_lsbs_lo_bit        =  0;
-const int h14_mpc1_frame0_lsbs_hi_bit        = 14;
-//
-//-----------
-// header 15
-//-----------
-// MPC muon1 frame 1 LSBs
-const int h15_mpc1_frame1_lsbs_header_number = 15;
-const int h15_mpc1_frame1_lsbs_lo_bit        =  0;
-const int h15_mpc1_frame1_lsbs_hi_bit        = 14;
-//
-//-----------
-// header 16
-//-----------
-// MPC muon0 frame 0 MSBs
-const int h16_mpc0_frame0_msbs_header_number              = 16;
-const int h16_mpc0_frame0_msbs_lo_bit                     =  0;
-const int h16_mpc0_frame0_msbs_hi_bit                     =  0;
-//
-// MPC muon0 frame 1 MSBs
-const int h16_mpc0_frame1_msbs_header_number              = 16;
-const int h16_mpc0_frame1_msbs_lo_bit                     =  1;
-const int h16_mpc0_frame1_msbs_hi_bit                     =  1;
-//
-// MPC muon1 frame 0 MSBs
-const int h16_mpc1_frame0_msbs_header_number              = 16;
-const int h16_mpc1_frame0_msbs_lo_bit                     =  2;
-const int h16_mpc1_frame0_msbs_hi_bit                     =  2;
-//
-// MPC muon1 frame 1 MSBs
-const int h16_mpc1_frame1_msbs_header_number              = 16;
-const int h16_mpc1_frame1_msbs_lo_bit                     =  3;
-const int h16_mpc1_frame1_msbs_hi_bit                     =  3;
-//
-// MPC muon accept response
-const int h16_mpc_accept_header_number                    = 16;
-const int h16_mpc_accept_lo_bit                           =  4;
-const int h16_mpc_accept_hi_bit                           =  5;
-//
-// CLCT halfstrip pretrigger threshold
-const int h16_clct_halfstrip_pretrig_thresh_header_number = 16;
-const int h16_clct_halfstrip_pretrig_thresh_lo_bit        =  8;
-const int h16_clct_halfstrip_pretrig_thresh_hi_bit        = 10;
-//
-// CLCT distrip pretrigger threshold
-const int h16_clct_distrip_pretrig_thresh_header_number   = 16;
-const int h16_clct_distrip_pretrig_thresh_lo_bit          = 11;
-const int h16_clct_distrip_pretrig_thresh_hi_bit          = 13;
-//
-//-----------
-// header 17
-//-----------
-// Write buffer is ready
-const int h17_write_buffer_ready_header_number     = 17;
-const int h17_write_buffer_ready_lo_bit            =  0;
-const int h17_write_buffer_ready_hi_bit            =  0;
-//
-// Tbin address for pretrig
-const int h17_pretrig_tbin_header_number           = 17;
-const int h17_pretrig_tbin_lo_bit                  =  1;
-const int h17_pretrig_tbin_hi_bit                  =  5;
-//
-// write buffer address 
-const int h17_write_buffer_address_header_number   = 17;
-const int h17_write_buffer_address_lo_bit          =  6;
-const int h17_write_buffer_address_hi_bit          =  8;
-//
-// pretrig arrived, no buffer free
-const int h17_pretrig_no_free_buffer_header_number = 17;
-const int h17_pretrig_no_free_buffer_lo_bit        =  9;
-const int h17_pretrig_no_free_buffer_hi_bit        =  9;
-//
-// buffer full
-const int h17_buffer_full_header_number            = 17;
-const int h17_buffer_full_lo_bit                   = 10;
-const int h17_buffer_full_hi_bit                   = 10;
-//
-// buffer almost full
-const int h17_buffer_almost_full_header_number     = 17;
-const int h17_buffer_almost_full_lo_bit            = 11;
-const int h17_buffer_almost_full_hi_bit            = 11;
-//
-// buffer half full
-const int h17_buffer_half_full_header_number       = 17;
-const int h17_buffer_half_full_lo_bit              = 12;
-const int h17_buffer_half_full_hi_bit              = 12;
-//
-// buffer empty
-const int h17_buffer_empty_header_number           = 17;
-const int h17_buffer_empty_lo_bit                  = 13;
-const int h17_buffer_empty_hi_bit                  = 13;
-//
-//-----------
-// header 18
-//-----------
-// Number of buffers busy
-const int h18_nbuf_busy_header_number          = 18;
-const int h18_nbuf_busy_lo_bit                 =  0;
-const int h18_nbuf_busy_hi_bit                 =  3;
-//
-// List of busy buffers
-const int h18_buf_busy_header_number           = 18;
-const int h18_buf_busy_lo_bit                  =  4;
-const int h18_buf_busy_hi_bit                  = 11;
-//
-// L1A stack overflow
-const int h18_l1a_stack_overflow_header_number = 18;
-const int h18_l1a_stack_overflow_lo_bit        = 13;
-const int h18_l1a_stack_overflow_hi_bit        = 13;
-//
-//-----------
-// header 19
-//-----------
-// TMB response
-const int h19_tmb_trig_pulse_header_number         = 19;
-const int h19_tmb_trig_pulse_lo_bit                =  0;
-const int h19_tmb_trig_pulse_hi_bit                =  0;
-//
-// Only ALCT triggered
-const int h19_tmb_alct_only_header_number          = 19;
-const int h19_tmb_alct_only_lo_bit                 =  1;
-const int h19_tmb_alct_only_hi_bit                 =  1;
-//
-// Only CLCT triggered
-const int h19_tmb_clct_only_header_number          = 19;
-const int h19_tmb_clct_only_lo_bit                 =  2;
-const int h19_tmb_clct_only_hi_bit                 =  2;
-//
-// ALCT*CLCT triggered
-const int h19_tmb_match_header_number              = 19;
-const int h19_tmb_match_lo_bit                     =  3;
-const int h19_tmb_match_hi_bit                     =  3;
-//
-// Write buffer ready at pretrig
-const int h19_write_buffer_ready_header_number     = 19;
-const int h19_write_buffer_ready_lo_bit            =  4;
-const int h19_write_buffer_ready_hi_bit            =  4;
-//
-// write buffer either (ready -or- not required) at pretrig
-const int h19_write_buffer_available_header_number = 19;
-const int h19_write_buffer_available_lo_bit        =  5;
-const int h19_write_buffer_available_hi_bit        =  5;
-//
-// Tbin address at pretrig
-const int h19_write_tbin_address_header_number     = 19;
-const int h19_write_tbin_address_lo_bit            =  6;
-const int h19_write_tbin_address_hi_bit            = 10;
-//
-// Address of write buffer at pretrig
-const int h19_write_buffer_address_header_number   = 19;
-const int h19_write_buffer_address_lo_bit          = 11;
-const int h19_write_buffer_address_hi_bit          = 13;
-//
-//-----------
-// header 20
-//-----------
-// pretrig but no write buffer available
-const int h20_discard_no_write_buf_available_header_number = 20;
-const int h20_discard_no_write_buf_available_lo_bit        =  0;
-const int h20_discard_no_write_buf_available_hi_bit        =  3;
-//
-// invalid pattern after drift
-const int h20_discard_invalid_pattern_header_number        = 20;
-const int h20_discard_invalid_pattern_lo_bit               =  4;
-const int h20_discard_invalid_pattern_hi_bit               =  7;
-//
-// TMB rejected event
-const int h20_discard_tmb_reject_header_number             = 20;
-const int h20_discard_tmb_reject_lo_bit                    =  8;
-const int h20_discard_tmb_reject_hi_bit                    = 11;
-//
-// timeout with no TMB trig pulse
-const int h20_timeout_no_tmb_trig_pulse_header_number      = 20;
-const int h20_timeout_no_tmb_trig_pulse_lo_bit             = 12;
-const int h20_timeout_no_tmb_trig_pulse_hi_bit             = 12;
-//
-// timeout with no mpc_frame_ff
-const int h20_timeout_no_mpc_frame_header_number           = 20;
-const int h20_timeout_no_mpc_frame_lo_bit                  = 13;
-const int h20_timeout_no_mpc_frame_hi_bit                  = 13;
-//
-// timeout with no mpc_response_ff
-const int h20_timeout_no_mpc_response_header_number        = 20;
-const int h20_timeout_no_mpc_response_lo_bit               = 14;
-const int h20_timeout_no_mpc_response_hi_bit               = 14;
-//
-//-----------
-// header 21
-//-----------
-// setting of ALCT delay for match window
-const int h21_match_trig_alct_delay_header_number   = 21;
-const int h21_match_trig_alct_delay_lo_bit          =  0;
-const int h21_match_trig_alct_delay_hi_bit          =  3;
-//
-// setting of match window width
-const int h21_match_trig_window_width_header_number = 21;
-const int h21_match_trig_window_width_lo_bit        =  4;
-const int h21_match_trig_window_width_hi_bit        =  7;
-//
-// setting of MPC transmit delay
-const int h21_mpc_tx_delay_header_number            = 21;
-const int h21_mpc_tx_delay_lo_bit                   =  8;
-const int h21_mpc_tx_delay_hi_bit                   = 11;
-//
-//-----------
-// header 22
-//-----------
-// RPCs connected to this TMB
-const int h22_rpc_exist_header_number       = 22;
-const int h22_rpc_exist_lo_bit              =  0;
-const int h22_rpc_exist_hi_bit              =  1;
-//
-// RPCs included in readout
-const int h22_rpc_list_header_number        = 22;
-const int h22_rpc_list_lo_bit               =  2;
-const int h22_rpc_list_hi_bit               =  3;
-//
-// Number of RPCs in readout
-const int h22_nrpc_header_number            = 22;
-const int h22_nrpc_lo_bit                   =  4;
-const int h22_nrpc_hi_bit                   =  5;
-//
-// RPC readout enabled
-const int h22_rpc_read_enable_header_number = 22;
-const int h22_rpc_read_enable_lo_bit        =  6;
-const int h22_rpc_read_enable_hi_bit        =  6;
-//
-// Number of layers hit on layer trigger
-const int h22_nlayers_hit_header_number     = 22;
-const int h22_nlayers_hit_lo_bit            =  7;
-const int h22_nlayers_hit_hi_bit            =  9;
-//
-// Position of L1A in window
-const int h22_l1a_in_window_header_number   = 22;
-const int h22_l1a_in_window_lo_bit          = 10;
-const int h22_l1a_in_window_hi_bit          = 13;
-//
-//-----------
-// header 23
-//-----------
-// Board status
-const int h23_board_status_header_number = 23;
-const int h23_board_status_lo_bit        =  0;
-const int h23_board_status_hi_bit        = 14;
-//
-//-----------
-// header 24
-//-----------
-// seconds since last hard reset
-const int h24_time_since_hard_reset_header_number = 24;
-const int h24_time_since_hard_reset_lo_bit        =  0;
-const int h24_time_since_hard_reset_hi_bit        = 14;
-//
-//-----------
-// header 25
-//-----------
+const int h4_run_id_lo_bit   =9;
+const int h4_run_id_hi_bit   =12;
+
+// Fence queue overflow error
+const int h4_buf_q_ovf_err_lo_bit   =13;
+const int h4_buf_q_ovf_err_hi_bit   =13;
+
+// BXN sync error
+const int h4_sync_err_hdr_lo_bit   =14;
+const int h4_sync_err_hdr_hi_bit   =14;
+
+// Number of header words
+const int h5_r_nheaders_lo_bit   =0;
+const int h5_r_nheaders_hi_bit   =5;
+
+// Trigger type and fifo mode
+const int h5_fifo_mode_lo_bit   =6;
+const int h5_fifo_mode_hi_bit   =8;
+
+// Readout type: dump,nodump, full header, short header
+const int h5_readout_type_lo_bit   =9;
+const int h5_readout_type_hi_bit   =10;
+
+// L1A Pop type code: buffers, no buffers, clct/alct_only
+const int h5_l1a_type_lo_bit   =11;
+const int h5_l1a_type_hi_bit   =12;
+
+// Event has clct and rpc buffer data
+const int h5_r_has_buf_lo_bit   =13;
+const int h5_r_has_buf_hi_bit   =13;
+
+// Raw hits buffer was full at pretrigger
+const int h5_buf_stalled_hdr_lo_bit   =14;
+const int h5_buf_stalled_hdr_hi_bit   =14;
+
+// Board status summary
+const int h6_bd_status_lo_bit   =0;
+const int h6_bd_status_hi_bit   =14;
+
 // Firmware version date code
-const int h25_firmware_version_date_code_header_number = 25;
-const int h25_firmware_version_date_code_lo_bit        =  0;
-const int h25_firmware_version_date_code_hi_bit        = 13;
-//
-//
+const int h7_revcode_lo_bit   =0;
+const int h7_revcode_hi_bit   =14;
+
+
+// Full Header-mode words 8-to-EOB: Event Counters
+
+// CLCT Bunch Crossing number at pre-trig, 0-3563
+const int h8_r_bxn_counter_lo_bit   =0;
+const int h8_r_bxn_counter_hi_bit   =11;
+
+// TMB discarded clct0 from ME1A
+const int h8_r_tmb_clct0_discard_lo_bit   =12;
+const int h8_r_tmb_clct0_discard_hi_bit   =12;
+
+// TMB discarded clct1 from ME1A
+const int h8_r_tmb_clct1_discard_lo_bit   =13;
+const int h8_r_tmb_clct1_discard_hi_bit   =13;
+
+// Main DLL lost lock
+const int h8_clock_lock_lost_err_lo_bit   =14;
+const int h8_clock_lock_lost_err_hi_bit   =14;
+
+// CLCT pre-trigger counter, stop on ovf
+const int h9_r_pretrig_counter_lsbs_lo_bit   =0;
+const int h9_r_pretrig_counter_lsbs_hi_bit   =14;
+
+// CLCT pre-trigger counter
+const int h10_r_pretrig_counter_msbs_lo_bit   =0;
+const int h10_r_pretrig_counter_msbs_hi_bit   =14;
+
+// CLCT post-drift counter, stop on ovf
+const int h11_r_clct_counter_lsbs_lo_bit   =0;
+const int h11_r_clct_counter_lsbs_hi_bit   =14;
+
+// CLCT post-drift counter
+const int h12_r_clct_counter_msbs_lo_bit   =0;
+const int h12_r_clct_counter_msbs_hi_bit   =14;
+
+// TMB trigger counter, stop on ovf
+const int h13_r_trig_counter_lsbs_lo_bit   =0;
+const int h13_r_trig_counter_lsbs_hi_bit   =14;
+
+// TMB trigger counter
+const int h14_r_trig_counter_msbs_lo_bit   =0;
+const int h14_r_trig_counter_msbs_hi_bit   =14;
+
+// Counts ALCTs received from ALCT board, stop on ovf
+const int h15_r_alct_counter_lsbs_lo_bit   =0;
+const int h15_r_alct_counter_lsbs_hi_bit   =14;
+
+// Counts ALCTs received from ALCT board, stop on ovf
+const int h16_r_alct_counter_msbs_lo_bit   =0;
+const int h16_r_alct_counter_msbs_hi_bit   =14;
+
+// BX0s since last hard reset, stop on ovf
+const int h17_r_orbit_counter_lsbs_lo_bit   =0;
+const int h17_r_orbit_counter_lsbs_hi_bit   =14;
+
+// BX0s since last hard reset
+const int h18_r_orbit_counter_msbs_lo_bit   =0;
+const int h18_r_orbit_counter_msbs_hi_bit   =14;
+
+
+// CLCT Raw Hits Size
+
+// Number of CFEBs read out
+const int h19_r_ncfebs_lo_bit   =0;
+const int h19_r_ncfebs_hi_bit   =2;
+
+// Number of time bins per CFEB in dump
+const int h19_r_fifo_tbins_cfeb_lo_bit   =3;
+const int h19_r_fifo_tbins_cfeb_hi_bit   =7;
+
+// # Time bins before pretrigger;
+const int h19_fifo_pretrig_cfeb_lo_bit   =8;
+const int h19_fifo_pretrig_cfeb_hi_bit   =12;
+
+// Readout includes logic analyzer scope data
+const int h19_scp_auto_lo_bit   =13;
+const int h19_scp_auto_hi_bit   =13;
+
+// Readout includes minicope data
+const int h19_mini_read_enable_lo_bit   =14;
+const int h19_mini_read_enable_hi_bit   =14;
+
+
+// CLCT Configuration
+
+// Hits on pattern template pre-trigger threshold
+const int h20_hit_thresh_pretrig_lo_bit   =0;
+const int h20_hit_thresh_pretrig_hi_bit   =2;
+
+// Pattern shape ID pre-trigger threshold
+const int h20_pid_thresh_pretrig_lo_bit   =3;
+const int h20_pid_thresh_pretrig_hi_bit   =6;
+
+// Hits on pattern  post-drift  threshold
+const int h20_hit_thresh_postdrift_lo_bit   =7;
+const int h20_hit_thresh_postdrift_hi_bit   =9;
+
+// Pattern shape ID post-drift  threshold
+const int h20_pid_thresh_postdrift_lo_bit   =10;
+const int h20_pid_thresh_postdrift_hi_bit   =13;
+
+// CSC Staggering ON
+const int h20_stagger_hs_csc_lo_bit   =14;
+const int h20_stagger_hs_csc_hi_bit   =14;
+
+// CLCT Triad persistence
+const int h21_triad_persist_lo_bit   =0;
+const int h21_triad_persist_hi_bit   =3;
+
+// DMB pre-trigger threshold for active-feb
+const int h21_dmb_thresh_pretrig_lo_bit   =4;
+const int h21_dmb_thresh_pretrig_hi_bit   =6;
+
+// Delay ALCT for CLCT match window
+const int h21_alct_delay_lo_bit   =7;
+const int h21_alct_delay_hi_bit   =10;
+
+// CLCT match window width
+const int h21_clct_window_lo_bit   =11;
+const int h21_clct_window_hi_bit   =14;
+
+
+// CLCT Trigger Status
+
+// Trigger source vector
+const int h22_r_trig_source_vec_lsbs_lo_bit   =0;
+const int h22_r_trig_source_vec_lsbs_hi_bit   =8;
+
+// CSC layers hit on layer trigger after drift
+const int h22_r_layers_hit_lo_bit   =9;
+const int h22_r_layers_hit_hi_bit   =14;
+
+// Active CFEB list sent to DMB
+const int h23_active_feb_mux_lsbs_lo_bit   =0;
+const int h23_active_feb_mux_lsbs_hi_bit   =4;
+
+// CFEBs read out for this event
+const int h23_r_cfebs_read_lsbs_lo_bit   =5;
+const int h23_r_cfebs_read_lsbs_hi_bit   =9;
+
+// Position of l1a in window
+const int h23_r_l1a_match_win_lo_bit   =10;
+const int h23_r_l1a_match_win_hi_bit   =13;
+
+// Active CFEB list source, 0=pretrig, 1=tmb match
+const int h23_active_feb_src_lo_bit   =14;
+const int h23_active_feb_src_hi_bit   =14;
+
+
+// CLCT+ALCT Match Status
+
+// ALCT and CLCT matched in time, pushed on L1A stack
+const int h24_r_tmb_match_lo_bit   =0;
+const int h24_r_tmb_match_hi_bit   =0;
+
+// Only ALCT triggered, pushed on L1a stack
+const int h24_r_tmb_alct_only_lo_bit   =1;
+const int h24_r_tmb_alct_only_hi_bit   =1;
+
+// Only CLCT triggered, pushed on L1A stack
+const int h24_r_tmb_clct_only_lo_bit   =2;
+const int h24_r_tmb_clct_only_hi_bit   =2;
+
+// Location of alct in clct window, pushed on L1A stack
+const int h24_r_tmb_match_win_lo_bit   =3;
+const int h24_r_tmb_match_win_hi_bit   =6;
+
+// No ALCT
+const int h24_r_tmb_no_alct_lo_bit   =7;
+const int h24_r_tmb_no_alct_hi_bit   =7;
+
+// One ALCT
+const int h24_r_tmb_one_alct_lo_bit   =8;
+const int h24_r_tmb_one_alct_hi_bit   =8;
+
+// One CLCT
+const int h24_r_tmb_one_clct_lo_bit   =9;
+const int h24_r_tmb_one_clct_hi_bit   =9;
+
+// Two ALCTs
+const int h24_r_tmb_two_alct_lo_bit   =10;
+const int h24_r_tmb_two_alct_hi_bit   =10;
+
+// Two CLCTs
+const int h24_r_tmb_two_clct_lo_bit   =11;
+const int h24_r_tmb_two_clct_hi_bit   =11;
+
+// ALCT0 copied into ALCT1 to make 2nd LCT
+const int h24_r_tmb_dupe_alct_lo_bit   =12;
+const int h24_r_tmb_dupe_alct_hi_bit   =12;
+
+// CLCT0 copied into CLCT1 to make 2nd LCT
+const int h24_r_tmb_dupe_clct_lo_bit   =13;
+const int h24_r_tmb_dupe_clct_hi_bit   =13;
+
+// LCT1 has higher quality than LCT0
+const int h24_r_tmb_rank_err_lo_bit   =14;
+const int h24_r_tmb_rank_err_hi_bit   =14;
+
+
+// CLCT Trigger Data
+
+
+// CLCT0 after drift lsbs
+const int h25_r_clct0_xtmb_lsbs_lo_bit   =0;
+const int h25_r_clct0_xtmb_lsbs_hi_bit   =14;
+
+// CLCT1 after drift lsbs
+const int h26_r_clct1_xtmb_lsbs_lo_bit   =0;
+const int h26_r_clct1_xtmb_lsbs_hi_bit   =14;
+
+// CLCT0 after drift msbs
+const int h27_r_clct0_xtmb_msbs_lo_bit   =0;
+const int h27_r_clct0_xtmb_msbs_hi_bit   =0;
+
+// CLCT1 after drift msbs
+const int h27_r_clct1_xtmb_msbs_lo_bit   =1;
+const int h27_r_clct1_xtmb_msbs_hi_bit   =1;
+
+// CLCT0/1 common after drift msbs
+const int h27_r_clctc_xtmb_lo_bit   =2;
+const int h27_r_clctc_xtmb_hi_bit   =4;
+
+// CLCT0 had invalid pattern after drift delay
+const int h27_r_clct0_invp_lo_bit   =5;
+const int h27_r_clct0_invp_hi_bit   =5;
+
+// CLCT1 had invalid pattern after drift delay
+const int h27_r_clct1_invp_lo_bit   =6;
+const int h27_r_clct1_invp_hi_bit   =6;
+
+// 2nd CLCT busy, logic error indicator
+const int h27_r_clct1_busy_lo_bit   =7;
+const int h27_r_clct1_busy_hi_bit   =7;
+
+// CFEB RAM parity error, latched
+const int h27_perr_cfeb_ff_lsbs_lo_bit   =8;
+const int h27_perr_cfeb_ff_lsbs_hi_bit   =12;
+
+// GEM or RPC or Minicope RAM parity error, latched
+const int h27_perr_gem_or_rpc_or_mini_ff_lo_bit   =13;
+const int h27_perr_gem_or_rpc_or_mini_ff_hi_bit   =13;
+
+// Parity error summary,  latched
+const int h27_perr_ff_lo_bit   =14;
+const int h27_perr_ff_hi_bit   =14;
+
+
+// ALCT Trigger Data
+
+
+// ALCT0 valid pattern flag
+const int h28_r_alct0_valid_lo_bit   =0;
+const int h28_r_alct0_valid_hi_bit   =0;
+
+// ALCT0 quality
+const int h28_r_alct0_quality_lo_bit   =1;
+const int h28_r_alct0_quality_hi_bit   =2;
+
+// ALCT0 accelerator muon flag
+const int h28_r_alct0_amu_lo_bit   =3;
+const int h28_r_alct0_amu_hi_bit   =3;
+
+// ALCT0 key wire group
+const int h28_r_alct0_key_lo_bit   =4;
+const int h28_r_alct0_key_hi_bit   =10;
+
+// ALCT active_feb_flag position in pretrig window
+const int h28_r_alct_preClct_win_lo_bit   =11;
+const int h28_r_alct_preClct_win_hi_bit   =14;
+
+// ALCT1 valid pattern flag
+const int h29_r_alct1_valid_lo_bit   =0;
+const int h29_r_alct1_valid_hi_bit   =0;
+
+// ALCT1 quality
+const int h29_r_alct1_quality_lo_bit   =1;
+const int h29_r_alct1_quality_hi_bit   =2;
+
+// ALCT1 accelerator muon flag
+const int h29_r_alct1_amu_lo_bit   =3;
+const int h29_r_alct1_amu_hi_bit   =3;
+
+// ALCT1 key wire group
+const int h29_r_alct1_key_lo_bit   =4;
+const int h29_r_alct1_key_hi_bit   =10;
+
+// CLCT drift delay
+const int h29_drift_delay_lo_bit   =11;
+const int h29_drift_delay_hi_bit   =12;
+
+// Enable blocked bits in readout
+const int h29_bcb_read_enable_lo_bit   =13;
+const int h29_bcb_read_enable_hi_bit   =13;
+
+// Layer-mode trigger
+const int h29_hs_layer_trig_lo_bit   =14;
+const int h29_hs_layer_trig_hi_bit   =14;
+
+// ALCT0/1 bxn
+const int h30_r_alct_bxn_lo_bit   =0;
+const int h30_r_alct_bxn_hi_bit   =4;
+
+// ALCT trigger path ECC error code
+const int h30_r_alct_ecc_err_lo_bit   =5;
+const int h30_r_alct_ecc_err_hi_bit   =6;
+
+// CFEB[n] has at least 1 bad bit
+const int h30_cfeb_badbits_found_lsbs_lo_bit   =7;
+const int h30_cfeb_badbits_found_lsbs_hi_bit   =11;
+
+// A CFEB had bad bits that were blocked
+const int h30_cfeb_badbits_blocked_lo_bit   =12;
+const int h30_cfeb_badbits_blocked_hi_bit   =12;
+
+// ALCT FPGA configuration done
+const int h30_alct_cfg_done_lo_bit   =13;
+const int h30_alct_cfg_done_hi_bit   =13;
+
+// ALCT bx0 and CLCT bx0 match
+const int h30_bx0_match_lo_bit   =14;
+const int h30_bx0_match_hi_bit   =14;
+
+
+// MPC Frames
+
+// MPC muon 0 frame 0 LSBs
+const int h31_r_mpc0_frame0_ff_lsbs_lo_bit   =0;
+const int h31_r_mpc0_frame0_ff_lsbs_hi_bit   =14;
+
+// MPC muon 0 frame 1 LSBs
+const int h32_r_mpc0_frame1_ff_lsbs_lo_bit   =0;
+const int h32_r_mpc0_frame1_ff_lsbs_hi_bit   =14;
+
+// MPC muon 1 frame 0 LSBs
+const int h33_r_mpc1_frame0_ff_lsbs_lo_bit   =0;
+const int h33_r_mpc1_frame0_ff_lsbs_hi_bit   =14;
+
+// MPC muon 1 frame 1 LSBs
+const int h34_r_mpc1_frame1_ff_lsbs_lo_bit   =0;
+const int h34_r_mpc1_frame1_ff_lsbs_hi_bit   =14;
+
+// MPC muon 0 frame 0 MSBS
+const int h35_r_mpc0_frame0_ff_msbs_lo_bit   =0;
+const int h35_r_mpc0_frame0_ff_msbs_hi_bit   =0;
+
+// MPC muon 0 frame 1 MSBS
+const int h35_r_mpc0_frame1_ff_msbs_lo_bit   =1;
+const int h35_r_mpc0_frame1_ff_msbs_hi_bit   =1;
+
+// MPC muon 1 frame 0 MSBS
+const int h35_r_mpc1_frame0_ff_msbs_lo_bit   =2;
+const int h35_r_mpc1_frame0_ff_msbs_hi_bit   =2;
+
+// MPC muon 1 frame 1 MSBS
+const int h35_r_mpc1_frame1_ff_msbs_lo_bit   =3;
+const int h35_r_mpc1_frame1_ff_msbs_hi_bit   =3;
+
+// MPC transmit delay
+const int h35_mpc_tx_delay_lo_bit   =4;
+const int h35_mpc_tx_delay_hi_bit   =7;
+
+const int h35_r_mpc_accept_lo_bit   =8;
+const int h35_r_mpc_accept_hi_bit   =9;
+
+// CFEBs enabled for triggering
+const int h35_cfeb_en_lsbs_lo_bit   =10;
+const int h35_cfeb_en_lsbs_hi_bit   =14;
+
+// RPC/GEM Configuration
+
+//RPC
+// RPCs included in read out
+const int h36_rd_list_rpc_lo_bit   =0;
+const int h36_rd_list_rpc_hi_bit   =1;
+
+// Number of RPCs in readout, 0,1,2, 0 if head-only event
+const int h36_r_nrpcs_read_lo_bit   =2;
+const int h36_r_nrpcs_read_hi_bit   =3;
+
+// RPC readout enabled
+const int h36_rpc_read_enable_lo_bit   =4;
+const int h36_rpc_read_enable_hi_bit   =4;
+
+// Number RPC FIFO time bins to read out
+const int h36_fifo_tbins_rpc_lo_bit   =5;
+const int h36_fifo_tbins_rpc_hi_bit   =9;
+
+// Number RPC FIFO time bins before pretrigger
+const int h36_fifo_pretrig_rpc_lo_bit   =10;
+const int h36_fifo_pretrig_rpc_hi_bit   =14;
+
+//GEM
+// GEM zero-suppression enabled
+const int h36_gem_zero_suppress_lo_bit   =0;
+const int h36_gem_zero_suppress_hi_bit   =0;
+
+// GEM readout enabled
+const int h36_gem_read_enable_lo_bit   =4;
+const int h36_gem_read_enable_hi_bit   =4;
+
+// Number GEM FIFO time bins to read out
+const int h36_fifo_tbins_gem_lo_bit   =5;
+const int h36_fifo_tbins_gem_hi_bit   =9;
+
+// Number GEM FIFO time bins before pretrigger
+const int h36_fifo_pretrig_gem_lo_bit   =10;
+const int h36_fifo_pretrig_gem_hi_bit   =14;
+
+// Buffer Status
+
+// Buffer RAM write address at pretrigger
+const int h37_r_wr_buf_adr_lo_bit   =0;
+const int h37_r_wr_buf_adr_hi_bit   =10;
+
+// Write buffer was ready at pretrig
+const int h37_r_wr_buf_ready_lo_bit   =11;
+const int h37_r_wr_buf_ready_hi_bit   =11;
+
+// Write buffer ready now
+const int h37_wr_buf_ready_lo_bit   =12;
+const int h37_wr_buf_ready_hi_bit   =12;
+
+// All raw hits ram in use, ram writing must stop
+const int h37_buf_q_full_lo_bit   =13;
+const int h37_buf_q_full_hi_bit   =13;
+
+// No fences remain on buffer stack
+const int h37_buf_q_empty_lo_bit   =14;
+const int h37_buf_q_empty_hi_bit   =14;
+
+// Distance to 1st fence address at pretrigger
+const int h38_r_buf_fence_dist_lo_bit   =0;
+const int h38_r_buf_fence_dist_hi_bit   =10;
+
+// Tried to push when stack full
+const int h38_buf_q_ovf_err_lo_bit   =11;
+const int h38_buf_q_ovf_err_hi_bit   =11;
+
+// Tried to pop when stack empty
+const int h38_buf_q_udf_err_lo_bit   =12;
+const int h38_buf_q_udf_err_hi_bit   =12;
+
+// Fence adr popped from stack doesnt match rls adr
+const int h38_buf_q_adr_err_lo_bit   =13;
+const int h38_buf_q_adr_err_hi_bit   =13;
+
+// Buffer write pointer hit a fence and stalled
+const int h38_buf_stalled_once_lo_bit   =14;
+const int h38_buf_stalled_once_hi_bit   =14;
+
+// Spare Frames
+
+// Number of fences in fence RAM currently
+const int h39_buf_fence_cnt_lo_bit   =0;
+const int h39_buf_fence_cnt_hi_bit   =11;
+
+// 1=Reverse staggered CSC, non-me1
+const int h39_reverse_hs_csc_lo_bit   =12;
+const int h39_reverse_hs_csc_hi_bit   =12;
+
+// 1=ME1A hstrip order reversed
+const int h39_reverse_hs_me1a_lo_bit   =13;
+const int h39_reverse_hs_me1a_hi_bit   =13;
+
+// 1=ME1B hstrip order reversed
+const int h39_reverse_hs_me1b_lo_bit   =14;
+const int h39_reverse_hs_me1b_hi_bit   =14;
+
+// Hdr23 Active CFEB list sent to DMB
+const int h40_active_feb_mux_msbs_lo_bit   =0;
+const int h40_active_feb_mux_msbs_hi_bit   =1;
+
+// Hdr23 CFEBs read out for this event
+const int h40_r_cfebs_read_msbs_lo_bit   =2;
+const int h40_r_cfebs_read_msbs_hi_bit   =3;
+
+// Hdr27 CFEB RAM parity error, latched
+const int h40_perr_cfeb_ff_msbs_lo_bit   =4;
+const int h40_perr_cfeb_ff_msbs_hi_bit   =5;
+
+// Hdr30 CFEB[n] has at least 1 bad bit
+const int h40_cfeb_badbits_found_msbs_lo_bit   =6;
+const int h40_cfeb_badbits_found_msbs_hi_bit   =7;
+
+// Hdr35 CFEBs enabled for triggering
+const int h40_cfeb_en_msbs_lo_bit   =8;
+const int h40_cfeb_en_msbs_hi_bit   =9;
+
+// Current fence is peak number of fences in RAM
+const int h40_buf_fence_cnt_is_peak_lo_bit   =10;
+const int h40_buf_fence_cnt_is_peak_hi_bit   =10;
+
+// TMB has 7 DCFEBs so hdr40_[10:1] are active
+//chamber_is_me11 corresponds to (MXCFEB==7)
+const int h40_chamber_is_me11_lo_bit   =11;
+const int h40_chamber_is_me11_hi_bit   =11;
+
+// Pre-trigger was ME1A/ME1B
+const int h40_r_trig_source_vec_msbs_lo_bit   =12;
+const int h40_r_trig_source_vec_msbs_hi_bit   =13;
+
+// TMB trig pulse coincident with rtmb_push
+const int h40_r_tmb_trig_pulse_lo_bit   =14;
+const int h40_r_tmb_trig_pulse_hi_bit   =14;
+
+// Allow ALCT-only  tmb-matching trigger
+const int h41_tmb_allow_alct_lo_bit   =0;
+const int h41_tmb_allow_alct_hi_bit   =0;
+
+// Allow CLCT-only  tmb-matching trigger
+const int h41_tmb_allow_clct_lo_bit   =1;
+const int h41_tmb_allow_clct_hi_bit   =1;
+
+// Allow Match-only tmb-matching trigger
+const int h41_tmb_allow_match_lo_bit   =2;
+const int h41_tmb_allow_match_hi_bit   =2;
+
+// Allow ALCT-only  tmb-matching readout only
+const int h41_tmb_allow_alct_ro_lo_bit   =3;
+const int h41_tmb_allow_alct_ro_hi_bit   =3;
+
+// Allow CLCT-only  tmb-matching readout only
+const int h41_tmb_allow_clct_ro_lo_bit   =4;
+const int h41_tmb_allow_clct_ro_hi_bit   =4;
+
+// Allow Match-only tmb-matching readout only
+const int h41_tmb_allow_match_ro_lo_bit   =5;
+const int h41_tmb_allow_match_ro_hi_bit   =5;
+
+// Only ALCT triggered, non-triggering readout
+const int h41_r_tmb_alct_only_ro_lo_bit   =6;
+const int h41_r_tmb_alct_only_ro_hi_bit   =6;
+
+// Only CLCT triggered, non-triggering readout
+const int h41_r_tmb_clct_only_ro_lo_bit   =7;
+const int h41_r_tmb_clct_only_ro_hi_bit   =7;
+
+// ALCT and CLCT matched in time, non-triggering readout
+const int h41_r_tmb_match_ro_lo_bit   =8;
+const int h41_r_tmb_match_ro_hi_bit   =8;
+
+// Triggering readout event
+const int h41_r_tmb_trig_keep_lo_bit = 9;
+const int h41_r_tmb_trig_keep_hi_bit = 9;
+
+// Non-triggering readout event
+const int h41_r_tmb_non_trig_keep_lo_bit   =10;
+const int h41_r_tmb_non_trig_keep_hi_bit   =10;
+
+// Layer pre-trigger threshold
+const int h41_lyr_thresh_pretrig_lo_bit   =11;
+const int h41_lyr_thresh_pretrig_hi_bit   =13;
+
+// Layer trigger mode enabled
+const int h41_layer_trig_en_lo_bit   =14;
+const int h41_layer_trig_en_hi_bit   =14;
+
 /////////////////////////////////////////////////////////////////////////////
 // The following stuff should be deprecated
 /////////////////////////////////////////////////////////////////////////////
@@ -3304,10 +3964,6 @@ const int ALCT_CLCT_coincidence_trigger =  5;
 #define TMB_USER_PROM   0x8     // TMB User PROMs JTAG Chain
 #define TMB_FPGA_USER   0xc     // TMB FPGA User JTAG Chain
 //
-#define TMB_JTAG_SRC    0x08    // Hardware Bootstrap Register JTAG Source Bit
-#define JTAG_SOFT_SRC   0x0     // JTAG Sourced by FPGA (TMB_ADR_USR_JTAG VME Register)
-#define JTAG_HARD_SRC   0x1     // JTAG Sourced by Bootstrap Register
-//
 #define ALCT_HARD_RESET 0x0100  // Hardware ALCT FPGA Hard Reset
 #define TMB_HARD_RESET  0x0200  // Hardware TMB FPGA Hard Reset
 #define TMB_ENABLE_ALCT_RESET 0x0400 // Enable ALCT Hard Reset
@@ -3332,7 +3988,7 @@ struct tmb_id_regs
 
 };
 
-const unsigned int TMB_N_FIBERS = 7;
+const unsigned int TMB_MAX_DCFEB_FIBERS = 7;
 
   } // namespace emu::pc
   } // namespace emu

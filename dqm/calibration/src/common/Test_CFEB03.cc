@@ -301,7 +301,7 @@ void Test_CFEB03::analyzeCSC(const CSCEventData& data)
   // == Check if CFEB Data Available
   if (dmbHeader->cfebAvailable())
     {
-      
+
       int nCFEBs = getNumStrips(cscID, theFormatVersion)/16;
       for (int icfeb=0; icfeb<nCFEBs; icfeb++)   // loop over cfebs in a given chamber
         {
@@ -323,7 +323,7 @@ void Test_CFEB03::analyzeCSC(const CSCEventData& data)
             {
 
               int nTimeSamples= cfebData->nTimeSamples(); // Get number of time samples
-              //  double Qmax=xtalkdata.content[curr_dac][layer-1][icfeb*16+curr_strip-1][NSAMPLES-1].max;
+              //  double Qmax=xtalkdata.content[curr_dac][layer-1][icfeb*16+curr_strip-1][NSAMPLES].max;
 
               // Do CRC check of first two timesamples for pedestal calculation
               if (!cfebData->timeSlice(0)->checkCRC() || !cfebData->timeSlice(1)->checkCRC())
@@ -352,7 +352,7 @@ void Test_CFEB03::analyzeCSC(const CSCEventData& data)
                       if (Qi-Q12>Qmax) {
                       Qmax=Qi-Q12;
                       if (curr_dac==TIME_STEPS-1) r04.content[layer-1][icfeb*16+curr_strip-1] = Qi;
-                      xtalkdata.content[curr_dac][layer-1][icfeb*16+curr_strip-1][NSAMPLES-1].max=Qmax;
+                      xtalkdata.content[curr_dac][layer-1][icfeb*16+curr_strip-1][NSAMPLES].max=Qmax;
                       }
                       */
 
@@ -582,7 +582,8 @@ void Test_CFEB03::finishCSC(std::string cscID)
 
           CSCMapItem::MapItem mapitem = cratemap->item(id);
           int first_strip_index=mapitem.stripIndex;
-          int strips_per_layer=mapitem.strips;
+          // int strips_per_layer=mapitem.strips;
+          int strips_per_layer = getNumStrips(cscID, theFormatVersion);
 
 
           //      bool fValid=true;
@@ -590,7 +591,7 @@ void Test_CFEB03::finishCSC(std::string cscID)
           for (unsigned int layer = 1; layer <= 6; layer++)
             {
 
-	      int nCFEBs = getNumStrips(cscID, theFormatVersion)/16;
+              int nCFEBs = getNumStrips(cscID, theFormatVersion)/16;
               for (int icfeb=0; icfeb<nCFEBs; icfeb++)   // loop over cfebs in a given chamber
                 {
 
@@ -601,13 +602,13 @@ void Test_CFEB03::finishCSC(std::string cscID)
                       double peak_time=0;
                       double max_left=0;
                       double max_right=0;
-                      //      time_step& val= xtalkdata.content[0][layer-1][icfeb*16+strip-1][NSAMPLES-1];
+                      //      time_step& val= xtalkdata.content[0][layer-1][icfeb*16+strip-1][NSAMPLES];
                       int cnt=0;
                       bool fValid=true;
 
                       for (int dac=0; dac<TIME_STEPS; dac++)
                         {
-                          for (int itime=0; itime < NSAMPLES-1; itime++)
+                          for (int itime=0; itime < NSAMPLES; itime++)
                             {
 
                               time_step& cval = xtalkdata.content[dac][layer-1][icfeb*16+strip-1][itime];
@@ -675,7 +676,7 @@ void Test_CFEB03::finishCSC(std::string cscID)
                           double fwhm_left_time=0;
                           double fwhm_right_time=400;;
                           double fwhm=0;
-                          for (int itime=0; itime < NSAMPLES-1; itime++)
+                          for (int itime=0; itime < NSAMPLES; itime++)
                             {
                               for (int step=0; step<8; step++)
                                 {
@@ -713,7 +714,7 @@ void Test_CFEB03::finishCSC(std::string cscID)
                           /*
                                    res_out.open((cscID+"_chan_dump.txt").c_str(),std::ios::out | std::ios::app);
                                    res_out << std::dec << layer << ":" << (icfeb*16+strip) << " ";
-                                   for (int itime=0; itime < NSAMPLES-1; itime++) {
+                                   for (int itime=0; itime < NSAMPLES; itime++) {
                                    for (int dac=0; dac<8; dac++) {
                                    time_step& cval = xtalkdata.content[7-dac][layer-1][icfeb*16+strip-1][itime];
                                    res_out << std::fixed << std::setprecision(1) << cval.mv << " ";
@@ -737,9 +738,10 @@ void Test_CFEB03::finishCSC(std::string cscID)
                           double Qcc_max=0;
                           double Qcc_peak_time=0;
 
-                          bool fFirstStrip = (strip ==1 && icfeb==0)? true: false;
-                          bool fLastStrip = (strip ==16 && icfeb==(nCFEBs-1))? true: false;
-                          if (((cscID.find("ME+1.1") == 0) || (cscID.find("ME-1.1") ==0 )) && ((strip ==1 && icfeb==4)))
+                          bool fFirstStrip = (strip==1 && icfeb==0)? true: false;
+                          // Exclude Last strip for all chambers and last strip for ME11s DCFEB4
+                          bool fLastStrip = (strip==16 && (icfeb==(nCFEBs-1) || (((cscID.find("ME+1.1")==0) || (cscID.find("ME-1.1")==0)) && (icfeb==3)) ))? true: false;
+                          if (((cscID.find("ME+1.1")==0) || (cscID.find("ME-1.1")==0 )) && ((strip==1 && icfeb==4)))
                             fFirstStrip = true;
 
                           // std::ofstream res_out;
@@ -926,17 +928,67 @@ void Test_CFEB03::finishCSC(std::string cscID)
 
           for (int layer=0; layer<NLAYERS; layer++)
             {
-              for (int strip=0; strip<strips_per_layer; strip++)
+
+              if ( emu::dqm::utils::isME11(cscID) && (theFormatVersion >= 2013)) // Handle post-LS1 ME11s with 7 DCFEBs
                 {
-                  res_out << std::fixed << std::setprecision(2) <<  (first_strip_index+layer*strips_per_layer+strip) << " "
-                          << r01.content[layer][strip] << " "
-                          << r02.content[layer][strip] << " "
-                          << r03.content[layer][strip] << " "
-                          << r04.content[layer][strip] << " "
-                          << r05.content[layer][strip] << " "
-                          << (int)(mask.content[layer][strip]) << " "
-                          << checkChannel(cscdata, tests, layer, strip)
-                          << std::endl;
+
+                  for (int strip=0; strip<64; strip++)
+                    {
+                      int ch_index = first_strip_index+layer*80+strip;
+                      res_out << std::fixed << std::setprecision(6) <<  ch_index << " "
+                              << r01.content[layer][strip] << " "
+                              << r02.content[layer][strip] << " "
+                              << r03.content[layer][strip] << " "
+                              << r04.content[layer][strip] << " "
+                              << r05.content[layer][strip] << " "
+                              << (int)(mask.content[layer][strip]) << " "
+                              << checkChannel(cscdata, tests, layer, strip, cscID)
+                              << std::endl;
+                    }
+
+                  // Zero 64-80 ME11 channels gap
+                  for (int strip=64; strip<80; strip++)
+                    {
+                      int ch_index = first_strip_index+layer*80+strip;
+                      res_out << std::fixed << std::setprecision(6) <<  ch_index << " "
+                              << 0  << " " << 0 << " " << 0 << " " << 0 << " " << 0
+                              << " " << 1 << " " << 1  << std::endl;
+                    }
+
+                  // Remap post-LS1 ME11a 48 channels
+                  for (int strip=64; strip<strips_per_layer; strip++)
+                    {
+                      int ch_index = emu::dqm::utils::getME11a_first_strip_index(cscID, theFormatVersion) + layer*48 + (strip-64);
+                      res_out << std::fixed << std::setprecision(6) <<  ch_index << " "
+                              << r01.content[layer][strip] << " "
+                              << r02.content[layer][strip] << " "
+                              << r03.content[layer][strip] << " "
+                              << r04.content[layer][strip] << " "
+                              << r05.content[layer][strip] << " "
+                              << (int)(mask.content[layer][strip]) << " "
+                              << checkChannel(cscdata, tests, layer, strip, cscID)
+                              << std::endl;
+
+                    }
+
+                }
+              else
+                {
+
+                  for (int strip=0; strip<strips_per_layer; strip++)
+                    {
+                      int ch_index = first_strip_index+layer*strips_per_layer+strip;
+                      res_out << std::fixed << std::setprecision(6) <<  ch_index << " "
+                              << r01.content[layer][strip] << " "
+                              << r02.content[layer][strip] << " "
+                              << r03.content[layer][strip] << " "
+                              << r04.content[layer][strip] << " "
+                              << r05.content[layer][strip] << " "
+                              << (int)(mask.content[layer][strip]) << " "
+                              << checkChannel(cscdata, tests, layer, strip, cscID)
+                              << std::endl;
+                    }
+
                 }
             }
           res_out.close();
@@ -951,21 +1003,69 @@ void Test_CFEB03::finishCSC(std::string cscID)
 
           for (int layer=0; layer<NLAYERS; layer++)
             {
-              for (int strip=0; strip<strips_per_layer; strip++)
+              if ( emu::dqm::utils::isME11(cscID) && (theFormatVersion >= 2013)) // Handle post-LS1 ME11s with 7 DCFEBs
                 {
-                  res_out << std::fixed << std::resetiosflags(std::ios::fixed) << std::setprecision(-1)
-                          << (first_strip_index+layer*strips_per_layer+strip) << " "
-                          << checkChannelConstant("R06",r06.content[layer][strip], CHECK_LIMIT)  << " "
-                          << checkChannelConstant("R07",r07.content[layer][strip], CHECK_LIMIT)  << " "
-                          << checkChannelConstant("R09",r09.content[layer][strip], CHECK_LIMIT)  << " "
-                          << checkChannelConstant("R10",r10.content[layer][strip], CHECK_LIMIT)  << " "
-                          << (int)(mask.content[layer][strip]) << " "
-                          << checkChannel(cscdata, tests, layer, strip)
-                          << std::endl;
+
+                  for (int strip=0; strip<64; strip++)
+                    {
+                      int ch_index = first_strip_index+layer*80+strip;
+                      res_out << std::fixed << std::resetiosflags(std::ios::fixed) << std::setprecision(-1)
+                              << ch_index << " "
+                              << checkChannelConstant("R06",r06.content[layer][strip], CHECK_LIMIT)  << " "
+                              << checkChannelConstant("R07",r07.content[layer][strip], CHECK_LIMIT)  << " "
+                              << checkChannelConstant("R09",r09.content[layer][strip], CHECK_LIMIT)  << " "
+                              << checkChannelConstant("R10",r10.content[layer][strip], CHECK_LIMIT)  << " "
+                              << (int)(mask.content[layer][strip]) << " "
+                              << checkChannel(cscdata, tests, layer, strip, cscID)
+                              << std::endl;
+
+                    }
+
+                  // Zero 64-80 ME11 channels gap
+                  for (int strip=64; strip<80; strip++)
+                    {
+                      int ch_index = first_strip_index+layer*80+strip;
+                      res_out << std::fixed << std::setprecision(2) <<  ch_index << " "
+                              << 0  << " " << 0 << " " << 0 << " " << 0
+                              << " " << 1 << " " << 1  << std::endl;
+                    }
+
+                  // Remap post-LS1 ME11a 48 channels
+                  for (int strip=64; strip<strips_per_layer; strip++)
+                    {
+                      int ch_index = emu::dqm::utils::getME11a_first_strip_index(cscID, theFormatVersion) + layer*48 + (strip-64);
+                      res_out << std::fixed << std::resetiosflags(std::ios::fixed) << std::setprecision(-1)
+                              << ch_index << " "
+                              << checkChannelConstant("R06",r06.content[layer][strip], CHECK_LIMIT)  << " "
+                              << checkChannelConstant("R07",r07.content[layer][strip], CHECK_LIMIT)  << " "
+                              << checkChannelConstant("R09",r09.content[layer][strip], CHECK_LIMIT)  << " "
+                              << checkChannelConstant("R10",r10.content[layer][strip], CHECK_LIMIT)  << " "
+                              << (int)(mask.content[layer][strip]) << " "
+                              << checkChannel(cscdata, tests, layer, strip, cscID)
+                              << std::endl;
+                    }
+
+                }
+              else
+                {
+
+                  for (int strip=0; strip<strips_per_layer; strip++)
+                    {
+                      int ch_index = first_strip_index+layer*strips_per_layer+strip;
+                      res_out << std::fixed << std::resetiosflags(std::ios::fixed) << std::setprecision(-1)
+                              << ch_index << " "
+                              << checkChannelConstant("R06",r06.content[layer][strip], CHECK_LIMIT)  << " "
+                              << checkChannelConstant("R07",r07.content[layer][strip], CHECK_LIMIT)  << " "
+                              << checkChannelConstant("R09",r09.content[layer][strip], CHECK_LIMIT)  << " "
+                              << checkChannelConstant("R10",r10.content[layer][strip], CHECK_LIMIT)  << " "
+                              << (int)(mask.content[layer][strip]) << " "
+                              << checkChannel(cscdata, tests, layer, strip, cscID)
+                              << std::endl;
+                    }
+
                 }
             }
           res_out.close();
-          //      }
 
         }
       else

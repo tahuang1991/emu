@@ -581,6 +581,20 @@
                 <Pad4>CSC_Minus_endcap_ALCT_CLCT_Match_Time</Pad4>
         </Canvas>
 
+        <Canvas>
+                <Type>cnv</Type>
+                <Prefix>EMU</Prefix>
+                <Name>EMU_Test20_TMB_Sync</Name>
+                <Title>EMU Test20 - CSCs TMB Sync Errors</Title>
+                <NumPadsX>2</NumPadsX>
+                <NumPadsY>2</NumPadsY>
+                <Pad1>CSC_TMB_Sync_Error</Pad1>
+                <Pad2>CSC_TMB_CLCT_Sync_Error</Pad2>
+                <Pad3>CSC_TMB_MPC0_Sync_Error</Pad3>
+                <Pad4>CSC_TMB_MPC1_Sync_Error</Pad4>
+        </Canvas>
+
+
 
 <!-- ========================================================================================
 # DDU Level histograms
@@ -1198,6 +1212,7 @@
                 <Pad8>ALCT_DMB_BXN_diff</Pad8>
                 <Pad9>CLCT_DMB_BXN_diff</Pad9>
                 <Pad10>DMB_DDU_BXN_diff</Pad10>
+                <Pad10>TMB_Sync_Error</Pad10>
                 <Folder>SYNC</Folder>
         </Canvas>
 
@@ -1439,6 +1454,18 @@
                 <Pad1>EventDisplay</Pad1>
                 <Folder>DMB</Folder>
         </Canvas>
+        <Canvas>
+                <Type>cnv</Type>
+                <Prefix>CSC</Prefix>
+                <Name>TMB_ALCT_-_CLCT_Time_Match_ME11</Name>
+                <Title>TMB: ALCT - CLCT Time Synchronization for ME11</Title>
+                <NumPadsX>2</NumPadsX>
+                <NumPadsY>1</NumPadsY>
+                <Pad1>ALCT_Match_Time_me11a</Pad1>
+                <Pad2>ALCT_Match_Time_me11b</Pad2>
+                <Folder>TMB</Folder>
+        </Canvas>
+
 	<!--Canvas>
 		<Type>cnv</Type>
 		<Prefix>CSC</Prefix>

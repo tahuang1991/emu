@@ -447,6 +447,8 @@ time_t emu::daq::rui::Application::toUnixTime( const std::string YYMMDD_hhmmss_U
   ss << YYMMDD_hhmmss_UTC.substr( 9,2); ss >> stm.tm_min;  ss.clear();
   ss << YYMMDD_hhmmss_UTC.substr(11,2); ss >> stm.tm_sec;  ss.clear();
 
+  stm.tm_isdst = -1; // Initialize it to make sure it's not a random value. Negative means 'not available'.
+
   time_t unixTime = mktime( &stm );
 
   return ( unixTime < 0 ? time_t(0) : unixTime );
@@ -2159,12 +2161,14 @@ void emu::daq::rui::Application::createFileWriter(){
 						       u.getHost(), "EmuRUI", instance_, emudaqrui::versions, &logger_ );
       // Create a rate limiter, but not for calibration or STEP runs.
       if ( runType_.toString() == "Monitor" ||
+	   runType_.toString() == "Local"   ||
 	   runType_.toString() == "Debug"      ){
 	rateLimiter_ = new emu::daq::writer::RateLimiter( fileWritingRateLimitInHz_, fileWritingRateSampleSize_ );
 	fileWritingVetoed_ = false;
       }
     }
   else if ( runType_.toString() != "Monitor" &&
+	    runType_.toString() != "Local"   &&
 	    runType_.toString() != "Debug"      ) // must be a calibration or STEP run...
     {
       LOG4CPLUS_FATAL( logger_, "A calibration run or a STEP run has been started without specifying a directory and/or maximum size for data files. Please set \"pathToRUIDataOutFile\" and \"ruiFileSizeInMegaBytes\" to nonzero values in the XML configuration file." );
@@ -3520,10 +3524,12 @@ xoap::MessageReference emu::daq::rui::Application::onSTEPQuery( xoap::MessageRef
     xdata::UnsignedInteger64                totalCount  = STEPEventCounter_.getNEvents();
     xdata::UnsignedInteger64                lowestCount = STEPEventCounter_.getLowestCount();
     xdata::Vector<xdata::UnsignedInteger64> counts;
+    xdata::Vector<xdata::UnsignedInteger64> readCounts;
     xdata::Vector<xdata::Boolean>           masks;
     xdata::Vector<xdata::Boolean>           liveInputs;
     for( uint32_t iInput=0; iInput < emu::daq::rui::STEPEventCounter::maxDDUInputs_; ++iInput ){
       counts.push_back( STEPEventCounter_.getCount( iInput ) );
+      readCounts.push_back( STEPEventCounter_.getCountRead( iInput ) );
       masks.push_back( STEPEventCounter_.isMaskedInput( iInput ) );
       liveInputs.push_back( STEPEventCounter_.isLiveInput( iInput ) );
     }
@@ -3535,6 +3541,7 @@ xoap::MessageReference emu::daq::rui::Application::onSTEPQuery( xoap::MessageRef
 			  .add( "TotalCount"        , &totalCount          )
 			  .add( "LowestCount"       , &lowestCount         )
 			  .add( "Counts"            , &counts              )
+			  .add( "ReadCounts"        , &readCounts          )
 			  .add( "Masks"             , &masks               )
 			  .add( "LiveInputs"        , &liveInputs          ) );
   }

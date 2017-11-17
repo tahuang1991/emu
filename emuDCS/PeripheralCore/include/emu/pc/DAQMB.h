@@ -441,6 +441,8 @@ public:
   void buck_shift_out();
   int buck_shift_test();
   //
+  inline std::string GetLabel(){return label_;}
+  //
   void set_cal_tim_pulse(int ntim);
   void set_cal_tim_inject(int ntim);
   //
@@ -740,7 +742,7 @@ public:
   void cfeb_do(int ncmd,void *cmd,int nbuf, void *inbuf,char *outbuf,int irdsnd); 
   void dcfeb_core(int jfunc, int nbit, void *inbuf, char *outbuf, int option);
   void dcfeb_fpga_call(int inst, unsigned data, char *outbuf);
-  std::vector<float> dcfeb_fpga_monitor(CFEB & cfeb);
+  std::vector<float> dcfeb_fpga_monitor(CFEB & cfeb, bool inDCS=false);
   void dcfeb_hub(CFEB & cfeb, int jfunc, int nbit, void *inbuf, char *outbuf, int option);
   void dcfeb_sys_reset(CFEB & cfeb);
   void dcfeb_comp_clock_phase_reset();
@@ -758,15 +760,22 @@ public:
   void dcfeb_buck_shift_ext_bc(int nstrip);
   void dcfeb_buck_shift_comp_bc(int nstrip);
   void BuckeyeShift(int chip_mask, char shft_bits[6][6], char *shft_out=NULL);
+  void Set_ReadAnyL1a();
   void dcfeb_Set_ReadAnyL1a(CFEB & cfeb);
   void dcfeb_Clear_ReadAnyL1a(CFEB & cfeb);
 
   void dcfeb_loadparam(int paramblock,int nval,unsigned short int  *val);
   void dcfeb_readparam(int paramblock,int nval,unsigned short int  *val);         
+  void dcfeb_erase_param(CFEB & cfeb);
+  void dcfeb_prom_test(CFEB & cfeb, const char *filename);
+  int dcfeb_prom_test2(CFEB & cfeb, const char *filename, const char * dumpFilename, const bool fastCheck=false);
+  int dcfeb_prom_check_block(const int blockNum, unsigned short * readBuf, const long checkWord64, std::ofstream * dumpFile, const bool partialRead=false);
+  void dcfeb_prom_log(std::stringstream * msgStream, std::ofstream * logFile);
   void dcfeb_readfirmware_mcs(CFEB & cfeb, const char *filename);
   void dcfeb_program_virtex6(CFEB & cfeb, const char *mcsfile, int broadcast=0);
-  void dcfeb_program_eprom(CFEB & cfeb, const char *mcsfile, int broadcast=0);
+  void dcfeb_program_eprom(CFEB & cfeb, const char *mcsfile, int offset, int broadcast=0);
   void dcfeb_configure(CFEB & cfeb);
+  void dcfeb_print_parameters(CFEB & cfeb);
   void dcfeb_test_dummy(CFEB & cfeb, int test);
   unsigned virtex6_readreg(int reg);
   void virtex6_writereg(int reg, unsigned value);
@@ -787,17 +796,20 @@ public:
   void dcfeb_adc_finedelay(CFEB & cfeb, unsigned short finedelay);
   unsigned dcfeb_startup_status(CFEB & cfeb);
   unsigned dcfeb_qpll_lost_count(CFEB & cfeb);  
-
+  void dcfeb_toggle_daq_txdisable(CFEB & cfeb);
+  void dcfeb_toggle_trig_txdisable(CFEB & cfeb);
+  
   void dcfeb_set_TMBTxMode(int cfeb_number, int mode);
   void dcfeb_set_TMBTxModeShiftLayers(int cfeb_number, char hs[6]);
   void dcfeb_set_TMBTxModeLayerMask(int cfeb_number, int layer_mask);
 
+  void power_cycle_cfeb(int cfeb);
   int lvmb_power_state();
   // code for ODMB
   void daqmb_do(int ncmd,void *cmd,int nbuf, void *inbuf,char *outbuf,int irdsnd, int dev);   
   void dlog_do(int ncmd, void *cmd,int nbuf, void *inbuf,char *outbuf,int irdsnd);
   void odmb_fpga_call(int inst, unsigned data, char *outbuf);
-  int DCSread2(char *data);
+  int DCSread2(char *data, int read_dcfeb=0);
   int read_cfeb_done();
   int read_qpll_state();
   int read_odmb_id();
@@ -831,7 +843,7 @@ public:
 
   // various counters in ODMB
   inline unsigned odmb_read_l1a_match(const unsigned device){return ReadRegister(L1A_MATCH_BASE | (device << 4));}
-  inline unsigned odmb_read_gap(const unsigned device){return ReadRegister(GAP_BASE | (device << 4));}
+  inline unsigned odmb_read_gap(const unsigned device){return ReadRegister(L1A_GAP_BASE | (device << 4));}
   inline unsigned odmb_read_stored_packets(const unsigned device){return ReadRegister(STORED_PACKETS_BASE | (device << 4));}
   inline unsigned odmb_read_shipped_packets(const unsigned device){return ReadRegister(SHIPPED_PACKETS_BASE | (device << 4));}
   inline unsigned odmb_read_num_lcts(const unsigned device){return ReadRegister(NUM_LCTS_BASE | (device << 4));}
@@ -840,7 +852,12 @@ public:
   inline void odmb_set_kill_mask(int kill) { WriteRegister(ODMB_KILL, kill); }
   inline int odmb_read_kill_mask() { return ReadRegister(ODMB_KILL); } 
   inline void odmb_mask_l1a_match(int mask_l1a) { WriteRegister(MASK_L1A, mask_l1a); }
-  inline int odmb_firmware_version() { return ReadRegister(read_FW_VERSION); }
+  inline void odmb_mask_pulse(int mask_pls) { WriteRegister(MASK_PLS, mask_pls); }
+  inline int  odmb_read_mask_pulse() { return ReadRegister(MASK_PLS); }
+  inline int  odmb_firmware_version() { return ReadRegister(read_FW_VERSION); }
+  inline void odmb_calib_mode(int mode) { WriteRegister(ODMB_MODE, mode); }
+  inline int  odmb_read_calib_mode() { return ReadRegister(ODMB_MODE); }
+  inline int  odmb_read_pedestal_mode() { return ReadRegister(L1A_MODE); }
 
   //DCFEB FIFO operations
   inline void odmb_rst_dcfeb_fifo(const unsigned fifo_select){WriteRegister(ODMB_RST_FIFO, fifo_select & 0x7F);}
@@ -912,16 +929,18 @@ public:
   inline unsigned odmb_read_device_num_lct(const unsigned device){return ReadRegister(0x370C | (device << 4));}
 
   // for SEM (provided by Bingxuan Liu of OSU)
-  void SEM_read_status(CFEB &cfeb, char status[2]);
-  int SEM_multibit_info(char status[2]);
-  void SEM_unpack_status(char status[2]);
-  void SEM_read_seu_address_linear(CFEB &cfeb, char blkadd[3]);
-  void SEM_read_seu_address_physical(CFEB &cfeb, char faradd[3]);
-  void SEM_read_errcnt(CFEB &cfeb, char *singleflip,char *multiflip);
+  unsigned SEM_read_status(CFEB &cfeb);
+  int SEM_multibit_info(unsigned status);
+  void SEM_unpack_status(unsigned status);
+  unsigned SEM_read_seu_address_linear(CFEB &cfeb);
+  unsigned SEM_read_seu_address_physical(CFEB &cfeb);
+  unsigned SEM_read_errcnt(CFEB &cfeb);
   void SEM_control(CFEB &cfeb);
   void SEM_rst_doublerrorflag(CFEB &cfeb);
-            
+
   int SVFLoad(int dev, const char *fn, int db, int verify );
+  void dcfeb_program_eprom_Xilinx(CFEB & cfeb, const char *mcsfile, int broadcast=0);
+  int cfeb_load_eprom(int ncfeb, const char  *svffile, int db, int verify );
 
  private:
 
@@ -982,6 +1001,8 @@ public:
   int fwyear_, fwmonth_, fwday_, fwvers_, fwrv_;
 
   Chamber * csc_;
+  /// chamber name
+  std::string label_;
   /// CFEB Data Available delay adjustment (25ns per step); 
   int feb_dav_delay_;
   /// TMB Data Available delay adjustment (25ns per step); 
@@ -1035,7 +1056,7 @@ public:
   int l1a_lct_scope_, cfeb_dav_scope_, tmb_dav_scope_, alct_dav_scope_, active_dav_scope_ ;
   int  TestStatus_[20];
   unsigned char FinalCounter[10];
-  unsigned short NewCounter[20];
+  unsigned short NewCounter[100];
   //
   unsigned long int expected_control_firmware_tag_;
   int       expected_vme_firmware_tag_;
@@ -1054,7 +1075,8 @@ public:
   int hardware_version_;
   int kill_input_mask_;
   int lvdb_mapping_;
-  
+  int cfeb_selected_;
+   
   // VME registers defined in ODMB for direct access
   // Liu May 29, 2013. ODMB firmware version 0.0
   //
@@ -1074,19 +1096,26 @@ public:
   static const unsigned DCFEB_DONE = 0x3120;
   static const unsigned ODMB_QPLL = 0x3124;
   static const unsigned DCFEB_PULSE = 0x3200;
-  static const unsigned L1A_MATCH_BASE = 0x320C;
   static const unsigned DATA_MUX = 0x3300;
   static const unsigned TRIG_MUX = 0x3304;
   static const unsigned LVMB_MUX = 0x3308;
-  static const unsigned GAP_BASE = 0x330C;
   static const unsigned L1A_COUNTER = 0x33FC;
+  static const unsigned L1A_COUNTER2 = 0x35FC;
   static const unsigned L1A_MODE = 0x3400;
   static const unsigned MASK_L1A = 0x3408;
-  static const unsigned STORED_PACKETS_BASE = 0x340C;
+  static const unsigned MASK_PLS = 0x340C;
   static const unsigned DDU_PACKETS = 0x34AC;
   static const unsigned QPLL_UNLOCKS = 0x34FC;
+  static const unsigned BAD_DDU_PLL = 0x3A8C;
+
+  // the following group are base registers, +(1-7) for DCFEB1-7, +8 OTMB, +9 ALCT 
+  static const unsigned L1A_MATCH_BASE = 0x320C;
+  static const unsigned L1A_GAP_BASE = 0x330C;
+  static const unsigned STORED_PACKETS_BASE = 0x340C;
   static const unsigned SHIPPED_PACKETS_BASE = 0x350C;
   static const unsigned NUM_LCTS_BASE = 0x370C;
+  static const unsigned BAD_CRC_BASE = 0x3A0C;
+  static const unsigned FIBER_ERROR_BASE = 0x3B0C;
 
   static const unsigned LCT_L1A_DLY = 0x4000;
   static const unsigned TMB_DLY = 0x4004;

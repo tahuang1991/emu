@@ -1,9 +1,12 @@
 #include "emu/step/Test.h"
 
+#include "emu/step/PeriodicDumper.h"
+
 #include "emu/utils/IO.h"
 #include "emu/utils/DOM.h"
 #include "emu/utils/String.h"
 #include "emu/utils/System.h"
+#include "emu/utils/SimpleTimer.h"
 
 #include "emu/pc/Crate.h"
 #include "emu/pc/VMEController.h"
@@ -24,6 +27,17 @@
 //#include <cmath>
 #include <sys/stat.h>
 
+#ifdef DIP
+const char* emu::step::Test::SPSTimingSignalNames_[] = { "SPSSuperCycleStart", "SPSCycleStart", "SPSExtractionStart", "SPSExtractionEnd" };
+
+const char* emu::step::Test::DIPPublications_[] = {
+  "dip/acc/SPS/Timing/SuperCycle/StartEvent",
+  "dip/acc/SPS/Timing/Cycle/StartEvent",
+  "dip/acc/SPS/Timing/Cycle/StartExtractionEvent",
+  "dip/acc/SPS/Timing/Cycle/EndExtractionEvent"
+};
+#endif
+
 using namespace emu::utils;
 
 emu::step::Test::Test( const string& id, 
@@ -38,7 +52,15 @@ emu::step::Test::Test( const string& id,
   , isFake_( isFake )
   , isToStop_( false )
   , runNumber_( 0 )
-  , runStartTime_( "YYYY-MM-DD hh:mm:ss UTC" ){
+  , runStartTime_( "YYYYMMDD_hhmmss_UTC" )
+#ifdef DIP
+  , SPSCycleName_( "SPS.USER.SFTPRO2" )
+  , DIPMessageReceivedFlags_( 0 )
+  , dip_( Dip::create() )
+  , spsListener_( new SPSListener( this ) )
+  , subscriptions_( new DipSubscription*[nDIPPublications] )
+#endif
+{
 
   stringstream ss;
   if ( ! getProcedure( id, emu::step::Test::forConfigure_ ) || ! getProcedure( id, emu::step::Test::forEnable_ ) ){
@@ -59,7 +81,12 @@ emu::step::Test::Test( const string& id,
   progress_.setTotal( 1 ); // for the percent to be 0 before the total is set to its proper value
 }
 
-//emu::step::Test::~Test(){}
+emu::step::Test::~Test(){
+#ifdef DIP
+  delete[] subscriptions_;
+  delete spsListener_;
+#endif
+}
 
 void emu::step::Test::configure(){
   configureCrates();
@@ -78,6 +105,7 @@ double emu::step::Test::getProgress(){
 void ( emu::step::Test::* emu::step::Test::getProcedure( const string& testId, State_t state ) )(){
   if ( isFake_         ) return ( state == forConfigure_ ? &emu::step::Test::configure_fake : &emu::step::Test::enable_fake );
   if ( testId == "11"  ) return ( state == forConfigure_ ? &emu::step::Test::configure_11   : &emu::step::Test::enable_11   );
+  if ( testId == "11c" ) return ( state == forConfigure_ ? &emu::step::Test::configure_11c  : &emu::step::Test::enable_11c  );
   if ( testId == "12"  ) return ( state == forConfigure_ ? &emu::step::Test::configure_12   : &emu::step::Test::enable_12   );
   if ( testId == "13"  ) return ( state == forConfigure_ ? &emu::step::Test::configure_13   : &emu::step::Test::enable_13   );
   if ( testId == "14"  ) return ( state == forConfigure_ ? &emu::step::Test::configure_14   : &emu::step::Test::enable_14   );
@@ -90,7 +118,10 @@ void ( emu::step::Test::* emu::step::Test::getProcedure( const string& testId, S
   if ( testId == "21"  ) return ( state == forConfigure_ ? &emu::step::Test::configure_21   : &emu::step::Test::enable_21   );
   if ( testId == "25"  ) return ( state == forConfigure_ ? &emu::step::Test::configure_25   : &emu::step::Test::enable_25   );
   if ( testId == "27"  ) return ( state == forConfigure_ ? &emu::step::Test::configure_27   : &emu::step::Test::enable_27   );
+  if ( testId == "27s" ) return ( state == forConfigure_ ? &emu::step::Test::configure_27   : &emu::step::Test::enable_27   );
   if ( testId == "30"  ) return ( state == forConfigure_ ? &emu::step::Test::configure_30   : &emu::step::Test::enable_30   );
+  if ( testId == "40"  ) return ( state == forConfigure_ ? &emu::step::Test::configure_40   : &emu::step::Test::enable_27   );
+  if ( testId == "40s" ) return ( state == forConfigure_ ? &emu::step::Test::configure_40   : &emu::step::Test::enable_27   );
   return NULL;
 }
 
@@ -111,7 +142,6 @@ void emu::step::Test::createEndcap( const string& generalSettingsXML,
   for ( x = xpaths.begin(), v = values.begin(); x != xpaths.end() && v != values.end(); ++x, ++v ) valuesMap[x->second] = v->second;
   VME_XML_ = utils::setSelectedNodesValues( generalSettingsXML, valuesMap );
 
-
   // Get the parameters to be added to their general values for this test:
   xpaths = utils::getSelectedNodesValues( specialSettingsXML, "//settings/test[@id='" + id_ + "']/addTo/@xpath" );
   values = utils::getSelectedNodesValues( specialSettingsXML, "//settings/test[@id='" + id_ + "']/addTo/@value" );
@@ -119,7 +149,6 @@ void emu::step::Test::createEndcap( const string& generalSettingsXML,
   valuesMap.clear();
   for ( x = xpaths.begin(), v = values.begin(); x != xpaths.end() && v != values.end(); ++x, ++v ) valuesMap[x->second] = v->second;
   VME_XML_ = utils::setSelectedNodesValues( VME_XML_, valuesMap, utils::add );
-
 
   // Save XML in file:
   string fileName( "VME_" + withoutChars( " \t:;<>'\",?/~`!@#$%^&*()=[]|\\", group_ ) + "_Test" + id_ + ".xml" );
@@ -146,6 +175,7 @@ int emu::step::Test::getDDUInputFiberMask( int crateId, int dduSlot ){
     int inputNumber = utils::stringTo<int>( i->second );
     if ( 0 <= inputNumber && inputNumber <= 14 ) mask |= ( 0x0001 << inputNumber );
   }
+  // return 0x7fff & ~mask;
   return mask;
 }
 
@@ -158,6 +188,16 @@ void emu::step::Test::setUpDDU(emu::pc::Crate* crate)
   // (this is true for Track-Finder DDUs)
   // S.Z. Shalhout (April 23, 2013) sshalhou@CERN.CH
   // Joe: Shortened some long sleeps (April 30, 2013
+
+  // Get optional prescaling factor for DDU GbE spy channel
+  uint64_t log_2_of_GbE_prescaling = ( parameters_.find( "log_2_of_GbE_prescaling" ) == parameters_.end() ? 0 : parameters_[ "log_2_of_GbE_prescaling" ] );
+  const uint64_t maxLog2OfGbEPrescaling = 6;
+  if ( log_2_of_GbE_prescaling > maxLog2OfGbEPrescaling ){
+    if ( pLogger_ ){ LOG4CPLUS_WARN( *pLogger_, "Requested log_2_of_GbE_prescaling = " << log_2_of_GbE_prescaling << " is greater than the maximum allowed " << maxLog2OfGbEPrescaling << ". log_2_of_GbE_prescaling = " << maxLog2OfGbEPrescaling << " will be used instead." ); }
+    log_2_of_GbE_prescaling = maxLog2OfGbEPrescaling;
+  }
+  unsigned int GbEPrescaleWord = 8 + log_2_of_GbE_prescaling; // bit 3: ignore backpressure; bits 0-2: log_2(prescaling), i.e. 0->1, 1->2, 2->4, 3->8, 4->16, 5->32, 6->64, 7->0 (yes, that's 0, i.e. no GbE output) 
+
   if ( pLogger_ ){ 
     LOG4CPLUS_INFO( *pLogger_, ddus.size() << " DDUs" ); 
   }
@@ -172,7 +212,7 @@ void emu::step::Test::setUpDDU(emu::pc::Crate* crate)
     (*ddu)->writeFlashKillFiber(0x7fff); 
     usleep(20);
     (crate)->ccb()->HardReset_crate();
-    sleep(1);
+    ::sleep(1);
 
     // Make sure ODMB LV on-off registers are all on (their value is unpredictable after a hard reset)
     turnONlvDCFEBandALCT(crate);
@@ -180,7 +220,7 @@ void emu::step::Test::setUpDDU(emu::pc::Crate* crate)
     int dduInputFiberMask = getDDUInputFiberMask( crate->CrateID(), (*ddu)->slot() );
     (*ddu)->writeFlashKillFiber( dduInputFiberMask );
     usleep(10);
-    (*ddu)->writeGbEPrescale( 8 ); // 8: no prescaling in local run without DCC (ignore back-pressure)
+    (*ddu)->writeGbEPrescale( GbEPrescaleWord );
     usleep(10);
     (*ddu)->writeFakeL1( 0 ); // 7: passthrough // 0: normal
     usleep(10);
@@ -188,9 +228,13 @@ void emu::step::Test::setUpDDU(emu::pc::Crate* crate)
     (crate)->ccb()->bc0();
     
     if ( pLogger_ ){
+      LOG4CPLUS_INFO( *pLogger_, "dduInputFiberMask     0x" << hex << ( dduInputFiberMask            & 0xffff ) << dec );
       LOG4CPLUS_INFO( *pLogger_, "Kill Fiber  is set to 0x" << hex << ( (*ddu)->readFlashKillFiber() & 0xffff ) << dec );
       LOG4CPLUS_INFO( *pLogger_, "GbEPrescale is set to 0x" << hex << ( (*ddu)->readGbEPrescale()    & 0xffff ) << dec );
       LOG4CPLUS_INFO( *pLogger_, "Fake L1A    is set to 0x" << hex << ( (*ddu)->readFakeL1()         & 0xffff ) << dec );
+      if ( (*ddu)->readFlashKillFiber() & 0x000f != GbEPrescaleWord ){
+	LOG4CPLUS_ERROR( *pLogger_, "Failed to set GbEPrescale to 0x" << hex << GbEPrescaleWord << dec );
+      }
     }
 
   }
@@ -199,7 +243,6 @@ void emu::step::Test::setUpDDU(emu::pc::Crate* crate)
 
 void emu::step::Test::configureCrates(){
 
-  // cout << "emu::step::Test::configureCrates: Test " << id_ << " isFake_ = " << isFake_ << endl << flush;
   if ( isFake_ ) return;
 
   vector<emu::pc::Crate*> crates = parser_.GetEmuEndcap()->crates();
@@ -213,7 +256,7 @@ void emu::step::Test::configureCrates(){
       // For the time being, skip hard reset for crates with ODMBs as they unset the LVMB on/off switch.
       if ( (*crate)->daqmbs().size() && (*crate)->daqmbs().at( 0 )->GetHardwareVersion() < 2 ){ // TODO: remove this condition once ODMB is fixed.
 	// It's only necessary for tests 19 and 21 and 27. In fact, it upsets test 13...
-	if ( id_ == "19" || id_ == "21" || id_ == "27" ){
+	if ( id_ == "19" || id_ == "21" || id_ == "27" || id_ == "27s" ){
 	  ::sleep( 1 );
 	  (*crate)->ccb()->HardReset_crate();
 	  // Need to wait a bit for hard reset to finish, otherwise IsAlive() will be FALSE.
@@ -221,7 +264,7 @@ void emu::step::Test::configureCrates(){
 	}
 
 	// Reconfigure ALCTs as it is missing from the events in test 27 if a crate hard reset is issued (see above)...
-	if ( id_ == "27" ){
+	if ( id_ == "27" || id_ == "27s" ){
 	  vector<emu::pc::TMB*> tmbs = (*crate)->tmbs();
 	  for ( vector<emu::pc::TMB*>::iterator tmb = tmbs.begin(); tmb != tmbs.end(); ++tmb ){
 	    (*tmb)->alctController()->configure();
@@ -244,6 +287,10 @@ void emu::step::Test::configureCrates(){
       // Disable all triggers 
       if ( pLogger_ ){ LOG4CPLUS_INFO( *pLogger_, "(*crate)->ccb()->DisableL1a() in " << ((*crate)->IsAlive()?"live":"dead") << " crate " << (*crate)->GetLabel() ); }
       (*crate)->ccb()->DisableL1a();
+      // Disable L1A veto (which is only implemented in special CCB fw https://padley.rice.edu/cms/ccb_gif_022516.svf):
+      const unsigned int CSRB4 = 0x26;
+      const uint64_t min_l1a_separation_bx = 0; // 0 means no veto
+      (*crate)->ccb()->WriteRegister( CSRB4, min_l1a_separation_bx );
     }
     else{
       XCEPT_RAISE( xcept::Exception, "Crate " + (*crate)->GetLabel() + " is dead or incommunicado." );
@@ -363,28 +410,18 @@ void emu::step::Test::setUpODMBPulsing( emu::pc::DAQMB *dmb, ODMBMode_t mode, OD
   }
   cout<<"Pulsing: addr ="<<addr<<"  data = "<<data<<endl;
   dmb->getCrate()->vmeController()->vme_controller(irdwr,addr,&data,rcv);
-  // Set OTMB_DLY  
-  //irdwr = 3; addr = (0x004004)| slot_number<<19; data = 0x0001;
-  irdwr = 3; addr = (0x004004)| slot_number<<19; data = 0x0002;
-  dmb->getCrate()->vmeController()->vme_controller(irdwr,addr,&data,rcv);
-  //    Set ALCT_DLY
-  irdwr = 3; addr = (0x00400c)| slot_number<<19; data = 0x001f;
-  // Kill ODMB inputs
-  irdwr = 3; addr = (0x00401c) | slot_number<<19; data = killInput;
-  dmb->getCrate()->vmeController()->vme_controller(irdwr,addr,&data,rcv);
-  //  Set LCT_L1A_DLY
-  irdwr = 3; addr = (0x004000)| slot_number<<19; data = 0x000e;//5;
-  dmb->getCrate()->vmeController()->vme_controller(irdwr,addr,&data,rcv);
-  //    Set INJ_DLY
-  // Set it to 0 explicitly as in some older firmware versions its default value is nonzero.
-  irdwr = 3; addr = (0x004010)| slot_number<<19; data = 0x0000;
-  dmb->getCrate()->vmeController()->vme_controller(irdwr,addr,&data,rcv);
-  // Set EXT_DLY      
-  irdwr = 3; addr = (0x004014)| slot_number<<19; data = 0x0000;
-  dmb->getCrate()->vmeController()->vme_controller(irdwr,addr,&data,rcv);
-  // Set CAL_LCT_DLY      
-  irdwr = 3; addr = (0x004018)| slot_number<<19; data = 0x000f;
-  dmb->getCrate()->vmeController()->vme_controller(irdwr,addr,&data,rcv);
+
+  // Kill ALCT/TMB inputs to ODMB if requested, unkill them otherwise.
+  // Keep alive all DCFEBs inputs to ODMB unless they're explicitly requested to be killed.
+  int oldKillMask( dmb->odmb_read_kill_mask() );
+  int ALCT_TMB_mask =   killInput & ( kill_ALCT | kill_TMB )                ; // kill if requested, unkill otherwise
+  int DCFEB_mask    = ( killInput &   kill_DCFEBs            ) | oldKillMask; // kill if requested now or already killed
+  dmb->odmb_set_kill_mask( ALCT_TMB_mask | DCFEB_mask );
+  int newKillMask( dmb->odmb_read_kill_mask() );
+  if ( pLogger_ ){
+    LOG4CPLUS_INFO( *pLogger_, "ODMB kill mask changed from 0x" << hex << oldKillMask << " to 0x" << newKillMask << dec );
+  }
+
 }
 
 // One pipeline fuction to rule them all.
@@ -451,9 +488,9 @@ void emu::step::Test::turnONlvDCFEBandALCT(emu::pc::Crate* crate ) {
       if ( pLogger_ ){ LOG4CPLUS_INFO( *pLogger_, "turning on-chamber boards ON for this ODMB" ); }
       int state = (*dmb)->lvmb_power_state();
       if ( pLogger_ ){ LOG4CPLUS_INFO( *pLogger_, "low voltage power state before power on: " << state ); }
-      sleep(2);
+      ::sleep(2);
       (*dmb)->lowv_onoff( 0xff ); // 8 bits = 1 ALCT + 7 DCFEBs
-      sleep(3);
+      ::sleep(3);
       state = (*dmb)->lvmb_power_state();
       if ( pLogger_ ){ LOG4CPLUS_INFO( *pLogger_, "low voltage power state after power on: " << state ); }
 
@@ -470,7 +507,7 @@ void emu::step::Test::turnONlvDCFEBandALCT(emu::pc::Crate* crate ) {
       } // reconfigure alct
 
       (crate)->ccb()->HardReset_crate();
-      sleep(3);
+      ::sleep(3);
 
     } //  ODMB hv = 2
     
@@ -501,48 +538,36 @@ void emu::step::Test::configureODMB( emu::pc::Crate* crate ) {
       crate->vmeController()->vme_controller(irdwr,addr,&data,rcv);
       usleep(300000);
 
-      // Kill No Boards
-      irdwr = 3; addr = (0x00401c) | slot_number<<19; data = kill_None;
-      crate->vmeController()->vme_controller(irdwr,addr,&data,rcv);
+      // Unkill ALCT and TMB inputs to ODMB.
+      // Keep alive all DCFEBs that are alive at this moment (and only those).
+      int oldKillMask( (*dmb)->odmb_read_kill_mask() );
+      (*dmb)->odmb_set_kill_mask( oldKillMask & ~kill_ALCT & ~kill_TMB );
+      int newKillMask( (*dmb)->odmb_read_kill_mask() );
+      if ( pLogger_ ){ 
+	LOG4CPLUS_INFO( *pLogger_, "ODMB kill mask changed from 0x" << hex << oldKillMask << " to 0x" << newKillMask << dec );
+      }
 
-      //  Set LCT_L1A_DLY
-      irdwr = 3; addr = (0x004000)| slot_number<<19; data = 0x001a; // P5 // 0x001a; B904
-      crate->vmeController()->vme_controller(irdwr,addr,&data,rcv);
-      
-      // Set OTMB_DLY
-      //irdwr = 3; addr = (0x004004)| slot_number<<19; data = 0x0001;
-      irdwr = 3; addr = (0x004004)| slot_number<<19; data = 0x0002;
-      crate->vmeController()->vme_controller(irdwr,addr,&data,rcv);
-      
-      //    Set ALCT_DLY
-     //  irdwr = 3; addr = (0x00400c)| slot_number<<19; data = 0x001e; // ME+1/1/34
-      irdwr = 3; addr = (0x00400c)| slot_number<<19; data = 0x001f; // ME+1/1/35
-      crate->vmeController()->vme_controller(irdwr,addr,&data,rcv);
-
-      //    Set INJ_DLY
-      // Set it to 0 explicitly as in some older firmware versions its default value is nonzero.
-      irdwr = 3; addr = (0x004010)| slot_number<<19; data = 0x0000;
-      crate->vmeController()->vme_controller(irdwr,addr,&data,rcv);
 
       // ODMB configured to accept real triggers
+      // irdwr = 3; addr = emu::pc::DAQMB::ODMB_MODE | slot_number<<19; data = 0x0000;
       irdwr = 3; addr = (0x003000)| slot_number<<19; data = 0x0000;
       crate->vmeController()->vme_controller(irdwr,addr,&data,rcv);
       if (odmb_fw_vers >= 3) {
+        // addr = emu::pc::DAQMB::DATA_MUX | slot_number<<19;
         addr = (0x003300)| slot_number<<19;
         crate->vmeController()->vme_controller(irdwr,addr,&data,rcv);
+        // addr = emu::pc::DAQMB::TRIG_MUX | slot_number<<19;
         addr = (0x003304)| slot_number<<19;
         crate->vmeController()->vme_controller(irdwr,addr,&data,rcv);
+        // addr = emu::pc::DAQMB::LVMB_MUX | slot_number<<19;
         addr = (0x003308)| slot_number<<19;
         crate->vmeController()->vme_controller(irdwr,addr,&data,rcv);
+        // addr = emu::pc::DAQMB::L1A_MODE | slot_number<<19;
         addr = (0x003400)| slot_number<<19;
         crate->vmeController()->vme_controller(irdwr,addr,&data,rcv);
         addr = (0x003404)| slot_number<<19;
         crate->vmeController()->vme_controller(irdwr,addr,&data,rcv);
       }
-
-      // Temporary fix to explicitly set crate id in ODMB
-      irdwr = 3; addr = (0x004020)| slot_number<<19; data = crate->CrateID();
-      crate->vmeController()->vme_controller(irdwr,addr,&data,rcv);
 
     } // if( (*dmb)->GetHardwareVersion() == 2 )
   } // for ( vector<emu::pc::DAQMB*>::iterator dmb = dmbs.begin(); dmb != dmbs.end(); ++dmb )
@@ -656,6 +681,14 @@ void emu::step::Test::configure_11(){
   
   progress_.setTotal( (int)parameters_["durationInSec"] );
 
+  // Get duration [bx] of moratorium on L1A
+  uint64_t min_l1a_separation_bx = ( parameters_.find( "min_l1a_separation_bx" ) == parameters_.end() ? 0 : parameters_[ "min_l1a_separation_bx" ] );
+  const uint64_t maxL1SeparationInBX = 0xffff;
+  if ( min_l1a_separation_bx > maxL1SeparationInBX ){
+    if ( pLogger_ ){ LOG4CPLUS_WARN( *pLogger_, "Requested min_l1a_separation_bx = " << min_l1a_separation_bx << " is greater than the maximum allowed " << maxL1SeparationInBX << " BX. min_l1a_separation_bx = " << maxL1SeparationInBX << " will be used instead." ); }
+    min_l1a_separation_bx = maxL1SeparationInBX;
+  }
+
   vector<emu::pc::Crate*> crates = parser_.GetEmuEndcap()->crates();
   for ( vector<emu::pc::Crate*>::iterator crate = crates.begin(); crate != crates.end(); ++crate ){
 
@@ -674,6 +707,10 @@ void emu::step::Test::configure_11(){
     (*crate)->ccb()->l1aReset();
     usleep(1000);
     resyncDCFEBs( *crate ); // TODO: remove once firmware takes care of it
+
+    // Set moratorium on L1A in units of BX (introduced in https://padley.rice.edu/cms/ccb_gif_022516.svf)
+    const unsigned int CSRB4 = 0x26;
+    (*crate)->ccb()->WriteRegister( CSRB4, min_l1a_separation_bx );
 
     if ( isToStop_ ) return;
   }
@@ -701,7 +738,60 @@ void emu::step::Test::enable_11(){
   while ( progress_.getPercent() < 100 ){
     progress_.increment();
     if ( isToStop_ ) return;
-    sleep( 1 );
+    ::sleep( 1 );
+  }
+}
+void emu::step::Test::configure_11c(){
+  if ( pLogger_ ){ LOG4CPLUS_INFO( *pLogger_, "emu::step::Test::configure_11c starting" ); }
+  
+  progress_.setTotal( (int)parameters_["durationInSec"] );
+
+  vector<emu::pc::Crate*> crates = parser_.GetEmuEndcap()->crates();
+  for ( vector<emu::pc::Crate*>::iterator crate = crates.begin(); crate != crates.end(); ++crate ){
+
+    // Configure DCFEB.
+    vector<emu::pc::DAQMB *> dmbs = (*crate)->daqmbs();    
+    for ( vector<emu::pc::DAQMB*>::iterator dmb = dmbs.begin(); dmb != dmbs.end(); ++dmb ){
+      (*dmb)->set_comp_thresh( (*dmb)->GetCompThresh() ); // set cfeb thresholds (for the entire test)      
+      usleep( 10000 );
+      setAllDCFEBsPipelineDepth( *dmb );      
+    } 
+
+    hardResetOTMBs( *crate );
+
+    configureODMB( *crate ); 
+    usleep(1000);
+    (*crate)->ccb()->l1aReset();
+    usleep(1000);
+    resyncDCFEBs( *crate ); // TODO: remove once firmware takes care of it
+
+    if ( isToStop_ ) return;
+  }
+}
+
+void emu::step::Test::enable_11c(){
+  if ( pLogger_ ){ LOG4CPLUS_INFO( *pLogger_, "emu::step::Test::enable_11c starting" ); }
+  progress_.setTotal( (int)parameters_["durationInSec"] );
+
+  vector<emu::pc::Crate*> crates = parser_.GetEmuEndcap()->crates();
+  for ( vector<emu::pc::Crate*>::iterator crate = crates.begin(); crate != crates.end(); ++crate ){
+    (*crate)->ccb()->EnableL1aFromTmbL1aReq();
+
+    (*crate)->ccb()->l1aReset();
+    usleep(1000);
+    resyncDCFEBs( *crate ); // TODO: remove once firmware takes care of it
+    (*crate)->ccb()->startTrigger(); // necessary for tmb to start triggering (alct should work with just L1A reset and bc0)
+    (*crate)->ccb()->l1aReset();
+    (*crate)->ccb()->bc0(); 
+
+    if ( isToStop_ ) return;
+  }
+
+  // Wait for durationInSec
+  while ( progress_.getPercent() < 100 ){
+    progress_.increment();
+    if ( isToStop_ ) return;
+    ::sleep( 1 );
   }
 }
 
@@ -1080,27 +1170,9 @@ void emu::step::Test::configure_15(){ // OK
       for ( vector<emu::pc::DAQMB*>::iterator dmb = dmbs.begin(); dmb != dmbs.end(); ++dmb ){
 
 	if( (*dmb)->GetHardwareVersion() == 2 ){
-	  int slot_number  = (*dmb)->slot();
-          // the arguments for vme_controller //
-	  char rcv[2];
-	  unsigned int addr;
-	  unsigned short int data;
-	  int irdwr;
-	  // kill alct/tmb
-	  // all cfebs active	 
-	  irdwr = 3;
-	  addr = (0x00401c)| slot_number<<19;	
-	  data = kill_ALCT | kill_TMB;			
-	  (*crate)->vmeController()->vme_controller(irdwr,addr,&data,rcv);
-	  // set ODMB to PEDESTAL mode
-	  irdwr = 3;
-          int odmb_fw_vers = ((*dmb)->odmb_firmware_version() / 0x100 );
-          addr = (odmb_fw_vers >= 3) ? 0x003400 : 0x003000;
-          addr = addr | slot_number<<19;
-          data = (odmb_fw_vers >= 3) ? 0x01 : 0x2000;
-          (*crate)->vmeController()->vme_controller(irdwr,addr,&data,rcv);
+	  setUpODMBPulsing( *dmb, ODMBPedestalMode, ODMBInputKill_t( kill_ALCT | kill_TMB ) );
 	} // if( (*dmb)->GetHardwareVersion() == 2 )
-	sleep(1);
+	::sleep(1);
 
 	if ( isToStop_ ) return;
       } 
@@ -1219,27 +1291,9 @@ void emu::step::Test::configure_16(){
     for ( vector<emu::pc::DAQMB*>::iterator dmb = dmbs.begin(); dmb != dmbs.end(); ++dmb ){
       
       if( (*dmb)->GetHardwareVersion() == 2 ){
-	int slot_number  = (*dmb)->slot();
-	// the arguments for vme_controller //
-	char rcv[2];
-	unsigned int addr;
-	unsigned short int data;
-	int irdwr;
-	// kill alct/tmb
-	// all cfebs active	 
-	irdwr = 3;
-	addr = (0x00401c)| slot_number<<19;	
-	data = kill_ALCT | kill_TMB;			
-	(*crate)->vmeController()->vme_controller(irdwr,addr,&data,rcv);
-	// set ODMB to PEDESTAL mode
-	irdwr = 3;
-        int odmb_fw_vers = ((*dmb)->odmb_firmware_version() / 0x100);
-        addr = (odmb_fw_vers >= 3) ? 0x003400 : 0x003000;
-        addr = addr | slot_number<<19;
-        data = (odmb_fw_vers >= 3) ? 0x01 : 0x2000;
-        (*crate)->vmeController()->vme_controller(irdwr,addr,&data,rcv);
+	setUpODMBPulsing( *dmb, ODMBPedestalMode, ODMBInputKill_t( kill_ALCT | kill_TMB ) );
       } // if( (*dmb)->GetHardwareVersion() == 2 )
-      sleep(1);
+      ::sleep(1);
       
     }
 
@@ -1504,17 +1558,7 @@ void emu::step::Test::enable_17(){
 	    (*dmb)->set_cal_tim_pulse( timesetting ); // Change pulse delay on DMB FPGA
 	  }
 	  else if ( (*dmb)->GetHardwareVersion() == 2 ){
-	    int slot_number  = (*dmb)->slot();
-	    char rcv[2];
-	    unsigned int addr;
-	    unsigned short int data = timesetting;
-	    int irdwr;
-	    // set ODMB EXT_DLY
-	    irdwr = 3;
-	    addr = (0x004014)| slot_number<<19;
-	    (*crate)->vmeController()->vme_controller(irdwr,addr,&data,rcv);
-	    // (*crate)->ccb()->l1aReset();
-	    // if ( pLogger_ ){ LOG4CPLUS_INFO( *pLogger_, "Resync after setting ODMB EXT_DLY" ); }
+        (*dmb)->odmb_set_Ext_delay( timesetting ); // sets EXT_DLY
 	  }
 
 	  if ( (*dmb)->cfebs().at( 0 ).GetHardwareVersion() == 2 ){ // All CFEBs should have the same HW version; get it from the first.
@@ -1750,7 +1794,7 @@ void emu::step::Test::enable_18(){
   // Let's stay here until we're told to stop. Only then should we go on to disable trigger.
   while( true ){
     if ( isToStop_ ) return;
-    sleep( 1 );
+    ::sleep( 1 );
   }
 }
 
@@ -1861,7 +1905,7 @@ void emu::step::Test::enable_19(){
   for ( vector<emu::pc::Crate*>::iterator crate = crates.begin(); crate != crates.end(); ++crate ){
     (*crate)->ccb()->l1aReset();
     (*crate)->ccb()->bc0();
-
+    
     vector<emu::pc::DAQMB *> dmbs = (*crate)->daqmbs();
 
     for ( uint64_t iStrip = 0; iStrip < strips_per_run; ++iStrip ){
@@ -1873,13 +1917,13 @@ void emu::step::Test::enable_19(){
         (*dmb)->buck_shift();
         usleep(100000); // buck shifting takes a lot more time for DCFEBs
 
-	(*dmb)->restoreCFEBIdle(); // need to restore DCFEB JTAG after a buckshift
+        (*dmb)->restoreCFEBIdle(); // need to restore DCFEB JTAG after a buckshift
 
-	if ( (*dmb)->cfebs().at( 0 ).GetHardwareVersion() == 2 ){ // All CFEBs should have the same HW version; get it from the first.
+        if ( (*dmb)->cfebs().at( 0 ).GetHardwareVersion() == 2 ){ // All CFEBs should have the same HW version; get it from the first.
           usleep(100000); // buck shifting takes a lot more time for DCFEBs (should check this)
-          (*crate)->ccb()->l1aReset();
+          // (*crate)->ccb()->l1aReset();  // Resync causes one event to be lost. Also, the analyzer complains about OOS counters... And the test works without it.
           (*crate)->ccb()->bc0(); // needed after DCFEB buck shifting?
-	  usleep(100000);
+          usleep(100000);
         }
 
         if( (*dmb)->GetHardwareVersion() < 2 ) (*dmb)->settrgsrc(0); // disable DMB's own trigger, LCT	
@@ -1888,76 +1932,76 @@ void emu::step::Test::enable_19(){
       
       for ( uint64_t iAmp = 0; iAmp < dmb_tpamps_per_strip; ++iAmp ){
 	
-	// Why do we make vector with an entry for each DMB?  Aren't they all the same anyway?
-	vector<uint64_t> first_thresholds; // the first threshold for each DMB
-	for ( vector<emu::pc::DAQMB*>::iterator dmb = dmbs.begin(); dmb != dmbs.end(); ++dmb ){
-	  float dac = iAmp * dmb_tpamp_step + dmb_tpamp_first;
- 	  (*dmb)->set_dac( 0, dac * 5. / 4095. ); // DAQMB::set_dac( voltage of calib1 DAC, voltage of calib0 DAC )
-	  
- 	  if ( (*dmb)->cfebs().at( 0 ).GetHardwareVersion() == 2 ){ // All CFEBs should have the same HW version; get it from the first.
- 	    usleep(100000); // setting the dac lot more time for DCFEBs... (this should be checked again)
- 	  }
-	  
-	  // calculate first thresholds based on current dac value
-	  if ( (*dmb)->cfebs().at( 0 ).GetHardwareVersion() == 2 ){
-	    first_thresholds.push_back( max( int64_t( 0 ), (int64_t)(dac * scale_turnoff_dcfeb / 16 - range_turnoff) ) );
-	  }else{
-	    first_thresholds.push_back( max( int64_t( 0 ), (int64_t)(dac * scale_turnoff / 16 - range_turnoff) ) );
-	  }
-	} // for ( vector<emu::pc::DAQMB*>::iterator dmb = dmbs.begin(); dmb != dmbs.end(); ++dmb )
-	
-	
-	for ( uint64_t iThreshold = 0; iThreshold < threshs_per_tpamp; ++iThreshold ){
-	  
-	  uint64_t usWaitAfterPulse = 10; // for analog CFEBs; if any CFEB is digital, it will be set to a much larger value
-	  vector<uint64_t>::const_iterator first_threshold = first_thresholds.begin();
-	  for ( vector<emu::pc::DAQMB*>::iterator dmb = dmbs.begin(); dmb != dmbs.end(); ++dmb ){
-
-	    // set cfeb thresholds (for the entire test)
-	    float threshold = (float)( iThreshold * thresh_step + *first_threshold ) / 1000.;
-	    (*dmb)->set_comp_thresh( threshold );
-
- 	    if ( (*dmb)->cfebs().at( 0 ).GetHardwareVersion() == 2 ){ // All CFEBs should have the same HW version; get it from the first.
- 	      //usleep(500000); // set_comp_thresh takes a lot more time for DCFEBs...
-	      usleep(1000); // set_comp_thresh takes more time for DCFEBs...
- 	      //usWaitAfterPulse = 10000; // pulsing takes a lot more time for DCFEBs... (why not just change msec_between_pulses?)
- 	    }
-
-	    ++first_threshold;
-	  } // for ( vector<emu::pc::DAQMB*>::iterator dmb = dmbs.begin(); dmb != dmbs.end(); ++dmb )
-	  
-	  (*crate)->ccb()->RedirectOutput( &noBuffer ); // ccb prints a line on each test pulse - waste it
-	  
-	  for ( uint64_t iPulse = 1; iPulse <= events_per_thresh; ++iPulse ){
-	    // Dmb_cfeb_calibrate0 14 CFEB Calibrate Pre-Amp Gain
-	    // Dmb_cfeb_calibrate1 15 CFEB Trigger Pattern Calibration
-	    // Dmb_cfeb_calibrate2 16 CFEB Pedestal Calibration
-	    (*crate)->ccb()->GenerateDmbCfebCalib0(); // Generate “DMB_cfeb_calibrate[0]” 25 ns pulse
-	    usleep( usWaitAfterPulse + 1000*msec_between_pulses );
-	    progress_.increment();
-	    if (iPulse % events_per_thresh == 0) {
-	      if ( pLogger_ ){
-		stringstream ss;
-		ss << "Crate "  << (*crate)->GetLabel() << " "<< crate-crates.begin()+1 << "/" << crates.size()
-		   << ", strip " << iStrip+1 << "/" << strips_per_run
-		   << ", amplitude " << iAmp+1 << "/" << dmb_tpamps_per_strip
-		   << ", threshold " << iThreshold+1 << "/" << threshs_per_tpamp
-		   << ", pulses " << iPulse << "/" << events_per_thresh << " (" << progress_.getCurrent() << " of " << nEvents_ << " in total)";
-		LOG4CPLUS_INFO( *pLogger_, ss.str() );
-	      }
-	    }
-	    // Find the time between the DMB's receiving CLCT pretrigger and L1A:
-	    // for ( vector<emu::pc::DAQMB*>::iterator dmb = dmbs.begin(); dmb != dmbs.end(); ++dmb ){
-	    //   PrintDmbValuesAndScopes( (*crate)->GetChamber( *dmb )->GetTMB(), *dmb, (*crate)->ccb(), (*crate)->mpc() );
-	    // } // for ( vector<emu::pc::TMB*>::iterator tmb = tmbs.begin(); tmb != tmbs.end(); ++tmb )
-
-	    if ( isToStop_ ) return;
-	    
-	    (*crate)->ccb()->RedirectOutput (&cout); // get back ccb output
-	    
-	  } // for ( uint64_t iPulse = 1; iPulse <= events_per_thresh; ++iPulse )
-	  
-	} // for ( uint64_t iThreshold = 0; iThreshold < threshs_per_tpamp; ++iThreshold )
+        // Why do we make vector with an entry for each DMB?  Aren't they all the same anyway?
+        vector<uint64_t> first_thresholds; // the first threshold for each DMB
+        for ( vector<emu::pc::DAQMB*>::iterator dmb = dmbs.begin(); dmb != dmbs.end(); ++dmb ){
+          float dac = iAmp * dmb_tpamp_step + dmb_tpamp_first;
+          (*dmb)->set_dac( 0, dac * 5. / 4095. ); // DAQMB::set_dac( voltage of calib1 DAC, voltage of calib0 DAC )
+          
+          if ( (*dmb)->cfebs().at( 0 ).GetHardwareVersion() == 2 ){ // All CFEBs should have the same HW version; get it from the first.
+            usleep(100000); // setting the dac lot more time for DCFEBs... (this should be checked again)
+          }
+          
+          // calculate first thresholds based on current dac value
+          if ( (*dmb)->cfebs().at( 0 ).GetHardwareVersion() == 2 ){
+            first_thresholds.push_back( max( int64_t( 0 ), (int64_t)(dac * scale_turnoff_dcfeb / 16 - range_turnoff) ) );
+          }else{
+            first_thresholds.push_back( max( int64_t( 0 ), (int64_t)(dac * scale_turnoff / 16 - range_turnoff) ) );
+          }
+        } // for ( vector<emu::pc::DAQMB*>::iterator dmb = dmbs.begin(); dmb != dmbs.end(); ++dmb )
+        
+        
+        for ( uint64_t iThreshold = 0; iThreshold < threshs_per_tpamp; ++iThreshold ){
+          
+          uint64_t usWaitAfterPulse = 10; // for analog CFEBs; if any CFEB is digital, it will be set to a much larger value
+          vector<uint64_t>::const_iterator first_threshold = first_thresholds.begin();
+          for ( vector<emu::pc::DAQMB*>::iterator dmb = dmbs.begin(); dmb != dmbs.end(); ++dmb ){
+            
+            // set cfeb thresholds (for the entire test)
+            float threshold = (float)( iThreshold * thresh_step + *first_threshold ) / 1000.;
+            (*dmb)->set_comp_thresh( threshold );
+            
+            if ( (*dmb)->cfebs().at( 0 ).GetHardwareVersion() == 2 ){ // All CFEBs should have the same HW version; get it from the first.
+              //usleep(500000); // set_comp_thresh takes a lot more time for DCFEBs...
+              usleep(1000); // set_comp_thresh takes more time for DCFEBs...
+              //usWaitAfterPulse = 10000; // pulsing takes a lot more time for DCFEBs... (why not just change msec_between_pulses?)
+            }
+            
+            ++first_threshold;
+          } // for ( vector<emu::pc::DAQMB*>::iterator dmb = dmbs.begin(); dmb != dmbs.end(); ++dmb )
+          
+          (*crate)->ccb()->RedirectOutput( &noBuffer ); // ccb prints a line on each test pulse - waste it
+          
+          for ( uint64_t iPulse = 1; iPulse <= events_per_thresh; ++iPulse ){
+            // Dmb_cfeb_calibrate0 14 CFEB Calibrate Pre-Amp Gain
+            // Dmb_cfeb_calibrate1 15 CFEB Trigger Pattern Calibration
+            // Dmb_cfeb_calibrate2 16 CFEB Pedestal Calibration
+            (*crate)->ccb()->GenerateDmbCfebCalib0(); // Generate “DMB_cfeb_calibrate[0]” 25 ns pulse
+            usleep( usWaitAfterPulse + 1000*msec_between_pulses );
+            progress_.increment();
+            if (iPulse % events_per_thresh == 0) {
+              if ( pLogger_ ){
+                stringstream ss;
+                ss << "Crate "  << (*crate)->GetLabel() << " "<< crate-crates.begin()+1 << "/" << crates.size()
+                   << ", strip " << iStrip+1 << "/" << strips_per_run
+                   << ", amplitude " << iAmp+1 << "/" << dmb_tpamps_per_strip
+                   << ", threshold " << iThreshold+1 << "/" << threshs_per_tpamp
+                   << ", pulses " << iPulse << "/" << events_per_thresh << " (" << progress_.getCurrent() << " of " << nEvents_ << " in total)";
+                LOG4CPLUS_INFO( *pLogger_, ss.str() );
+              }
+            }
+            // Find the time between the DMB's receiving CLCT pretrigger and L1A:
+            // for ( vector<emu::pc::DAQMB*>::iterator dmb = dmbs.begin(); dmb != dmbs.end(); ++dmb ){
+            //   PrintDmbValuesAndScopes( (*crate)->GetChamber( *dmb )->GetTMB(), *dmb, (*crate)->ccb(), (*crate)->mpc() );
+            // } // for ( vector<emu::pc::TMB*>::iterator tmb = tmbs.begin(); tmb != tmbs.end(); ++tmb )
+            
+            if ( isToStop_ ) return;
+            
+            (*crate)->ccb()->RedirectOutput (&cout); // get back ccb output
+            
+          } // for ( uint64_t iPulse = 1; iPulse <= events_per_thresh; ++iPulse )
+          
+        } // for ( uint64_t iThreshold = 0; iThreshold < threshs_per_tpamp; ++iThreshold )
 	
       } // for ( uint64_t iAmp = 0; iAmp < dmb_tpamps_per_strip; ++iAmp )
       
@@ -2271,6 +2315,14 @@ void emu::step::Test::configure_27(){
   
   // Test of undefined duration, progress should be monitored in local DAQ.
   
+  // Get duration [bx] of moratorium on L1A
+  uint64_t min_l1a_separation_bx = ( parameters_.find( "min_l1a_separation_bx" ) == parameters_.end() ? 0 : parameters_[ "min_l1a_separation_bx" ] );
+  const uint64_t maxL1SeparationInBX = 0xffff;
+  if ( min_l1a_separation_bx > maxL1SeparationInBX ){
+    if ( pLogger_ ){ LOG4CPLUS_WARN( *pLogger_, "Requested min_l1a_separation_bx = " << min_l1a_separation_bx << " is greater than the maximum allowed " << maxL1SeparationInBX << " BX. min_l1a_separation_bx = " << maxL1SeparationInBX << " will be used instead." ); }
+    min_l1a_separation_bx = maxL1SeparationInBX;
+  }
+
   vector<emu::pc::Crate*> crates = parser_.GetEmuEndcap()->crates();
   for ( vector<emu::pc::Crate*>::iterator crate = crates.begin(); crate != crates.end(); ++crate ){
     
@@ -2293,16 +2345,47 @@ void emu::step::Test::configure_27(){
 
     (*crate)->ccb()->EnableL1aFromTmbL1aReq();
 
+    // Set moratorium on L1A in units of BX (introduced in https://padley.rice.edu/cms/ccb_gif_022516.svf)
+    const unsigned int CSRB4 = 0x26;
+    (*crate)->ccb()->WriteRegister( CSRB4, min_l1a_separation_bx );
+
     if ( isToStop_ ) return;
 
   }
 }
 
 void emu::step::Test::enable_27(){
-  if ( pLogger_ ){ LOG4CPLUS_INFO( *pLogger_, "emu::step::Test::enable_27 starting" ); }
-  
+  if ( pLogger_ ){ LOG4CPLUS_INFO( *pLogger_, "emu::step::Test::enable_27 starting (may be used for tests 27(s),40(s))" ); }
   // Test of undefined duration, progress should be monitored in local DAQ.
   
+  TimingOptions timingOptions( this );
+
+#ifdef DIP
+  bool subscribedToDIP = false;
+  if ( timingOptions.synchronizeTestStart() || timingOptions.doSynchronizedDumps() ){
+    subscribeToDIP();
+    subscribedToDIP = true;
+    ::sleep( 2 ); // wait a couple of sec for the subscriptions to be confirmed;
+    // TODO: waitForSubscriptionConfirmation method?
+  }
+
+  if ( timingOptions.synchronizeTestStart() ){
+    LOG4CPLUS_INFO( *pLogger_, "Waiting for " << timingOptions.printTimingSignals( timingOptions.spsTimingSignalsForStart() ) << " to start triggering..." ); 
+    // waitForSPSTimingSignals returns negative number if 'Halt' button is pressed during the wait
+    if ( waitForSPSTimingSignals( timingOptions.spsTimingSignalsForStart() ) < 0 ){
+      if ( subscribedToDIP ) unsubscribeFromDIP();
+      return;
+    }
+    LOG4CPLUS_INFO( *pLogger_, "SPS signal received, starting triggering." );
+  }
+
+  // Start synchronized dumper if needed
+  Dumper *synchronizedDumper = NULL;
+  if ( timingOptions.doSynchronizedDumps() ) synchronizedDumper = new Dumper( &timingOptions );
+  bool firstSignal = true;
+#endif
+
+  // Start triggering
   vector<emu::pc::Crate*> crates = parser_.GetEmuEndcap()->crates();
   for ( vector<emu::pc::Crate*>::iterator crate = crates.begin(); crate != crates.end(); ++crate ){
 
@@ -2310,13 +2393,58 @@ void emu::step::Test::enable_27(){
     (*crate)->ccb()->l1aReset();
     (*crate)->ccb()->bc0(); 
 
-    if ( isToStop_ ) return;
+    if ( isToStop_ ){
+#ifdef DIP
+      if ( subscribedToDIP ) unsubscribeFromDIP();
+      delete synchronizedDumper;
+#endif
+      return;
+    }
   }
-      
+
+  // Start periodic dumper if needed
+  PeriodicDumper *periodicDumper = NULL;
+  if ( timingOptions.doPeriodicDumps() ) periodicDumper = new PeriodicDumper( &timingOptions );
+
   // Let's stay here until we're told to stop. Only then should we go on to disable trigger.
   while( true ){
-    if ( isToStop_ ) return;
-    sleep( 1 );
+
+    if ( isToStop_ ){ 
+#ifdef DIP
+      if ( subscribedToDIP ) unsubscribeFromDIP();
+      delete synchronizedDumper;
+#endif
+      delete periodicDumper;
+      return;
+    }
+
+#ifdef DIP
+    if ( timingOptions.doSynchronizedDumps() ){
+      int index;
+      if ( ( index = receivedSPSSignal( timingOptions.spsTimingSignalsForDumps() ) ) >= 0 ){
+	// Don't dump counters on the first signal, but do on all subsequent ones:
+	if ( ! firstSignal ){
+	  cout << "Not first signal: " << DIPPublications_[index] << endl;
+	  if ( synchronizedDumper ) synchronizedDumper->dumpCounters( DIPPublications_[index] );
+	}
+	else{
+	  cout << "First signal: " << DIPPublications_[index] << endl;
+	  firstSignal = false;
+	}
+	// Reset the counters on every signal:
+	if ( synchronizedDumper ) synchronizedDumper->resetCounters( DIPPublications_[index] );
+      }
+      ::usleep( 100 ); // Wait a little before rechecking for SPS signal.
+    }
+    else{
+      // We only need to check for user's halt request, which we can do at a leasurely once-a-second rate. 
+      ::sleep( 1 );
+    }
+#else
+    // We only need to check for user's halt request, which we can do at a leasurely once-a-second rate. 
+    ::sleep( 1 );
+#endif
+
 //     // Find the time between the DMB's receiving CLCT pretrigger and L1A:
 //     for ( vector<emu::pc::Crate*>::iterator crate = crates.begin(); crate != crates.end(); ++crate ){
 //       vector<emu::pc::DAQMB *> dmbs = (*crate)->daqmbs();
@@ -2324,7 +2452,8 @@ void emu::step::Test::enable_27(){
 // 	PrintDmbValuesAndScopes( (*crate)->GetChamber( *dmb )->GetTMB(), *dmb, (*crate)->ccb(), (*crate)->mpc() );
 //       } // for ( vector<emu::pc::TMB*>::iterator tmb = tmbs.begin(); tmb != tmbs.end(); ++tmb )
 //     } // for ( vector<emu::pc::Crate*>::iterator crate = crates.begin(); crate != crates.end(); ++crate )
-  }
+
+  } // while( true )
 }
 
 void emu::step::Test::configure_30(){
@@ -2421,11 +2550,71 @@ void emu::step::Test::enable_30(){
   if ( pLogger_ ){ LOG4CPLUS_INFO( *pLogger_, "emu::step::Test::enable_30 (multichamber) ending" ); }
 }
 
+void emu::step::Test::configure_40(){
+  if ( pLogger_ ){ LOG4CPLUS_INFO( *pLogger_, "emu::step::Test::configure_40 starting" ); }
+  
+  // Test of undefined duration, progress should be monitored in local DAQ.
+  
+  vector<emu::pc::Crate*> crates = parser_.GetEmuEndcap()->crates();
+  for ( vector<emu::pc::Crate*>::iterator crate = crates.begin(); crate != crates.end(); ++crate ){
+    
+    // Configure DCFEB.
+    vector<emu::pc::DAQMB *> dmbs = (*crate)->daqmbs();  
+    for ( vector<emu::pc::DAQMB*>::iterator dmb = dmbs.begin(); dmb != dmbs.end(); ++dmb ){
+      (*dmb)->set_comp_thresh( (*dmb)->GetCompThresh() ); // set cfeb thresholds (for the entire test)      
+      usleep(10000);
+      setAllDCFEBsPipelineDepth( *dmb );      
+      if ( isToStop_ ) return;
+    } 
+
+    hardResetOTMBs( *crate );
+
+    configureODMB( *crate );
+    usleep(1000);
+    (*crate)->ccb()->l1aReset();
+    usleep(1000);
+    resyncDCFEBs( *crate ); // TODO: remove once firmware takes care of it
+
+    // CSRB1 register bits
+    // | bit | value | meaning                                                                               |
+    // |-----+-------+---------------------------------------------------------------------------------------|
+    // |   0 |     1 | If 1, CCB command and data source is CSRB2 and CSRB3; otherwise TTCrx.                |
+    // |   1 |     0 | -                                                                                     |
+    // |   2 |     1 | If 1, disable logical OR of three DMB_cfeb_calibrate[2..0] sources                    |
+    // |   3 |     1 | If 1, disable L1A from TTCrx.                                                         |
+    // |     |       |                                                                                       |
+    // |   4 |     1 | If 1, disable L1A from VME command.                                                   |
+    // |   5 |     1 | If 1, disable L1A from TMB_L1A_REQ backplane line.                                    |
+    // |   6 |     1 | If 1, disable L1A from TMB_L1A_REL backplane line.                                    |
+    // |   7 |     0 | If 1, disable L1A from the front panel.                                               |
+    // |     |       |                                                                                       |
+    // |   8 |     1 | If 1, enable all inputs from the front panel.                                         |
+    // |   9 |     1 | If 1, disable ALCT_external_trigger signal generation on L1A.                         |
+    // |  10 |     1 | If 1, disable CLCT_external_trigger signal generation on L1A.                         |
+    // |  11 |     1 | If 1, disable pretrigger and L1A generation from ALCT_adb_sync_pulse sources.         |
+    // |     |       |                                                                                       |
+    // |  12 |     1 | If 1, disable pretrigger and L1A generation from ALCT_adb_async_pulse sources.        |
+    // |  13 |     0 | If 1, disable sending L1A and both pretriggers to backplane after first L1A sent.     |
+    // |  14 |     1 | If 0, enable sending L1A and both pretriggers to backplane on Tmb_l1A_Release signal. |
+    // |  15 |     1 | If 0, enable sending L1A and both pretriggers to backplane on Dmb_l1A_Release signal. |
+
+    // Enable L1A from front panel LVDS connector P7, pins 1&2:
+    // unsigned int value = 0x1f5d; // = 0001 1110 0101 1101; worked for ME1/1, but not all other sources are disabled
+    unsigned int value = 0xdf7d; // = 1101 1111 0111 1101; this should definitely disable all other trigger sources
+    (*crate)->ccb()->WriteRegister( emu::pc::CCB::CSRB1, value );
+
+    if ( isToStop_ ) return;
+
+  }
+}
+
+void emu::step::Test::enable_40(){} // It would be the same as enable_27, so use that one instead to avoid code duplication.
+
 void emu::step::Test::configure_fake(){
   if ( pLogger_ ){ LOG4CPLUS_INFO( *pLogger_, "emu::step::Test::configure_fake starting" ); }
-  for ( uint64_t i = 0; i < 30; ++i ){
+  for ( uint64_t i = 0; i < 3; ++i ){
     if ( isToStop_ ) return;
-    sleep( 1 );    
+    ::sleep( 1 );
   }
   if ( pLogger_ ){ LOG4CPLUS_INFO( *pLogger_, "emu::step::Test::configure_fake ending" ); }
 }
@@ -2433,20 +2622,201 @@ void emu::step::Test::configure_fake(){
 void emu::step::Test::enable_fake(){
   if ( pLogger_ ){ LOG4CPLUS_INFO( *pLogger_, "emu::step::Test::enable_fake starting" ); }
 
-  uint64_t nEvents = 30;
+  TimingOptions timingOptions( this );
+
+#ifdef DIP
+  bool subscribedToDIP = false;
+  if ( timingOptions.synchronizeTestStart() || timingOptions.doSynchronizedDumps() ){
+    subscribeToDIP();
+    subscribedToDIP = true;
+    ::sleep( 2 ); // wait a couple of sec for the subscriptions to be confirmed;
+    // TODO: waitForSubscriptionConfirmation method?
+  }
+
+  if ( timingOptions.synchronizeTestStart() ){
+    LOG4CPLUS_INFO( *pLogger_, "Waiting for " << timingOptions.printTimingSignals( timingOptions.spsTimingSignalsForStart() ) << " to start triggering..." ); 
+    // waitForSPSTimingSignals returns negative number if 'Halt' button is pressed during the wait
+    if ( waitForSPSTimingSignals( timingOptions.spsTimingSignalsForStart() ) < 0 ){
+      if ( subscribedToDIP ) unsubscribeFromDIP();
+      return;
+    }
+    LOG4CPLUS_INFO( *pLogger_, "SPS signal received, starting triggering." );
+  }
+
+  Dumper *synchronizedDumper = NULL;
+  if ( timingOptions.doSynchronizedDumps() ) synchronizedDumper = new Dumper( &timingOptions );
+  bool firstSignal = true;
+#endif
+
+  PeriodicDumper *periodicDumper = NULL;
+  if ( timingOptions.doPeriodicDumps() ) periodicDumper = new PeriodicDumper( &timingOptions );
+
+  uint64_t nEvents = 60;
   bsem_.take();
   nEvents_ = nEvents;
   progress_.setTotal( (int)nEvents_ );
   bsem_.give();
-  for ( uint64_t iEvent = 0; iEvent < nEvents; ++iEvent ){
+
+  emu::utils::SimpleTimer st;
+  int previousEventTime = int( st.sec() );
+  uint64_t iEvent = 0;
+  while ( iEvent < nEvents ){
+
     if ( isToStop_ ){ 
-      if ( pLogger_ ){ LOG4CPLUS_INFO( *pLogger_, "emu::step::Test::enable_fake ending forced" ); }
+      LOG4CPLUS_INFO( *pLogger_, "emu::step::Test::enable_fake ending forced" );
+#ifdef DIP
+      if ( subscribedToDIP ) unsubscribeFromDIP();
+      delete synchronizedDumper;
+#endif
+      delete periodicDumper;
       return;
     }
-    if ( pLogger_ ){ LOG4CPLUS_INFO( *pLogger_, "Event " << iEvent + 1 ); }
-    progress_.setCurrent( (int)iEvent + 1 );
-    sleep( 1 );    
+    
+#ifdef DIP
+    if ( timingOptions.doSynchronizedDumps() ){
+      int index;
+      if ( ( index = receivedSPSSignal( timingOptions.spsTimingSignalsForDumps() ) ) >= 0 ){
+	// Don't dump counters on the first signal, but do on all subsequent ones:
+	if ( ! firstSignal ){
+	  cout << "Not first signal: " << DIPPublications_[index] << endl;
+	  if ( synchronizedDumper ) synchronizedDumper->dumpCounters( DIPPublications_[index] );
+	}
+	else{
+	  cout << "First signal: " << DIPPublications_[index] << endl;
+	  firstSignal = false;
+	}
+	// Reset the counters on every signal:
+	if ( synchronizedDumper ) synchronizedDumper->resetCounters( DIPPublications_[index] );
+      }
+      ::usleep( 1000 ); // wait a millisec before rechecking 
+    }
+#endif
+
+    if ( int( st.sec() ) > previousEventTime ){
+      previousEventTime = int( st.sec() );
+      if ( pLogger_ ){ LOG4CPLUS_INFO( *pLogger_, "Event " << iEvent + 1 ); }
+      progress_.setCurrent( (int)iEvent + 1 );
+      iEvent++;
+    }
   }
   
-  if ( pLogger_ ){ LOG4CPLUS_INFO( *pLogger_, "emu::step::Test::enable_fake ending" ); }
+#ifdef DIP
+  if ( subscribedToDIP ) unsubscribeFromDIP();
+  delete synchronizedDumper;
+#endif
+  delete periodicDumper;
+
+  LOG4CPLUS_INFO( *pLogger_, "emu::step::Test::enable_fake ending" );
 }
+
+void emu::step::Test::onException( xcept::Exception& e ){ // callback for toolbox::exception::Listener
+  if ( pLogger_ ){
+    LOG4CPLUS_ERROR( *pLogger_, "Exception caught in periodic TMB dumper thread: " << xcept::stdformat_exception_history(e) );
+  }
+}
+
+#ifdef DIP
+
+//
+// DIP
+//
+
+void emu::step::Test::subscribeToDIP(){
+  // Set the host name of the DIP server
+  dip_->setDNSNode( "dipnsgpn1.cern.ch,dipnsgpn2.cern.ch" ); // TODO: make configurable?
+  // Create a subsciption for each DIP publication on our list
+  for( int i = 0 ; i < nDIPPublications; i++ ){
+    try{
+      subscriptions_[i] = dip_->createDipSubscription( DIPPublications_[i], spsListener_ );
+    }
+    catch( DipException& e ){
+      LOG4CPLUS_ERROR( *pLogger_, "Failed to subscribe to DIP for " << DIPPublications_[i] << " : " << e.what() );
+    }    
+    // Also fill the inverse of the DIPPublications_ array
+    DIPPublicationIndices_[DIPPublications_[i]] = i;  
+  }
+}
+
+void emu::step::Test::unsubscribeFromDIP(){
+  LOG4CPLUS_INFO( *pLogger_, "Destroying DIP subscriptions." );
+  for ( int i = 0 ; i < nDIPPublications; i++ ){
+    try{
+      dip_->destroyDipSubscription( subscriptions_[i] );
+    }
+    catch( DipException& e ){
+      LOG4CPLUS_ERROR( *pLogger_, "Failed to unsubscribe " << DIPPublications_[i] << " from DIP: " << e.what() );
+    }
+  }
+}
+
+void emu::step::Test::resetDIPMessageReceivedFlags( unsigned int signals ){
+  bsem_.take();
+  DIPMessageReceivedFlags_ &= ~signals;
+  bsem_.give();
+}
+
+int emu::step::Test::receivedSPSSignal( unsigned int signals ){
+  bsem_.take();
+  // cout << "Checking DIPMessageReceivedFlags_=" << DIPMessageReceivedFlags_ << " against " << signals << endl;
+  unsigned int received = ( DIPMessageReceivedFlags_ & signals );
+  // Find out which signal we received:
+  int index = 0;
+  if ( received ) while ( ( received & 1<<index ) == 0 ) index++;
+  else            index = -1;
+  // We now know it's been received, so reset the flag so that we can't take it again unless there's another signal. 
+  //  DIPMessageReceivedFlags_ &= ~signals;
+  DIPMessageReceivedFlags_ = 0;
+  bsem_.give();
+  return index;
+}
+
+int emu::step::Test::waitForSPSTimingSignals( unsigned int signals ){
+  // Reset the receive flag of these signals to FALSE to be able to catch the next new signal.
+  resetDIPMessageReceivedFlags( signals );
+  // Start a polling loop
+  int index;
+  while( ( index = receivedSPSSignal( signals ) ) < 0 ){
+    ::usleep( 1000 );
+    // Check if the user wants us to stop
+    if ( isToStop_ ) return -1; // Negative means the wait was interrupted.
+  }
+  
+  return index; // A valid index means that the signal arrived.
+}
+
+//
+// Nested DIP listener class
+//
+
+void emu::step::Test::SPSListener::connected( DipSubscription *subscription ) {
+  LOG4CPLUS_INFO( *client_->pLogger_, "Publication source  " << subscription->getTopicName()<< " available." );
+}
+
+void emu::step::Test::SPSListener::disconnected( DipSubscription *subscription, char *reason ) {
+  LOG4CPLUS_INFO( *client_->pLogger_, "Publication source " << subscription->getTopicName()<< " unavailable. Reason: " << reason );
+}
+
+void emu::step::Test::SPSListener::handleException( DipSubscription* subscription, DipException& ex ){
+  LOG4CPLUS_ERROR( *client_->pLogger_, "Subscription " << subscription->getTopicName()<< " has error: " << ex.what() );
+}
+
+void emu::step::Test::SPSListener::handleMessage( DipSubscription *subscription, DipData &message ){
+  LOG4CPLUS_INFO( *client_->pLogger_, "Received data from " << subscription->getTopicName() );
+  if ( client_->DIPPublicationIndices_.find( subscription->getTopicName() ) == client_->DIPPublicationIndices_.end() ){
+    LOG4CPLUS_WARN( *client_->pLogger_, "Received data from unknown publication " << subscription->getTopicName() );
+    return;
+  }
+  client_->bsem_.take();
+  // Find the index of this subscription/publication:
+  int index = client_->DIPPublicationIndices_[ subscription->getTopicName() ];
+  // Note that cycleName can change day to day, so we won't require it to match anything for the time being.
+  // if ( true ){
+  // TODO: Ask which cycleName corresponds to our testbeam area.
+  if ( client_->SPSCycleName_ == message.extractString( "cycleName" ) ){
+    // Set the corresponding receive flag to indicate the reception (only that single bit of the flag should be changed here):
+    client_->DIPMessageReceivedFlags_ |= 1<<index;
+  }
+  // cout << "client_->DIPMessageReceivedFlags_=" << client_->DIPMessageReceivedFlags_ << endl;
+  client_->bsem_.give();
+}
+#endif

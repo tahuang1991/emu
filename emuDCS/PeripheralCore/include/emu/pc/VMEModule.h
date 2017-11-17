@@ -208,6 +208,10 @@ public:
   void write_mcs(char *buf, int nbytes, FILE *outf);
   int read_mcs(char *binbuf, FILE *finp);
 
+  inline int get_flag(int flag) {  return ((special_flags_ >> flag ) & 1); }
+  inline void set_flag(int flag) { special_flags_ |= (1<<flag); } 
+  inline void clear_flag(int flag) { if((special_flags_ >> flag ) & 1) special_flags_ ^= (1<<flag); }
+
 protected:
   //
   int JtagSource_;
@@ -243,6 +247,7 @@ protected:
   // new Jtag routines to bypass VMEController_jtag 
   void Jtag_Ohio(int dev, int reg, const char *snd, int cnt, char *rcv, int ird, int when); 
   void Jtag_Lite(int dev, int reg, const char *snd, int cnt, char *rcv, int ird, int when);
+  void Jtag_Norm(long dev, int reg, const char *snd, int cnt, char *rcv, int ird, int when);
   void Jtag_Test(int dev, int reg, const char *snd, int cnt, char *rcv, int ird, int when);
   void udelay(long int usec);
   unsigned shuffle32(unsigned value);
@@ -266,6 +271,8 @@ protected:
   FILE *bitfile;
   char *bitstream;
   int bitbufindex;
+  // for special cases
+  int special_flags_;
 };
   } // namespace emu::pc
 } // namespace emu

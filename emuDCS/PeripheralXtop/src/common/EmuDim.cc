@@ -110,6 +110,9 @@ xoap::MessageReference EmuDim::SoapInfo (xoap::MessageReference message)
         if(xmasst=="ON" || xmasst=="on")   xmas_state_ = 2;
         if(xmasst=="OFF" || xmasst=="off")  xmas_state_ = 4;   
         std::cout << getLocalDateTime() << " Xmas Report: state changed to " << xmasst << std::endl;
+        std::string confirm = "XMAS_" + xmasst;
+        strcpy(pvssrespond.command, confirm.c_str());
+        Confirmation_Service->updateService();
      }
      else
      {
@@ -321,16 +324,8 @@ void EmuDim::MainPage(xgi::Input * in, xgi::Output * out ) throw (xgi::exception
 void EmuDim::MyHeader(xgi::Input * in, xgi::Output * out, std::string title ) 
   throw (xgi::exception::Exception) {
   //
-  *out << cgicc::HTMLDoctype(cgicc::HTMLDoctype::eStrict) << std::endl;
-  *out << cgicc::html().set("lang", "en").set("dir","ltr") << std::endl;
-  //
-  cgicc::Cgicc cgi(in);
-  //
-  //const CgiEnvironment& env = cgi.getEnvironment();
-  //
-  std::string myUrl = getApplicationDescriptor()->getContextDescriptor()->getURL();
-  std::string myUrn = getApplicationDescriptor()->getURN();
-  xgi::Utils::getPageHeader(out,title,myUrl,myUrn,"");
+  *out << "<h1 style=\"text-align: center\"> " << title << "</h1>" << std::endl;
+  *out << "<h5 style=\" font-weight: regular; text-align: center\"> " << "( time stamp: " << getLocalDateTime()  << " ) </h5>" << std::endl;
   //
 }
 
@@ -651,7 +646,7 @@ void EmuDim::StartDim()
          dim_lv_name = pref + "LV_1_" + chamb[i].GetLabel(); 
          dim_temp_name = pref + "TEMP_1_" + chamb[i].GetLabel(); 
 
-         LV_1_Service[i]= new DimService(dim_lv_name.c_str(),"F:5;F:5;F:5;F:5;F:5;F:5;F:8;F:16;I:4",
+         LV_1_Service[i]= new DimService(dim_lv_name.c_str(),"F:5;F:5;F:5;F:5;F:5;F:5;F:8;F:14;F:2;I:4",
            &(EmuDim_lv[i]), sizeof(LV_1_DimBroker));
          TEMP_1_Service[i]= new DimService(dim_temp_name.c_str(),"F:7;I:2",
            &(EmuDim_temp[i]), sizeof(TEMP_1_DimBroker));
@@ -663,7 +658,7 @@ void EmuDim::StartDim()
          dim_lv2_name = pref + "LV_2_" + chamb[i].GetLabel(); 
          dim_temp2_name = pref + "TEMP_2_" + chamb[i].GetLabel(); 
 
-         LV_1_Service[i]= new DimService(dim_lv2_name.c_str(),"F:7;F:7;F:7;F:7;F:7;F:7;F:8;F:14;F:7;F:7;F:2;I:4",
+         LV_1_Service[i]= new DimService(dim_lv2_name.c_str(),"F:7;F:7;F:7;F:7;F:7;F:7;F:8;F:14;F:7;F:7;F:2;F:7;I:3;I:7;I:7;I:7;I:7;I:4",
            &(EmuDim_lv2[i]), sizeof(LV_2_DimBroker));
          TEMP_1_Service[i]= new DimService(dim_temp2_name.c_str(),"F:4;F:7;F:7;F:7;I:2",
            &(EmuDim_temp2[i]), sizeof(TEMP_2_DimBroker));
@@ -705,23 +700,25 @@ void EmuDim::StartDim()
 int EmuDim::UpdateChamber(int ch)
 {
    int mode = OpMode_;
+   bool lv_ok=false, temp_ok=false;
+
    if(mode<=0) mode = 2;
    if(ch>=0 && ch < TOTAL_CHAMBERS && chamb[ch].Ready())
    {
      if(chamb[ch].GetType()<=1)
      {
-         chamb[ch].GetDimLV(mode, &(EmuDim_lv[ch]));
-         chamb[ch].GetDimTEMP(mode, &(EmuDim_temp[ch]));
+         lv_ok=chamb[ch].GetDimLV(mode, &(EmuDim_lv[ch]));
+         temp_ok=chamb[ch].GetDimTEMP(mode, &(EmuDim_temp[ch]));
      }
      else
      {
-         chamb[ch].GetDimLV2(mode, &(EmuDim_lv2[ch]));
-         chamb[ch].GetDimTEMP2(mode, &(EmuDim_temp2[ch]));
+         lv_ok=chamb[ch].GetDimLV2(mode, &(EmuDim_lv2[ch]));
+         temp_ok=chamb[ch].GetDimTEMP2(mode, &(EmuDim_temp2[ch]));
      }
      try 
      {
-         if(LV_1_Service[ch]) LV_1_Service[ch]->updateService();
-         if(TEMP_1_Service[ch]) TEMP_1_Service[ch]->updateService();
+         if(lv_ok && LV_1_Service[ch]) LV_1_Service[ch]->updateService();
+         if(temp_ok && TEMP_1_Service[ch]) TEMP_1_Service[ch]->updateService();
      } catch (...) {}
          return 1;
    }

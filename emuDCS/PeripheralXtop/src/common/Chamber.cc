@@ -87,7 +87,7 @@ void Chamber::Fill(char *buffer, int source)
 //       ==1  from file
 //
    int idx=0, i;
-   char *start = buffer, *item, *sep = " ";
+   char *start = buffer, *item; const char *sep = " ";
    char *last=NULL;
    float y;
 
@@ -99,7 +99,7 @@ void Chamber::Fill(char *buffer, int source)
            i = atoi(item);
            states[idx] = i; 
        }
-       else if(idx<86 || (type_==2 && idx<286))
+       else if(idx<86 || (type_==2 && idx<308))
        {  
            y=strtof(item,NULL);
            values[idx-5]=y;
@@ -124,8 +124,8 @@ void Chamber::Fill(char *buffer, int source)
       }
       else if(type_==2)
       {
-        if(idx!=286 || values[280]!=(-50.))
-        {   std::cout << label_ << " (type 2) BAD...total " << idx << " last one " << values[280] << std::endl;
+        if(idx!=308 || values[302]!=(-50.))
+        {   std::cout << label_ << " (type 2) BAD...total " << idx << " last one " << values[302] << std::endl;
             corruption = true;
         }
         else 
@@ -153,9 +153,9 @@ void Chamber::Fill(char *buffer, int source)
 //    2        reading error removed
 //    3        true reading with all errors
 
-void Chamber::GetDimLV(int hint, LV_1_DimBroker *dim_lv )
+bool Chamber::GetDimLV(int hint, LV_1_DimBroker *dim_lv )
 {
-   if(type_==2) return;
+   if(type_==2) return false;
 
    int *info, this_st;
    float *data;
@@ -205,16 +205,16 @@ void Chamber::GetDimLV(int hint, LV_1_DimBroker *dim_lv )
 
    dim_lv->A7v = data[38];
    dim_lv->D7v = data[39];
-   dim_lv->CCB_bits = info[3];
+//   dim_lv->CCB_bits = info[3];    // disabled on Nov 4, 2016
    dim_lv->FPGA_bits = info[4];
    dim_lv->update_time = info[1];
    dim_lv->status = this_st;
-
+   return ((this_st & 0x058)==0); 
 }
 
-void Chamber::GetDimLV2(int hint, LV_2_DimBroker *dim_lv )
+bool Chamber::GetDimLV2(int hint, LV_2_DimBroker *dim_lv )
 {
-   if(type_<=1) return;
+   if(type_<=1) return false;
 
    int *info, this_st;
    float *data;
@@ -229,6 +229,7 @@ void Chamber::GetDimLV2(int hint, LV_2_DimBroker *dim_lv )
        this_st |= 4;
        for(int i=0; i<38; i++) data[i] = -2.;
    }
+
    for(int i=0; i<DCFEB_NUMBER; i++)
    {
       dim_lv->dcfeb.v30[i] = data[25+3*i];
@@ -238,6 +239,7 @@ void Chamber::GetDimLV2(int hint, LV_2_DimBroker *dim_lv )
       dim_lv->dcfeb.c40[i] = data[ 1+3*i];
       dim_lv->dcfeb.c55[i] = data[ 2+3*i];
    }
+
       dim_lv->alct.v18 = data[47];
       dim_lv->alct.v33 = data[46];
       dim_lv->alct.v55 = data[48];
@@ -262,24 +264,49 @@ void Chamber::GetDimLV2(int hint, LV_2_DimBroker *dim_lv )
       dim_lv->tmb.vGND = data[76];
       dim_lv->tmb.vMAX = data[77];
 
+      dim_lv->odmb.FPGA3V = data[80+30*DCFEB_NUMBER+1];  //  #1 in ODMB block
+      dim_lv->odmb.FPGA2V = data[80+30*DCFEB_NUMBER+5];  //  #5 in ODMB block
+      dim_lv->odmb.FPGA1V = data[80+30*DCFEB_NUMBER+7];  //  #7 in ODMB block
+      dim_lv->odmb.LVMB5V = data[80+30*DCFEB_NUMBER+8];  //  #8 in ODMB block
+      dim_lv->odmb.PPIB5V = data[80+30*DCFEB_NUMBER+2];  //  #2 in ODMB block
+      dim_lv->odmb.PPIB3V = data[80+30*DCFEB_NUMBER+4];  //  #4 in ODMB block
+      dim_lv->odmb.PPIBCU = data[80+30*DCFEB_NUMBER+3]*0.001;  //  #3 in ODMB block, (mA)->(A)
+      dim_lv->odmb.ODMB1 = 0;
+      dim_lv->odmb.ODMB2 = 0;
+      dim_lv->odmb.ODMB3 = 0;
+
    for(int i=0; i<DCFEB_NUMBER; i++)
    {
-      dim_lv->dsys.vcore[i] = data[81+27*i];
-      dim_lv->dsys.vaux1[i] = data[82+27*i];
+      dim_lv->dsys.vcore[i] = data[80+30*i+1];   //  #1 in DCFEB block
+      dim_lv->dsys.vaux1[i] = data[80+30*i+2];   //  #2 in DCFEB block
+   }
+
+   for(int i=0; i<DCFEB_NUMBER; i++)
+   {
+      dim_lv->seu.status[i] = 0;
+      dim_lv->seu.error1[i] = 0;
+      dim_lv->seu.errorm[i] = 0;
+      dim_lv->seu.other1[i] = 0;
+      if(data[80+30*i+27]>0) dim_lv->seu.status[i] = int(data[80+30*i+27]);               // #27 in DCFEB block
+      if(data[80+30*i+28]>0) dim_lv->seu.error1[i] = int(data[80+30*i+28]) & 0xFF;        // #28 in DCFEB block, low-byte
+      if(data[80+30*i+28]>0) dim_lv->seu.errorm[i] = (int(data[80+30*i+28])>>8) & 0xFF;   // #28 in DCFEB block, high-byte
+      if(data[80+30*i+15]>0) dim_lv->seu.other1[i] = int(data[80+30*i+29]) & 0xFF;        // #15 in DCFEB block
    }
 
    dim_lv->A7v = data[50];
    dim_lv->D7v = data[51];
-   dim_lv->CCB_bits = info[3];
-   dim_lv->FPGA_bits = info[4];
+//   dim_lv->CCB_bits = info[3];   // disabled on Nov 4, 2016
+   dim_lv->FPGA_bits = 0;
+   if(data[78]>0 || data[299]>0) dim_lv->FPGA_bits = int(data[78]) + (int(data[299])<<16);
    dim_lv->update_time = info[1];
    dim_lv->status = this_st;
+   return ((this_st & 0x058)==0); 
 
 }
 
-void Chamber::GetDimTEMP(int hint, TEMP_1_DimBroker *dim_temp )
+bool Chamber::GetDimTEMP(int hint, TEMP_1_DimBroker *dim_temp )
 {
-   if(type_==2) return;
+   if(type_==2) return false;
 
    int *info, this_st;
    float *data, total_temp;
@@ -307,14 +334,15 @@ void Chamber::GetDimTEMP(int hint, TEMP_1_DimBroker *dim_temp )
 
    dim_temp->update_time = info[1];
    dim_temp->status = this_st;
+   return ((this_st & 0x058)==0); 
 }
 
-void Chamber::GetDimTEMP2(int hint, TEMP_2_DimBroker *dim_temp )
+bool Chamber::GetDimTEMP2(int hint, TEMP_2_DimBroker *dim_temp )
 {
-   if(type_<=1) return;
+   if(type_<=1) return false;
 
    int *info, this_st;
-   float *data, total_temp;
+   float *data; //SK: unused:, total_temp;
 
       info = &(states[0]);
       data = &(values[0]);
@@ -325,20 +353,21 @@ void Chamber::GetDimTEMP2(int hint, TEMP_2_DimBroker *dim_temp )
        this_st |= 4;
        for(int i=38; i<48; i++) data[i] = -2.;
    }
-      dim_temp->t_odmb = data[80+27*DCFEB_NUMBER];
+      dim_temp->t_odmb = data[80+30*DCFEB_NUMBER]; //  #0 in ODMB block
       dim_temp->t_otmb = data[57];
       dim_temp->t_alct = data[56];
       dim_temp->t_lvdb = data[55];
       
       for(int i=0; i<DCFEB_NUMBER; i++)
       {
-         dim_temp->t_fpga[i] = data[80+27*i];
-         dim_temp->t_pcb1[i] = data[80+27*i+22];
-         dim_temp->t_pcb2[i] = data[80+27*i+23];
+         dim_temp->t_fpga[i] = data[80+30*i];      //  #0 in DCFEB block
+         dim_temp->t_pcb1[i] = data[80+30*i+22];   // #22 in DCFEB block
+         dim_temp->t_pcb2[i] = data[80+30*i+23];   // #23 in DCFEB block
       }
 
    dim_temp->update_time = info[1];
    dim_temp->status = this_st;
+   return ((this_st & 0x058)==0); 
 }
 
   } // namespace emu::x2p

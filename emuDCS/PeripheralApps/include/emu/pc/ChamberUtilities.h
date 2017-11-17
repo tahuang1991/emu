@@ -142,9 +142,10 @@ public:
     int cfeb_rx_posneg;
     int cfeb_rx_clock_delay;
     
+    int cfeb_clock_phase;
+
     int cfeb_mask;
     
-    int cfeb_clock_phase;
     inline CFEBTiming_Configuration():
       cfeb_pipeline_depth(0),
       dac(0),
@@ -173,7 +174,6 @@ public:
       cfeb_pipeline_depth(o.cfeb_pipeline_depth),
       dac(o.dac),
       comp_thresh(o.comp_thresh),
-      tmb_internal_l1a(o.tmb_internal_l1a),
       clct_pattern_trig_en(o.clct_pattern_trig_en),
       clct_ext_trig_en(o.clct_ext_trig_en),
       tmb_allow_clct(o.tmb_allow_clct),
@@ -185,6 +185,7 @@ public:
       fifo_tbins(o.fifo_tbins),
       fifo_pretrig(o.fifo_pretrig),
       fifo_no_hits_raw(o.fifo_no_hits_raw),
+      tmb_internal_l1a(o.tmb_internal_l1a),
       ccb_ext_trig_delay(o.ccb_ext_trig_delay),
       tmb_l1a_delay(o.tmb_l1a_delay),
       cfeb_rx_posneg(o.cfeb_rx_posneg),
@@ -202,12 +203,12 @@ public:
 
   inline bool CFEBTiming_CheckConfiguration(const CFEBTiming_Configuration & orig); 
 
-  inline void ConfigureTMB(const CFEBTiming_Configuration & config, int * cfeb_tof_delay);
+  void ConfigureTMB(const CFEBTiming_Configuration & config, int * cfeb_tof_delay);
   inline void ConfigureTMB(const CFEBTiming_Configuration & config) {	  
     return ConfigureTMB(config, NULL);
   }
 
-  inline void CFEBTiming_ConfigureLevel(CFEBTiming_Configuration & config, int level, int after);
+  void CFEBTiming_ConfigureLevel(CFEBTiming_Configuration & config, int level, int after);
   inline void CFEBTiming_ConfigureLevel(CFEBTiming_Configuration & config, int level) {
     return CFEBTiming_ConfigureLevel(config, level, false);
   }
@@ -273,6 +274,9 @@ public:
   /// number of seconds to wait (sec) at each delay value setting
   inline void setPauseAtEachSetting(int pause) { pause_at_each_setting_ = pause; }
   inline int getPauseAtEachSetting() { return pause_at_each_setting_; }
+
+  inline void setL1aDelayIncrement(int increment) { l1a_delay_increment_ = increment; }
+  inline int  getL1aDelayIncrement() { return l1a_delay_increment_; }
   //
   /// Winner bits from MPC -> TMB
   int FindWinner();                          /// Use cosmic rays/pulsing from TTC
@@ -419,6 +423,10 @@ public:
   //
   // Get parameters from test summary results (not xml parameters):
   inline int  GetCFEBrxPhaseTest(int CFEB) { return CFEBrxPhase_[CFEB] ; }
+  inline int  GetGEMrxPhaseResult(int GEM) { return GEMrxPhaseResult_[GEM] ; }
+  inline int  GetGEMrxPosnegResult(int GEM) { return GEMrxPosnegResult_[GEM] ; }
+  inline int  GetCFEBrxPhaseResult(int CFEB) { return CFEBrxPhaseResult_[CFEB] ; }
+  inline int  GetCFEBrxPosnegResult(int CFEB) { return CFEBrxPosnegResult_[CFEB] ; }
   inline int  GetCFEBrxPosnegTest(int CFEB){ return CFEBrxPosneg_[CFEB] ; }
   inline int  GetCFEBrxdIntDelayTest(int CFEB) { return cfeb_rxd_int_delay[CFEB] ; }
   inline int  GetALCTrxPhaseTest()         { return ALCTrxPhase_ ; }
@@ -457,6 +465,10 @@ public:
   //
   // Set the parameters from test summary file (not xml):
   inline void SetCFEBrxPhaseTest(int CFEB, int value) { CFEBrxPhase_[CFEB] = value ; }
+  inline void SetGEMrxPhaseResult(int GEM, int value) { GEMrxPhaseResult_[GEM]=value; }
+  inline void SetGEMrxPosnegResult(int GEM, int value) { GEMrxPosnegResult_[GEM] = value ; }
+  inline void SetCFEBrxPhaseResult(int CFEB, int value) { CFEBrxPhaseResult_[CFEB]=value; }
+  inline void SetCFEBrxPosnegResult(int CFEB, int value) { CFEBrxPosnegResult_[CFEB] = value ; }
   inline void SetALCTrxPhaseTest(int value)           { ALCTrxPhase_ = value ; }
   inline void SetALCTtxPhaseTest(int value)           { ALCTtxPhase_ = value ; }
   inline void SetAlctRxPosNegTest(int value)          { ALCTrxPosNeg_ = value ; }
@@ -491,7 +503,8 @@ private:
   int min_alct_l1a_delay_value_;
   int max_alct_l1a_delay_value_;
   int min_tmb_l1a_delay_value_; 
-  int max_tmb_l1a_delay_value_; 
+  int max_tmb_l1a_delay_value_;
+  int l1a_delay_increment_;
   int pause_at_each_setting_;
   int pause_between_data_reads_;
   int number_of_data_reads_;
@@ -512,6 +525,10 @@ private:
   //
   int CFEBrxPhase_[7];
   int CFEBrxPosneg_[7];
+  int GEMrxPhaseResult_[2];
+  int CFEBrxPhaseResult_[7];
+  int GEMrxPosnegResult_[2];
+  int CFEBrxPosnegResult_[7];
   int cfeb_rxd_int_delay[7];
   int ALCTtxPhase_;
   int ALCTrxPhase_;

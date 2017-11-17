@@ -21,6 +21,7 @@ namespace emu { namespace daq { namespace rui {
     bool         isNeededEvent( char* const DDUHeader );
     uint64_t     getLowestCount() const;
     uint64_t     getCount( const int dduInputIndex ) const;
+    uint64_t     getCountRead( const int dduInputIndex ) const;
     uint64_t     getNEvents() const{ return neededEvents_; }
     bool         isLiveInput( const int dduInputIndex ) const;
     bool         isMaskedInput( const int dduInputIndex ) const;
@@ -34,7 +35,8 @@ namespace emu { namespace daq { namespace rui {
     uint64_t     neededEvents_; // the total number of events needed so far
     bool         isLiveInput_[maxDDUInputs_]; // this is obtained from the DDU header
     bool         isMaskedInput_[maxDDUInputs_]; // this the user can set
-    uint64_t     count_[maxDDUInputs_];
+    uint64_t     count_[maxDDUInputs_]; // count_[i] is the number of _accepted_ events that have data from input i
+    uint64_t     countRead_[maxDDUInputs_]; // countRead_[i] is the number of _read_ (i.e. both accepted and rejected) events that have data from input i
     bool         isInitialized_;
   };
 

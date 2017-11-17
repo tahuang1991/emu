@@ -29,10 +29,10 @@ public:
   inline int GetSlot() { return (states[2]>>8) & 0xFF; }
   inline int GetType() { return type_; }
   //
-  void GetDimLV(int hint, LV_1_DimBroker *dim_lv);
-  void GetDimTEMP(int hint, TEMP_1_DimBroker *dim_temp);
-  void GetDimLV2(int hint, LV_2_DimBroker *dim_lv);
-  void GetDimTEMP2(int hint, TEMP_2_DimBroker *dim_temp);
+  bool GetDimLV(int hint, LV_1_DimBroker *dim_lv);
+  bool GetDimTEMP(int hint, TEMP_1_DimBroker *dim_temp);
+  bool GetDimLV2(int hint, LV_2_DimBroker *dim_lv);
+  bool GetDimTEMP2(int hint, TEMP_2_DimBroker *dim_temp);
   //
 private:
   //
@@ -42,7 +42,7 @@ private:
   bool dataok_, ready_, corruption;
 
   int states[8];
-  float values[285];
+  float values[320];
 
   // DIM
   LV_1_DimBroker dim_lv;

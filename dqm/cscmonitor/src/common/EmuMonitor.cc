@@ -133,6 +133,7 @@ void EmuMonitor::initProperties()
 
   totalEvents_    		= 0;
   sessionEvents_  		= 0;
+  prev_sessionEvents_		= 0;
   readoutMode_   	 	= "internal";
   nDAQEvents_   		= 0;
 
@@ -171,6 +172,7 @@ void EmuMonitor::initProperties()
 
   getApplicationInfoSpace()->fireItemAvailable("totalEvents",   &totalEvents_);
   getApplicationInfoSpace()->fireItemAvailable("sessionEvents",   &sessionEvents_);
+  getApplicationInfoSpace()->fireItemAvailable("prev_sessionEvents",   &prev_sessionEvents_);
   getApplicationInfoSpace()->fireItemAvailable("dataBw",    &dataBw_);
   getApplicationInfoSpace()->fireItemAvailable("dataLatency",   &dataLatency_);
   getApplicationInfoSpace()->fireItemAvailable("dataRate",    &dataRate_);
@@ -254,10 +256,12 @@ void EmuMonitor::initProperties()
   getApplicationInfoSpace()->addItemChangedListener ("enableDataWrite", this);
   getApplicationInfoSpace()->addItemChangedListener ("maxSavedEvents", this);
   getApplicationInfoSpace()->addItemChangedListener ("outputDataFile", this);
+  getApplicationInfoSpace()->addItemChangedListener ("runNumber", this);
 
 
   getApplicationInfoSpace()->addItemRetrieveListener ("totalEvents",  this);
   getApplicationInfoSpace()->addItemRetrieveListener ("sessionEvents",  this);
+  getApplicationInfoSpace()->addItemRetrieveListener ("prev_sessionEvents",  this);
   getApplicationInfoSpace()->addItemRetrieveListener ("dataBw",   this);
   getApplicationInfoSpace()->addItemRetrieveListener ("dataLatency",  this);
   getApplicationInfoSpace()->addItemRetrieveListener ("dataRate",   this);
@@ -350,7 +354,7 @@ void EmuMonitor::setupPlotter()
               timeout++;
               LOG4CPLUS_WARN (logger_, "Waiting to finish saving of results... " << timeout);
             }
-          timer_->kill();
+          timer_->stop();
         }
 
 
@@ -400,6 +404,7 @@ void EmuMonitor::bindSOAPcallbacks()
   xoap::bind (this, &EmuMonitor::requestCSCCounters,  "requestCSCCounters",   XDAQ_NS_URI);
   xoap::bind (this, &EmuMonitor::requestReport,   "requestReport",  XDAQ_NS_URI);
   xoap::bind (this, &EmuMonitor::saveResults,     "saveResults",    XDAQ_NS_URI);
+  xoap::bind (this, &EmuMonitor::syncToCurrentRun,     "syncToCurrentRun",    XDAQ_NS_URI);
 
 }
 
@@ -509,7 +514,7 @@ void EmuMonitor::actionPerformed (xdata::Event& e)
         }
       else if ( item == "dataLatency")
         {
-          dataRate_ =  toolbox::toString("%f",pmeter_->latency());
+          dataLatency_ =  toolbox::toString("%f",pmeter_->latency());
           LOG4CPLUS_DEBUG(logger_, "Data Latency: " << dataLatency_.toString());
         }
       else if ( item == "dataRate")
@@ -528,7 +533,7 @@ void EmuMonitor::actionPerformed (xdata::Event& e)
 
           cscRate_ = rateMeter->getRate("cscRate");
           //        cscRate_ = toolbox::toString("%.2f",pmeterCSC_->rate());
-          LOG4CPLUS_DEBUG(logger_, "Data Rate: " << dataRate_.toString());
+          LOG4CPLUS_DEBUG(logger_, "Data Rate: " << cscRate_.toString());
         }
       else if ( item == "stateName")
         {
@@ -740,8 +745,14 @@ void EmuMonitor::actionPerformed (xdata::Event& e)
               if ( setPlotterDebug_ == xdata::Boolean(true) ) plotter_->setDebug(true);
               else plotter_->setDebug(false);
             }
-
         }
+      else if ( item == "runNumber")
+        {
+          LOG4CPLUS_INFO(logger_,
+                         "Set plotter Run Number : " << runNumber_.toString());
+          if (plotter_ != NULL) plotter_->setRunNumber(runNumber_.toString());
+        }
+
 
       else if ( item == "fSaveROOTFile")
         {
@@ -958,23 +969,24 @@ void EmuMonitor::doStop()
   appBSem_.take();
   if (plotter_ != NULL && isReadoutActive)
     {
-      if (rateMeter != NULL && rateMeter->isActive())
-        {
-          rateMeter->kill();
-        }
+      /*
+          if (rateMeter != NULL && rateMeter->isActive())
+            {
+              rateMeter->kill();
+            }
+      */
+      disableReadout();
 
       if (fSaveROOTFile_ == xdata::Boolean(true) && (sessionEvents_ > xdata::UnsignedInteger(0)))
         {
-          disableReadout();
-
           plotter_->updateFractionHistos();
           plotter_->updateCSCFractionHistos();
 
           if ( (timer_ != NULL) && (!timer_->isActive()) )
             {
               timer_->setPlotter(plotter_);
-              timer_->setROOTFileName(getROOTFileName());
-              timer_->activate();
+              timer_->setROOTFileName(getROOTFileName("final"));
+              timer_->start();
             }
         }
       destroyFileWriter();
@@ -1007,7 +1019,7 @@ void EmuMonitor::doConfigure()
         {
           LOG4CPLUS_ERROR (logger_,
                            "Timeout waiting for saving of results. Killing save process." << timeout);
-          timer_->kill();
+          timer_->stop();
         }
     }
 
@@ -1035,8 +1047,9 @@ void EmuMonitor::doConfigure()
                           "plotter::binCheckMask: 0x" << std::hex << std::uppercase << strtoul((binCheckMask_.toString()).c_str(),NULL,0));
           plotter_->setBinCheckMask(binCheckMask_);
         }
-
+      plotter_->reset();
       plotter_->book();
+ 
     }
 
   configureReadout();
@@ -1061,13 +1074,14 @@ void  EmuMonitor::doStart()
 {
   appBSem_.take();
   sessionEvents_ 	= 0;
+  prev_sessionEvents_	= 0;
   creditMsgsSent_ 	= 0;
   creditsHeld_ 		= 0;
   eventsRequested_ 	= 0;
   eventsReceived_ 	= 0;
   cscUnpacked_ 		= 0;
   cscDetected_ 		= 0;
-  runNumber_ 		= 0;
+  // runNumber_ 		= 0;
   nEventCredits_ 	= defEventCredits_;
 
   enableReadout();
@@ -1183,10 +1197,12 @@ void EmuMonitor::emuDataMsg(toolbox::mem::Reference *bufRef)
 
   if ((runNumber_ != msg->runNumber) || (runStartUTC_ != msg->runStartUTC))
     {
-      LOG4CPLUS_INFO(logger_,"Detected Run Number switch. Resetting Monitor...");
+      LOG4CPLUS_INFO(logger_,"Detected Run Number switch to " << msg->runNumber << "( Run Start Time:  " << emu::dqm::utils::now(msg->runStartUTC) << " ). Resetting Monitor...");
       resetMonitor();
       runNumber_ = msg->runNumber;
       runStartUTC_ = msg->runStartUTC;
+      if (plotter_ != NULL) plotter_->setRunNumber(runNumber_.toString()); 
+      if (enableDataWrite_ == xdata::Boolean(true)) createFileWriter();
     }
 
   int32_t nBlocks = (errorFlag >> 12)&0xF; /// Number of reconstructed event data blocks
@@ -1396,11 +1412,20 @@ void EmuMonitor::createDeviceReader()
               if      ( inputDeviceType_ == "spy"  )
                 deviceReader_ = new emu::daq::reader::Spy(  inputDeviceName_.toString(), inputDataFormatInt_ );
               else if ( inputDeviceType_ == "file" )
-                deviceReader_ = new emu::daq::reader::RawDataFile( inputDeviceName_.toString(), inputDataFormatInt_ );
+		{
+                    deviceReader_ = new emu::daq::reader::RawDataFile( inputDeviceName_.toString(), inputDataFormatInt_ );
+		    LOG4CPLUS_INFO(logger_,"Setting Run Number to " << emu::dqm::utils::getRunNumberFromFilename (inputDeviceName_.toString()));
+		    runNumber_ = emu::dqm::utils::getRunNumberFromFilename (inputDeviceName_.toString());
+		    if (plotter_ != NULL) plotter_->setRunNumber(runNumber_.toString());
+		}
               // TODO: slink
               else     LOG4CPLUS_ERROR(logger_,
                                          "Bad device type: " << inputDeviceType_.toString() <<
                                          "Use \"file\", \"spy\", or \"slink\"");
+
+              runStartUTC_ = time(NULL);
+
+
             }
         }
       catch (char* e)
@@ -1541,10 +1566,13 @@ int EmuMonitor::svc()
                       LOG4CPLUS_INFO(logger_,
                                      "Restarting readout from " << inputDataFormat_.toString() << " " << inputDeviceType_.toString() <<
                                      " " << inputDeviceName_.toString());
+                      appBSem_.take();
                       destroyDeviceReader();
                       createDeviceReader();
                       readValid=true;
                       isReadoutActive = true;
+                      appBSem_.give();
+
                     }
 
                 }
@@ -1716,7 +1744,7 @@ void EmuMonitor::resetMonitor()
             {
               LOG4CPLUS_ERROR (logger_,
                                "Timeout waiting for saving of results. Killing save process." << timeout);
-              timer_->kill();
+              timer_->stop();
             }
         }
 
@@ -1724,16 +1752,15 @@ void EmuMonitor::resetMonitor()
         {
           plotter_->updateFractionHistos();
           plotter_->updateCSCFractionHistos();
-          plotter_->saveToROOTFile(getROOTFileName());
+          plotter_->saveToROOTFile(getROOTFileName("final"));
         }
-      sessionEvents_=0;
-      cscUnpacked_ = 0;
-      cscDetected_ = 0;
+      sessionEvents_	= 0;
+      prev_sessionEvents_= 0;
+      cscUnpacked_ 	= 0;
+      cscDetected_ 	= 0;
       plotter_->reset();
     }
 
   destroyFileWriter();
-
-  if (enableDataWrite_ == xdata::Boolean(true)) createFileWriter();
 }
 

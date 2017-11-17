@@ -129,6 +129,7 @@ EmuPeripheralCrateMonitor::EmuPeripheralCrateMonitor(xdaq::ApplicationStub * s):
   slow_on = true;
   extra_on = true;
   reload_vcc = true;
+  read_dcfeb = 7; // read all DCFEB data (SYSMON, ADC, SEU)
   fast_count = 0;
   slow_count = 0;
   extra_count = 0;
@@ -158,10 +159,14 @@ EmuPeripheralCrateMonitor::EmuPeripheralCrateMonitor(xdaq::ApplicationStub * s):
   tcs_mask.clear();
   tmb_mask.clear();
   dmb_mask.clear();
+  feb_mask.clear();
   vcc_reset.clear();
   crate_off.clear();
-  for(unsigned i=0; i<60; i++) first_read[i]=true;
-
+  for(unsigned i=0; i<60; i++) 
+  {
+     first_read[i]=true;
+     donebits_changed[i]=false;
+  }
   parsed=0;
 }
 
@@ -366,6 +371,7 @@ void EmuPeripheralCrateMonitor::PublishEmuInfospace(int cycle)
       bool dmbpoweroff[9];
       unsigned short ccbtag;
 
+      bzero(buf, 8000);
       if(cycle<1 || cycle>3) return;
       if(total_crates_<=0) return;
       //update infospaces
@@ -385,19 +391,22 @@ void EmuPeripheralCrateMonitor::PublishEmuInfospace(int cycle)
           }
                                                                                    
           // begin: reload VCC's FPGA (F9)
-          if(cycle>1 && reload_vcc && !(now_crate->IsAlive()))
+          if(cycle==2 && reload_vcc && !(now_crate->IsAlive()))
           {
-                int cr = now_crate->CheckController();
-                if (cr==1)
-                {
+              // reload FPGA without first check controller
+              //  int cr = now_crate->CheckController();
+              //  if (cr)
+              //  {
                    now_crate->vmeController()->reset();
                    vcc_reset[i] = vcc_reset[i] + 1;
-                   ::sleep(1);
+                   std::cout << now_crate->GetLabel() << " controller FPGA reloaded at " << getLocalDateTime() << std::endl;
+                   ::usleep(1000000);
                    // cr = (now_crate->vmeController()->SelfTest()) && (now_crate->vmeController()->exist(13));
                    // now_crate->SetLife( cr );
                    now_crate->SetLife( true );
+                   now_crate->vmeController()->SetLife(true);
                    // continue;  // skip this round of reading if the VCC has been reloaded
-                }
+              //  }
           }
           // end: reload
 
@@ -406,6 +415,7 @@ void EmuPeripheralCrateMonitor::PublishEmuInfospace(int cycle)
              std::string cratename=now_crate->GetLabel();
              if(cycle==3)
              {  
+                bzero(buf, 8000);
                 now_crate-> MonitorCCB(cycle, buf);
                 if(buf2[0])  
                 {   // buf2[0]==0 means no good data back
@@ -432,6 +442,7 @@ void EmuPeripheralCrateMonitor::PublishEmuInfospace(int cycle)
                         {
                            std::cout << "Crate "+cratename+" CCB CSRA2 changed from " << std::hex << ccbmpcreg[i][1] << " to " << buf2[2] << " at " << getLocalDateTime() << std::endl;
                            ccbmpcreg[i][1] = buf2[2];
+                           donebits_changed[i] = true;
                         }
                         if((ccbmpcreg[i][2]) != (buf2[3])) 
                         {
@@ -454,6 +465,7 @@ void EmuPeripheralCrateMonitor::PublishEmuInfospace(int cycle)
              }
              else if( cycle==2)
              {
+                bzero(buf, 8000);
                 now_crate-> MonitorDCS(cycle, buf, dcs_mask[i]|(tcs_mask[i]<<10));
                 if(buf2[0])
                 {
@@ -587,7 +599,8 @@ void EmuPeripheralCrateMonitor::PublishEmuInfospace(int cycle)
                 if(upgraded>0)
                 {
                   /* DCFEB monitorables */
-                  now_crate-> MonitorDCS2(cycle, buf, dcs_mask[i]);
+                  bzero(buf, 8000);
+                  now_crate-> MonitorDCS2(cycle, buf, dcs_mask[i]|feb_mask[i], read_dcfeb);
                   if(buf2[0])
                   {
                      // std::cout << "Crate " << i << " DCFEB counters " << buf2[0] << std::endl;
@@ -597,12 +610,19 @@ void EmuPeripheralCrateMonitor::PublishEmuInfospace(int cycle)
                      for(unsigned ii=0; ii<buf2[0]; ii++)
                      {   
                         unsigned short rdv = buf2[ii+2];
-                        (*febdata)[ii] = 0.01*rdv;
+                        unsigned chii=ii%TOTAL_DCFEB_MONS;
+                        unsigned cnt_idx = chii%30;
+                        unsigned dcfebn = chii/30;
+                        // for each DCFEB, data #10, #15, #27-#29 are binary, not floating point values
+                        if((dcfebn<7 && (cnt_idx== 10 || cnt_idx==15 || cnt_idx==27 || cnt_idx==28 || cnt_idx==29)) || (dcfebn==7 && cnt_idx>=9))  
+                          (*febdata)[ii] = rdv;
+                        else (*febdata)[ii] = 0.01*rdv;
                      }
                   }
                 }
                 
                 /* TMB voltages */
+                bzero(buf, 8000);
                 now_crate-> MonitorTCS(cycle, buf, tcs_mask[i]);
                 if(buf2[0])
                 {
@@ -624,17 +644,9 @@ void EmuPeripheralCrateMonitor::PublishEmuInfospace(int cycle)
                        else if(vindex==14)
                        {  /* OTMB GTX RX status */
                           rdv = rdv & 0x7F;
-                          (*dmbdata)[ii] = rdv+0.1;
+                          (*dmbdata)[ii] = rdv+0.001;  //pad 0.001 as a maker
                        }
-                       else
-                       {  /* ALCT Temps */
-                          rdv = rdv & 0x3FF;
-                          float Vout= (float)(rdv)*1.225/1023.0;
-                          if(Vout<1.225)
-                              (*dmbdata)[ii] =100.0*(Vout-0.75)+25.0;
-                          else
-                              (*dmbdata)[ii] = -500.0;
-                       }
+                       else (*dmbdata)[ii] = -50.;
                    }
                    counter16 = dynamic_cast<xdata::UnsignedShort *>(is->find("TMBcrate"));
                    *counter16 = 1;
@@ -650,6 +662,7 @@ void EmuPeripheralCrateMonitor::PublishEmuInfospace(int cycle)
              }
              else if( cycle==1)
              {
+                bzero(buf, 8000);
                 now_crate-> MonitorTMB(cycle, buf, tmb_mask[i]);
                 if(buf2[0])
                 {
@@ -667,10 +680,21 @@ void EmuPeripheralCrateMonitor::PublishEmuInfospace(int cycle)
                       for(unsigned ii=0; ii<(buf2[0]/2); ii++) (*otmbdata)[ii] = (*tmbdata)[ii];
                    }
                    for(unsigned ii=0; ii<(buf2[0]/2); ii++) (*tmbdata)[ii] = buf4[ii+1];
+                   unsigned reset_time1=0, reset_time2=0, reset_time3=0;
+                   if(buf2[0]/2 >= 7*MAX_TMB_COUNTERS) reset_time1 = buf4[MAX_TMB_COUNTERS*6+TOTAL_TMB_COUNTERS];
+                   if(buf2[0]/2 >= 8*MAX_TMB_COUNTERS) reset_time2 = buf4[MAX_TMB_COUNTERS*7+TOTAL_TMB_COUNTERS];
+                   if(buf2[0]/2 >= 9*MAX_TMB_COUNTERS) reset_time3 = buf4[MAX_TMB_COUNTERS*8+TOTAL_TMB_COUNTERS];
+                   
+                   if(donebits_changed[i])
+                   {   // if CCB CSRA2 changed, then print out time-since-last-hard-reset
+                       std::cout << "Hard Reset time in crate " << cratename << " are: " << reset_time1 << " , " << reset_time2<< " and " << reset_time3 << " at " << getLocalDateTime() << std::endl;
+                       donebits_changed[i] = false;
+                   }
                    int badboard= buf2[1]>>10;
                    if(badboard>0 && badboard<10)
                       std::cout << "Bad TMB #" << badboard << " in crate " << cratename << " at " << getLocalDateTime() << std::endl;
                 }
+                bzero(buf, 8000);
                 now_crate-> MonitorDMB(cycle, buf, dmb_mask[i]);
                 if(buf2[0])
                 {
@@ -1027,21 +1051,6 @@ void EmuPeripheralCrateMonitor::MainPage(xgi::Input * in, xgi::Output * out )
 }
 
 // 
-void EmuPeripheralCrateMonitor::MyHeader(xgi::Input * in, xgi::Output * out, std::string title ) 
-  throw (xgi::exception::Exception) {
-  //
-  *out << cgicc::HTMLDoctype(cgicc::HTMLDoctype::eStrict) << std::endl;
-  *out << "<html>" << std::endl;
-  //
-  //*out << cgicc::title(title) << std::endl;
-  //*out << "<a href=\"/\"><img border=\"0\" src=\"/daq/xgi/images/XDAQLogo.gif\" title=\"XDAQ\" alt=\"\" style=\"width: 145px; height: 89px;\"></a>" << std::endl;
-  //
-  std::string myUrl = getApplicationDescriptor()->getContextDescriptor()->getURL();
-  std::string myUrn = getApplicationDescriptor()->getURN().c_str();
-  xgi::Utils::getPageHeader(out,title,myUrl,myUrn,"");
-  //
-}
-//
 void EmuPeripheralCrateMonitor::Default(xgi::Input * in, xgi::Output * out ) 
   throw (xgi::exception::Exception) {
   *out << "<head> <meta HTTP-EQUIV=\"Refresh\" CONTENT=\"0; URL=/" <<getApplicationDescriptor()->getURN()<<"/"<<"MainPage"<<"\"> </head>" <<std::endl;
@@ -1391,7 +1400,7 @@ void EmuPeripheralCrateMonitor::DCSChamber(xgi::Input * in, xgi::Output * out )
      myVector = crateVector[i]->daqmbs();
      for ( unsigned int j = 0; j < myVector.size(); j++ )
      {
-       if(cham_name==crateVector[i]->GetChamber(myVector[j])->GetLabel())
+       if(cham_name==myVector[j]->GetLabel())
        {  mycrate = i;
           mychamb = j;
           DHversion=myVector[j]->GetHardwareVersion();
@@ -1429,7 +1438,7 @@ void EmuPeripheralCrateMonitor::DCSChamber(xgi::Input * in, xgi::Output * out )
   xdata::Vector<xdata::Float> *dcsdata = dynamic_cast<xdata::Vector<xdata::Float> *>(is->find("DCStemps"));
   if(dcsdata==NULL || dcsdata->size()==0) return;
   bool dcfebok=true;
-  xdata::Vector<xdata::Float> *dcfebdata;
+  xdata::Vector<xdata::Float> *dcfebdata(0);
   if(DHversion>=2)
   {
      dcfebdata = dynamic_cast<xdata::Vector<xdata::Float> *>(is->find("DCFEBmons"));
@@ -1575,7 +1584,7 @@ void EmuPeripheralCrateMonitor::DCSChamber(xgi::Input * in, xgi::Output * out )
      *out << cgicc::tr() << std::endl;
      float tp[4];
      tp[0]=(*dcsdata)[mychamb*TOTAL_DCS_COUNTERS+57];
-     if(dcfebok) tp[1]=(*dcfebdata)[mychamb*TOTAL_DCFEB_MONS+27*cfebs];
+     if(dcfebok) tp[1]=(*dcfebdata)[mychamb*TOTAL_DCFEB_MONS+30*cfebs];  // ODMB temp
       else tp[1]=0.;
      tp[2]=(*dcsdata)[mychamb*TOTAL_DCS_COUNTERS+55];
      tp[3]=(*dcsdata)[mychamb*TOTAL_DCS_COUNTERS+56];
@@ -1583,7 +1592,7 @@ void EmuPeripheralCrateMonitor::DCSChamber(xgi::Input * in, xgi::Output * out )
      for(int cnt=0; cnt<11; cnt++)
      {
         if(cnt<4)  val=tp[cnt];
-        else if(dcfebok) val=(*dcfebdata)[mychamb*TOTAL_DCFEB_MONS+27*(cnt-4)];
+        else if(dcfebok) val=(*dcfebdata)[mychamb*TOTAL_DCFEB_MONS+30*(cnt-4)];
         else val=0.;
         *out <<cgicc::td();
         if(val<0.)    
@@ -1657,7 +1666,7 @@ void EmuPeripheralCrateMonitor::DCSCrateLV(xgi::Input * in, xgi::Output * out )
   //
   for(unsigned int dmb=0; dmb<myVector.size(); dmb++) {
     *out <<cgicc::td();
-    *out << crateVector[mycrate]->GetChamber(myVector[dmb])->GetLabel();
+    *out << myVector[dmb]->GetLabel();
     *out <<cgicc::td();
   }
   //
@@ -1746,7 +1755,7 @@ void EmuPeripheralCrateMonitor::DCSCrateCUR(xgi::Input * in, xgi::Output * out )
   //
   for(unsigned int dmb=0; dmb<myVector.size(); dmb++) {
     *out <<cgicc::td();
-    *out << crateVector[mycrate]->GetChamber(myVector[dmb])->GetLabel();
+    *out << myVector[dmb]->GetLabel();
     *out <<cgicc::td();
   }
   //
@@ -1787,10 +1796,11 @@ void EmuPeripheralCrateMonitor::DCSCrateCUR(xgi::Input * in, xgi::Output * out )
 void EmuPeripheralCrateMonitor::DCSCrateTemp(xgi::Input * in, xgi::Output * out ) 
     throw (xgi::exception::Exception)
 {
-  int  Total_Temps=7;
-  float temp_max[8]={40., 40., 40., 40., 40., 40., 40., 40.};
-  float temp_min[8]={ 5.,  5.,  5.,  5.,  5.,  5.,  5.,  5.};
+  int  Total_Temps=8;
+  float temp_max[10]={70., 70., 70., 70., 70., 70., 70., 70., 70., 70.};
+  float temp_min[10]={ 5.,  5.,  5.,  5.,  5.,  5.,  5.,  5., 5., 5.};
   float val;
+  bool upgraded=false;
 
   if(!Monitor_Ready_) return;
   //
@@ -1832,16 +1842,20 @@ void EmuPeripheralCrateMonitor::DCSCrateTemp(xgi::Input * in, xgi::Output * out 
   xdata::Vector<xdata::Float> *dcsdata = dynamic_cast<xdata::Vector<xdata::Float> *>(is->find("DCStemps"));
   if(dcsdata==NULL || dcsdata->size()==0) return;
 
+  xdata::Vector<xdata::Float> *dcfebdata = dynamic_cast<xdata::Vector<xdata::Float> *>(is->find("DCFEBmons"));
+
   *out << cgicc::table().set("border","1").set("align","center");
   //
   *out <<cgicc::td();
   *out <<cgicc::td();
   //
   for(unsigned int dmb=0; dmb<myVector.size(); dmb++) {
+    if(myVector[dmb]->GetHardwareVersion()==2) upgraded=true;
     *out <<cgicc::td();
-    *out << crateVector[mycrate]->GetChamber(myVector[dmb])->GetLabel();
+    *out << myVector[dmb]->GetLabel();
     *out <<cgicc::td();
   }
+  if(upgraded) Total_Temps += 2;
   //
   *out <<cgicc::tr();
   //
@@ -1858,11 +1872,29 @@ void EmuPeripheralCrateMonitor::DCSCrateTemp(xgi::Input * in, xgi::Output * out 
       *out << std::setprecision(1) << std::fixed;
       if(count==6)
          val=(*dcsdata)[dmb*TOTAL_DCS_COUNTERS+56];  // ALCT temp is at position 56  
+      else if(count==7)
+         val=(*dcsdata)[dmb*TOTAL_DCS_COUNTERS+57];  // TMB temp is at position 57  
       else
-         val=(*dcsdata)[dmb*TOTAL_DCS_COUNTERS+40+count];  
+      {
+         if(myVector[dmb]->GetHardwareVersion()==2)
+         {
+            if(count==0) val=(*dcfebdata)[dmb*TOTAL_DCFEB_MONS+210];
+            else
+            {
+              int idx=count-1;
+              if(idx>6) idx -=2;
+              val=(*dcfebdata)[dmb*TOTAL_DCFEB_MONS+30*idx];
+            }
+         }
+         else
+         {
+           if(count<6) val=(*dcsdata)[dmb*TOTAL_DCS_COUNTERS+40+count];  
+           else val=-500.;
+         }
+      }
       if(val<0.)    
       {
-         if(count==5 && val < -50.)  *out << "-";
+         if((count==5 && val < -50.) || val<-100.)  *out << "-";
          else  *out << cgicc::span().set("style","color:magenta") << val << cgicc::span();
       } 
       else if(val > temp_max[count] || val < temp_min[count])
@@ -1934,7 +1966,7 @@ void EmuPeripheralCrateMonitor::DCSCrateTMB(xgi::Input * in, xgi::Output * out )
   //
   for(unsigned int tmb=0; tmb<myVector.size(); tmb++) {
     *out <<cgicc::td();
-    *out << crateVector[mycrate]->GetChamber(myVector[tmb])->GetLabel();
+    *out << myVector[tmb]->GetLabel();
     *out <<cgicc::td();
   }
   //
@@ -2029,7 +2061,7 @@ void EmuPeripheralCrateMonitor::DCSCrateTMB(xgi::Input * in, xgi::Output * out )
         tcs_mask.push_back(0);
         tmb_mask.push_back(0);
         dmb_mask.push_back(0);
-
+        feb_mask.push_back(0);
         // for VCC
         vcc_reset.push_back(0);
         crate_off.push_back(false);
@@ -2151,7 +2183,7 @@ void EmuPeripheralCrateMonitor::ChamberView(xgi::Input * in, xgi::Output * out )
          }
       }
       // chamber name
-      *out << crateVector[idx]->GetChamber(myVector[tmb])->GetLabel() << cgicc::br();
+      *out << myVector[tmb]->GetLabel() << cgicc::br();
       // ALCT: LCT sent to TMB
       int dc=myVector[tmb]->GetCounter(myVector[tmb]->GetALCTSentToTMBCounterIndex());
       if (dc == 0x3fffffff || dc < 0 ) dc = -1;
@@ -2305,7 +2337,7 @@ void EmuPeripheralCrateMonitor::CrateView(xgi::Input * in, xgi::Output * out )
 	*out <<cgicc::td();
 	*out <<cgicc::td();
 
-        if(crateVector[idx]->IsAlive()) 
+        if((!crate_off[idx]) && crateVector[idx]->IsAlive()) 
            *out << cgicc::span().set("style","color:green") << "On " << cgicc::span();
         else 
            *out << cgicc::span().set("style","color:red") << "Off" << cgicc::span();
@@ -2467,7 +2499,10 @@ void EmuPeripheralCrateMonitor::TCounterSelection(xgi::Input * in, xgi::Output *
             for(int i=0; i<blanks; i++) *out << cgicc::td() << cgicc::td();
          }
       }
-      int value = myVector[tmb]->GetCounter(this_tcounter_);
+      int value;
+         int extraspace=0;
+         if(this_tcounter_>101 && myVector[tmb]->GetHardwareVersion()==2) extraspace+=4;  // OTMB has 4 extra counters
+         value=myVector[tmb]->GetCounter(this_tcounter_+extraspace);
       /* 0xBAADBAAD from VCC for a failed VME access */
       if (  value == 0x3fffffff || value < 0 )
       {
@@ -2621,9 +2656,9 @@ void EmuPeripheralCrateMonitor::TCounterSelection(xgi::Input * in, xgi::Output *
 void EmuPeripheralCrateMonitor::CrateTMBCounters(xgi::Input * in, xgi::Output * out ) 
   throw (xgi::exception::Exception) {
   //
-  int counter_idx[25]={ 0 ,  1,  2,  3,  7, 11, 13, 14, 15, 16,
-                        17, 18, 26, 30, 31, 32, 35, 41, 42, 48,
-                        50, 54, 57, 63, 88};
+  int counter_idx[29]={ 0 ,  1,  2,  3,  7, 11, 13, 14, 15, 16,
+                        17, 18, 19, 20, 29, 30, 31, 32, 50, 51,
+                        52, 53, 54, 55, 56, 57, 63, 79, 80};
 
   std::ostringstream output;
   *out << cgicc::HTMLDoctype(cgicc::HTMLDoctype::eFrames) << std::endl;
@@ -2668,7 +2703,7 @@ void EmuPeripheralCrateMonitor::CrateTMBCounters(xgi::Input * in, xgi::Output * 
 //    myVector[tmb]->GetCounters();
     //
     output <<cgicc::td();
-    output << "Slot " <<myVector[tmb]->slot() << " " << myCrate->GetChamber(myVector[tmb])->GetLabel();
+    output << "Slot " <<myVector[tmb]->slot() << " " << myVector[tmb]->GetLabel();
     output <<cgicc::td();
     //
   }
@@ -2676,7 +2711,7 @@ void EmuPeripheralCrateMonitor::CrateTMBCounters(xgi::Input * in, xgi::Output * 
   output <<cgicc::tr();
   //
   int count;
-  for (int idx=0; idx<25; idx++) {
+  for (int idx=0; idx<29; idx++) {
     count=counter_idx[idx];
     //
     for(unsigned int tmb=0; tmb<myVector.size(); tmb++) {
@@ -2761,7 +2796,7 @@ void EmuPeripheralCrateMonitor::CrateDMBCounters(xgi::Input * in, xgi::Output * 
   //
   for(unsigned int dmb=0; dmb<myVector.size(); dmb++) {
     *out <<cgicc::td();
-    *out << "Slot " <<myVector[dmb]->slot() << " " << myCrate->GetChamber(myVector[dmb])->GetLabel();
+    *out << "Slot " <<myVector[dmb]->slot() << " " << myVector[dmb]->GetLabel();
     *out <<cgicc::td();
   }
   //
@@ -2855,7 +2890,7 @@ void EmuPeripheralCrateMonitor::DatabaseOutput(xgi::Input * in, xgi::Output * ou
   *out << "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>" << std::endl;
   *out << "<emuCounters dateTime=\"";
   *out << last_read_time.toString();
-  *out << "\" version=\"1.1\">" << std::endl;
+  *out << "\" version=\"3.0\">" << std::endl;
 
 //  *out << "  <sample name=\"cumulative\" delta_t=\"1000\">" << std::endl;
 
@@ -2873,22 +2908,20 @@ void EmuPeripheralCrateMonitor::DatabaseOutput(xgi::Input * in, xgi::Output * ou
      myDmbs = crateVector[i]->daqmbs();
      for(unsigned int j=0; j<myVector.size(); j++) 
      {
-        if(myVector[j]->GetHardwareVersion()>=2) continue;
-        int imask = 0x3F & (myDmbs[j]->GetPowerMask());
-        if (imask==0x3F) continue;
+//        if(myVector[j]->GetHardwareVersion()>=2) continue;
+        int imask = 0xfF & (myDmbs[j]->GetPowerMask());
+        if (imask==0x3F || imask==0xff ) continue;
         
         *out << "    <count chamber=\"";
-        *out << crateVector[i]->GetChamber(myVector[j])->GetLabel();
+        *out << myVector[j]->GetLabel();
         *out << "\" ";
-        for(int tc=0; tc<TOTAL_TMB_COUNTERS; tc++)
+        for(int tc=0; tc<REAL_TMB_COUNTERS; tc++)
         {
            sprintf(tcname+2,"%02d",tc);
            *out << tcname << "=\"";
            n_value = (*tmbdata)[j*MAX_TMB_COUNTERS+tc];
-           // the last counter only has 16 bits, not 32 bits
-           if( tc==(TOTAL_TMB_COUNTERS-1) ) n_value &= 0xFFFF;
            // for real counters, if counter error, set it to -1 here:
-           if((tc < myVector[j]->GetMaxCounter()) && (n_value == 0x3FFFFFFF || n_value <0)) n_value = -1;
+           if(n_value == 0x3FFFFFFF || n_value <0) n_value = -1;
            *out << n_value;
            *out << "\" ";
         }
@@ -2937,7 +2970,7 @@ void EmuPeripheralCrateMonitor::DatabaseOutput2(xgi::Input * in, xgi::Output * o
         if (imask==0x7F) continue;
         
         *out << "    <count chamber=\"";
-        *out << crateVector[i]->GetChamber(myVector[j])->GetLabel();
+        *out << myVector[j]->GetLabel();
         *out << "\" ";
         for(int tc=0; tc<TOTAL_TMB_COUNTERS2; tc++)
         {
@@ -2971,8 +3004,8 @@ void EmuPeripheralCrateMonitor::EmuCounterNames(xgi::Input * in, xgi::Output * o
   toolbox::TimeVal currentTime;
   xdata::TimeVal now_time = (xdata::TimeVal)currentTime.gettimeofday();
   *out << now_time.toString();
-  *out << "\" version=\"1.1\">" << std::endl;
-  for(int tc=0; tc<TOTAL_TMB_COUNTERS; tc++)
+  *out << "\" version=\"3.0\">" << std::endl;
+  for(int tc=0; tc<REAL_TMB_COUNTERS; tc++)
   {
       *out << "    <count name=\"";
       sprintf(tcname+2,"%02d",tc);
@@ -3044,7 +3077,7 @@ void EmuPeripheralCrateMonitor::XmlOutput(xgi::Input * in, xgi::Output * out )
      for(unsigned int j=0; j<myVector.size(); j++) 
      {
         *out << "    <count chamber=\"";
-        *out << crateVector[i]->GetChamber(myVector[j])->GetLabel();
+        *out << myVector[j]->GetLabel();
         *out << "\" alct=\"";
 //        *out << myVector[j]->GetCounter(0);
         o_value = (*otmbdata)[j*MAX_TMB_COUNTERS+0];
@@ -3068,9 +3101,9 @@ void EmuPeripheralCrateMonitor::XmlOutput(xgi::Input * in, xgi::Output * out )
         *out << i_value;
         *out << "\" lct=\"";
 //        *out << myVector[j]->GetCounter(13);
-        o_value = (*otmbdata)[j*MAX_TMB_COUNTERS+30+((myVector[j]->GetHardwareVersion()==2)?2:0)];
+        o_value = (*otmbdata)[j*MAX_TMB_COUNTERS+32];
         if(o_value == 0x3FFFFFFF || o_value <0) o_value = -1;
-        n_value = (*tmbdata)[j*MAX_TMB_COUNTERS+30+((myVector[j]->GetHardwareVersion()==2)?2:0)];
+        n_value = (*tmbdata)[j*MAX_TMB_COUNTERS+32];
         if(n_value == 0x3FFFFFFF || n_value <0) n_value = -1;
         // when a counter has error, should be -1
 
@@ -3079,9 +3112,19 @@ void EmuPeripheralCrateMonitor::XmlOutput(xgi::Input * in, xgi::Output * out )
         *out << i_value;
         *out << "\" l1a=\"";
 //        *out << myVector[j]->GetCounter(34);
-        o_value = (*otmbdata)[j*MAX_TMB_COUNTERS+54+((myVector[j]->GetHardwareVersion()==2)?2:0)];
+        o_value = (*otmbdata)[j*MAX_TMB_COUNTERS+56];
         if(o_value == 0x3FFFFFFF || o_value <0) o_value = -1;
-        n_value = (*tmbdata)[j*MAX_TMB_COUNTERS+54+((myVector[j]->GetHardwareVersion()==2)?2:0)];
+        n_value = (*tmbdata)[j*MAX_TMB_COUNTERS+56];
+        if(n_value == 0x3FFFFFFF || n_value <0) n_value = -1;
+        // counter error, set it to -1:
+        i_value = ((o_value>=0 && n_value>=0)?(n_value-o_value):(-1));
+        if(i_value<-1) i_value=-1;
+        *out << i_value;
+        *out << "\" rejected=\"";
+//        *out << myVector[j]->GetCounter(52);
+        o_value = (*otmbdata)[j*MAX_TMB_COUNTERS+54];
+        if(o_value == 0x3FFFFFFF || o_value <0) o_value = -1;
+        n_value = (*tmbdata)[j*MAX_TMB_COUNTERS+54];
         if(n_value == 0x3FFFFFFF || n_value <0) n_value = -1;
         // counter error, set it to -1:
         i_value = ((o_value>=0 && n_value>=0)?(n_value-o_value):(-1));
@@ -3107,7 +3150,7 @@ void EmuPeripheralCrateMonitor::XmlOutput(xgi::Input * in, xgi::Output * out )
      for(unsigned int j=0; j<myVector.size(); j++) 
      {
         *out << "    <count chamber=\"";
-        *out << crateVector[i]->GetChamber(myVector[j])->GetLabel();
+        *out << myVector[j]->GetLabel();
         *out << "\" alct=\"";
 //        *out << myVector[j]->GetCounter(0);
         n_value = (*tmbdata)[j*MAX_TMB_COUNTERS+0];
@@ -3122,13 +3165,19 @@ void EmuPeripheralCrateMonitor::XmlOutput(xgi::Input * in, xgi::Output * out )
         *out << n_value;
         *out << "\" lct=\"";
 //        *out << myVector[j]->GetCounter(13);
-        n_value = (*tmbdata)[j*MAX_TMB_COUNTERS+30+((myVector[j]->GetHardwareVersion()==2)?2:0)];
+        n_value = (*tmbdata)[j*MAX_TMB_COUNTERS+32];
         // counter error, set it to -1 here:
         if(n_value == 0x3FFFFFFF || n_value <0) n_value = -1;
         *out << n_value;
         *out << "\" l1a=\"";
 //        *out << myVector[j]->GetCounter(34);
-        n_value = (*tmbdata)[j*MAX_TMB_COUNTERS+54+((myVector[j]->GetHardwareVersion()==2)?2:0)];
+        n_value = (*tmbdata)[j*MAX_TMB_COUNTERS+56];
+        // counter error, set it to -1 here:
+        if(n_value == 0x3FFFFFFF || n_value <0) n_value = -1;
+        *out << n_value;
+        *out << "\" rejected=\"";
+//        *out << myVector[j]->GetCounter(52);
+        n_value = (*tmbdata)[j*MAX_TMB_COUNTERS+54];
         // counter error, set it to -1 here:
         if(n_value == 0x3FFFFFFF || n_value <0) n_value = -1;
         *out << n_value;
@@ -3157,9 +3206,9 @@ void EmuPeripheralCrateMonitor::DCSOutput(xgi::Input * in, xgi::Output * out )
            //      10 (val  1024):  chamber lost Digital power 
 
   unsigned int readtime;
-  unsigned short crateok, good_chamber=0, ccbtag, csra2, csra3;
+  unsigned short crateok, good_chamber=0, good_tmbchamber=0, ccbtag, csra2, csra3;
   unsigned short mpcreg0, mpcreg1=0, mpcreg2=0, mpcreg3=0;
-  float val, V7;
+  float val, V7, dmb_temp;
   std::vector<DAQMB*> myVector;
   xdata::InfoSpace * is;
   int ip, slot, ch_state;
@@ -3170,7 +3219,7 @@ void EmuPeripheralCrateMonitor::DCSOutput(xgi::Input * in, xgi::Output * out )
   {  //  X2P will trigger the start of monitoring.
      //   if monitoring already started but VME access stopped by a button, X2P will not do anything
      ReadingOn();
-     return;
+     ::sleep(3);
   }
 
   x2p_count++;
@@ -3188,7 +3237,7 @@ void EmuPeripheralCrateMonitor::DCSOutput(xgi::Input * in, xgi::Output * out )
            if(dversion==2) continue;
            slot = myVector[j]->slot();
            ip = (ip & 0xff) + slot*256;
-           *out << crateVector[i]->GetChamber(myVector[j])->GetLabel();
+           *out << myVector[j]->GetLabel();
 
            // status 32 ==>crate OFF
            *out << " 32";
@@ -3209,6 +3258,7 @@ void EmuPeripheralCrateMonitor::DCSOutput(xgi::Input * in, xgi::Output * out )
         continue;
      }  // end of OFF crates 
 
+     int problem_readings=0;
      is = xdata::getInfoSpaceFactory()->get(monitorables_[i]);
      xdata::Vector<xdata::Float> *dmbdata = dynamic_cast<xdata::Vector<xdata::Float> *>(is->find("DCStemps"));
      if(dmbdata==NULL || dmbdata->size()<myVector.size()*TOTAL_DCS_COUNTERS)
@@ -3235,6 +3285,9 @@ void EmuPeripheralCrateMonitor::DCSOutput(xgi::Input * in, xgi::Output * out )
      }
      else
      {  goodtmb=true;
+        xdata::UnsignedShort *counter16 = dynamic_cast<xdata::UnsignedShort *>(is->find("TMBchamber"));
+        if (counter16==NULL) good_tmbchamber= 0;
+           else good_tmbchamber = (*counter16);
      }
 
      xdata::Vector<xdata::UnsignedShort> *ccbdata = dynamic_cast<xdata::Vector<xdata::UnsignedShort> *>(is->find("CCBcounter"));
@@ -3273,7 +3326,7 @@ void EmuPeripheralCrateMonitor::DCSOutput(xgi::Input * in, xgi::Output * out )
         int dmbN = slot/2;
         if(dmbN>5) dmbN--;
         ip = (ip & 0xff) + slot*256;
-        std::string cscname=crateVector[i]->GetChamber(myVector[j])->GetLabel();
+        std::string cscname=myVector[j]->GetLabel();
         *out << cscname;
 
         ch_state=0;
@@ -3285,17 +3338,30 @@ void EmuPeripheralCrateMonitor::DCSOutput(xgi::Input * in, xgi::Output * out )
         // the module which probably caused reading trouble
         if(gooddata && ch_state>0 && bad_module==j+1) ch_state |= 64;
 
+        // if crate bit is already set, then don't set TMB bit
+        if( ((ch_state&8)==0) && ((good_tmbchamber & (1<<j))==0)) ch_state |= 128;  
+
         if((ch_state & 0x7F)==0) 
         {
+          /* DMB temperature */
+          dmb_temp=(*dmbdata)[j*TOTAL_DCS_COUNTERS+40];
+          if(dmb_temp<80. && dmb_temp>5.)
+          {  /* if the DMB temperature reading is OK, then check the 7Vs */
             /* Analog power */
             V7=(*dmbdata)[j*TOTAL_DCS_COUNTERS+38];
             if(V7<3.0) ch_state |= 512;
             /* Digital power */
             V7=(*dmbdata)[j*TOTAL_DCS_COUNTERS+39];
             if(V7<3.0) ch_state |= 1024;
+          } 
+          else
+          {
+            /* treat it as bad DMB reading */
+            ch_state |= 16;  
+          }
         }
+        if(ch_state&0x9D8) problem_readings++;   // possible reading error (exclude bits 0-2,5,9,10)
         *out << " " << ch_state; 
-
         *out << " " << readtime << " " << ip;
 
 // CCB bits and FPGA bits
@@ -3330,8 +3396,8 @@ void EmuPeripheralCrateMonitor::DCSOutput(xgi::Input * in, xgi::Output * out )
         *out << std::setprecision(4) << std::fixed;
         for(int k=0; k<TOTAL_DCS_COUNTERS; k++) 
         {  
-           /* for error conditions on bits 0,2-8, don't send data */
-           if((ch_state & 0x1FD)==0)
+           /* for error conditions on bits 0-6, don't send data */
+           if((ch_state & 0x7F)==0)
            { 
               val= (*dmbdata)[j*TOTAL_DCS_COUNTERS+k];
               *out << " " << val;
@@ -3342,8 +3408,8 @@ void EmuPeripheralCrateMonitor::DCSOutput(xgi::Input * in, xgi::Output * out )
            }             
         }
         for(int k=0; k<TOTAL_TMB_VOLTAGES; k++) 
-        {  
-           if(goodtmb)
+        {  /* for error conditions on bits 3,5,7,8, don't TMB send data */
+           if(goodtmb && ((ch_state & 0x1A8)==0))
            { 
               val= (*tmbdata)[j*TOTAL_TMB_VOLTAGES+k];
               *out << " " << val;
@@ -3354,8 +3420,21 @@ void EmuPeripheralCrateMonitor::DCSOutput(xgi::Input * in, xgi::Output * out )
            }             
         }
         *out << " -50" << std::endl;  // as end-of-line marker
+     }  // end of chamber loop
+     if(problem_readings>5)
+     {   // too many reading errors, probably VCC problem
+         std::cout << " Reading Errors: " << problem_readings << " in Crate: " << crateVector[i]->GetLabel() << std::endl;
+         if(Monitor_On_ && Monitor_Ready_ && slow_on && reload_vcc)
+         {
+            crateVector[i]->vmeController()->reset();
+            ::usleep(1000000);
+            crateVector[i]->SetLife( true );
+            crateVector[i]->vmeController()->SetLife(true);
+            vcc_reset[i] = vcc_reset[i] + 1;
+            std::cout << crateVector[i]->GetLabel() << " controller FPGA reloaded." << std::endl;
+         }
      }
-  }
+  }  // end of crate loop
 
 }
 
@@ -3376,12 +3455,12 @@ void EmuPeripheralCrateMonitor::DCSOutput2(xgi::Input * in, xgi::Output * out )
            //      10 (val  1024):  chamber lost Digital power 
 
   unsigned int readtime;
-  unsigned short crateok, good_chamber=0, ccbtag, csra2, csra3;
+  unsigned short crateok, good_chamber=0, good_tmbchamber=0, ccbtag, csra2, csra3;
   unsigned short mpcreg0, mpcreg1=0, mpcreg2=0, mpcreg3=0;
-  float val, V7;
+  float val, V7, lvdb_temp;
   std::vector<DAQMB*> myVector;
   xdata::InfoSpace * is;
-  int ip, slot, ch_state;
+  int ip, slot, ch_state, ival;
   unsigned int bad_module, ccbbits;
   bool gooddata, goodtmb, goodfeb;
 
@@ -3389,7 +3468,7 @@ void EmuPeripheralCrateMonitor::DCSOutput2(xgi::Input * in, xgi::Output * out )
   {  //  X2P will trigger the start of monitoring.
      //   if monitoring already started but VME access stopped by a button, X2P will not do anything
      ReadingOn();
-     return;
+     ::sleep(3);
   }
 
   x2p_count2++;
@@ -3407,7 +3486,7 @@ void EmuPeripheralCrateMonitor::DCSOutput2(xgi::Input * in, xgi::Output * out )
            if(dversion!=2) continue;
            slot = myVector[j]->slot();
            ip = (ip & 0xff) + slot*256;
-           *out << crateVector[i]->GetChamber(myVector[j])->GetLabel();
+           *out << myVector[j]->GetLabel();
 
            // status 32 ==>crate OFF
            *out << " 32";
@@ -3432,6 +3511,7 @@ void EmuPeripheralCrateMonitor::DCSOutput2(xgi::Input * in, xgi::Output * out )
         continue;
      }  // end of OFF crates 
 
+     int problem_readings=0;
      is = xdata::getInfoSpaceFactory()->get(monitorables_[i]);
      xdata::Vector<xdata::Float> *dmbdata = dynamic_cast<xdata::Vector<xdata::Float> *>(is->find("DCStemps"));
      if(dmbdata==NULL || dmbdata->size()<myVector.size()*TOTAL_DCS_COUNTERS)
@@ -3458,10 +3538,13 @@ void EmuPeripheralCrateMonitor::DCSOutput2(xgi::Input * in, xgi::Output * out )
      }
      else
      {  goodtmb=true;
+        xdata::UnsignedShort *counter16 = dynamic_cast<xdata::UnsignedShort *>(is->find("TMBchamber"));
+        if (counter16==NULL) good_tmbchamber= 0;
+           else good_tmbchamber = (*counter16);
      }
 
      xdata::Vector<xdata::Float> *febdata = dynamic_cast<xdata::Vector<xdata::Float> *>(is->find("DCFEBmons"));
-     if(tmbdata==NULL)
+     if(febdata==NULL)
      {  goodfeb=false;
      }
      else
@@ -3505,7 +3588,7 @@ void EmuPeripheralCrateMonitor::DCSOutput2(xgi::Input * in, xgi::Output * out )
         int dmbN = slot/2;
         if(dmbN>5) dmbN--;
         ip = (ip & 0xff) + slot*256;
-        std::string cscname=crateVector[i]->GetChamber(myVector[j])->GetLabel();
+        std::string cscname=myVector[j]->GetLabel();
         *out << cscname;
 
         ch_state=0;
@@ -3517,15 +3600,29 @@ void EmuPeripheralCrateMonitor::DCSOutput2(xgi::Input * in, xgi::Output * out )
         // the module which probably caused reading trouble
         if(gooddata && ch_state>0 && bad_module==j+1) ch_state |= 64;
 
+        // if crate bit is already set, then don't set TMB bit
+        if( ((ch_state&8)==0) && ((good_tmbchamber & (1<<j))==0)) ch_state |= 128;  
+
         if((ch_state & 0x7F)==0) 
         {
+          /* LVDB temperature */
+          lvdb_temp=(*dmbdata)[j*TOTAL_DCS_COUNTERS+55];
+          if(lvdb_temp<80. && lvdb_temp>5.)
+          {  /* if the LVDB temperature reading is OK, then check the 7Vs */
             /* Analog power */
             V7=(*dmbdata)[j*TOTAL_DCS_COUNTERS+50];
             if(V7<3.0) ch_state |= 512;
             /* Digital power */
             V7=(*dmbdata)[j*TOTAL_DCS_COUNTERS+51];
             if(V7<3.0) ch_state |= 1024;
+          } 
+          else
+          {
+            /* treat it as bad DMB reading */
+            ch_state |= 16;  
+          }
         }
+        if(ch_state&0x9D8) problem_readings++;   // possible reading error (exclude bits 0-2,5,9,10)
         *out << " " << ch_state; 
 
         *out << " " << readtime << " " << ip;
@@ -3562,8 +3659,8 @@ void EmuPeripheralCrateMonitor::DCSOutput2(xgi::Input * in, xgi::Output * out )
         *out << std::setprecision(4) << std::fixed;
         for(int k=0; k<TOTAL_DCS_COUNTERS; k++) 
         {  
-           /* for error conditions on bits 0,2-8, don't send data */
-           if((ch_state & 0x1FD)==0)
+           /* for error conditions on bits 0-6, don't send data */
+           if((ch_state & 0x7F)==0)
            { 
               val= (*dmbdata)[j*TOTAL_DCS_COUNTERS+k];
               *out << " " << val;
@@ -3574,8 +3671,8 @@ void EmuPeripheralCrateMonitor::DCSOutput2(xgi::Input * in, xgi::Output * out )
            }             
         }
         for(int k=0; k<TOTAL_TMB_VOLTAGES; k++) 
-        {  
-           if(goodtmb)
+        {  /* for error conditions on bits 3,5,7,8, don't send TMB data */
+           if(goodtmb && ((ch_state & 0x1A8)==0))
            { 
               val= (*tmbdata)[j*TOTAL_TMB_VOLTAGES+k];
               *out << " " << val;
@@ -3587,10 +3684,20 @@ void EmuPeripheralCrateMonitor::DCSOutput2(xgi::Input * in, xgi::Output * out )
         }
         for(int k=0; k<TOTAL_DCFEB_MONS; k++) 
         {  
-           if(goodfeb)
+           if(goodfeb && (read_dcfeb || k>=210) && ((ch_state & 0x67F)==0))
            { 
-              val= (*febdata)[upgraded*TOTAL_DCFEB_MONS+k];
-              *out << " " << val;
+              int cnt_idx=k%30;
+              int dcfebn=k/30;
+              if((dcfebn<7 && (cnt_idx==10 ||cnt_idx==15 ||cnt_idx==27 ||cnt_idx==28 ||cnt_idx==29)) || (dcfebn==7 && cnt_idx>=9)) 
+              {
+                 ival=(*febdata)[upgraded*TOTAL_DCFEB_MONS+k];
+                 *out << " " << ival;
+              }
+              else
+              {
+                 val=(*febdata)[upgraded*TOTAL_DCFEB_MONS+k];
+                 *out << " " << val;
+              }
            }
            else
            {
@@ -3599,8 +3706,10 @@ void EmuPeripheralCrateMonitor::DCSOutput2(xgi::Input * in, xgi::Output * out )
         }
         *out << " -50" << std::endl;  // as end-of-line marker
         upgraded++;
-     }
-  }
+     }  // end of chamber loop
+//     if(problem_readings>2)  crateVector[i]->SetLife(false);
+// too many reading errors, probably VCC problem
+  }  // end of crate loop
 
 }
 
@@ -3633,7 +3742,7 @@ void EmuPeripheralCrateMonitor::BeamView(xgi::Input * in, xgi::Output * out )
      myVector = crateVector[i]->tmbs();
      for(unsigned int j=0; j<myVector.size(); j++) 
      {
-        std::string chname = crateVector[i]->GetChamber(myVector[j])->GetLabel();
+        std::string chname = myVector[j]->GetLabel();
         int station = std::atoi(chname.substr(3,1).c_str());
         int ring = std::atoi(chname.substr(5,1).c_str());
         int chnumb = std::atoi(chname.substr(7,2).c_str());
@@ -3893,6 +4002,54 @@ void EmuPeripheralCrateMonitor::SwitchBoard(xgi::Input * in, xgi::Output * out )
      else if (command_argu=="OFF" || command_argu=="off") reload_vcc = false;
      std::cout << "SwitchBoard: VCC Reset " << command_argu << " at " << getLocalDateTime() << std::endl;
   }
+  else if (command_name=="DCFEB")
+  {
+     if (command_argu=="ON" || command_argu=="on") read_dcfeb = 7;
+     else if (command_argu=="OFF" || command_argu=="off") read_dcfeb = 0;
+     std::cout << "SwitchBoard: DCFEB Read " << command_argu << " at " << getLocalDateTime() << std::endl;
+  }
+  else if (command_name=="DCFEBSYS")
+  {
+     if (command_argu=="ON" || command_argu=="on") read_dcfeb |= 1;
+     else if (command_argu=="OFF" || command_argu=="off") read_dcfeb &= 0xFFFE;
+     std::cout << "SwitchBoard: DCFEB-SYSMON Read " << command_argu << " at " << getLocalDateTime() << std::endl;
+  }
+  else if (command_name=="DCFEBADC")
+  {
+     if (command_argu=="ON" || command_argu=="on") read_dcfeb |= 2;
+     else if (command_argu=="OFF" || command_argu=="off") read_dcfeb &= 0xFFFD;
+     std::cout << "SwitchBoard: DCFEB-ADC Read " << command_argu << " at " << getLocalDateTime() << std::endl;
+  }
+  else if (command_name=="DCFEBSEU")
+  {
+     if (command_argu=="ON" || command_argu=="on") read_dcfeb |= 4;
+     else if (command_argu=="OFF" || command_argu=="off") read_dcfeb &= 0xFFFB;
+     std::cout << "SwitchBoard: DCFEB-SEU Read " << command_argu << " at " << getLocalDateTime() << std::endl;
+  }
+  else if (command_name=="DEBUGON")
+  {
+     if(!parsed) return;
+     for ( unsigned int i = 0; i < crateVector.size(); i++ )
+     {
+        if(command_argu=="ALL" || command_argu==crateVector[i]->GetLabel())
+        {   
+            crateVector[i]->vmeController()->Debug(1);
+            std::cout << "SwitchBoard: enable debug crate " << command_argu << " at " << getLocalDateTime() << std::endl;
+        }
+     }
+  }
+  else if (command_name=="DEBUGOFF")
+  {
+     if(!parsed) return;
+     for ( unsigned int i = 0; i < crateVector.size(); i++ )
+     {
+        if(command_argu=="ALL" || command_argu==crateVector[i]->GetLabel())
+        {  
+            crateVector[i]->vmeController()->Debug(0);
+            std::cout << "SwitchBoard: disable debug crate " << command_argu << " at " << getLocalDateTime() << std::endl;
+        }
+     }
+  }
   else if (command_name=="STATUS")
   {
      if(!parsed) return;
@@ -3925,6 +4082,8 @@ void EmuPeripheralCrateMonitor::SwitchBoard(xgi::Input * in, xgi::Output * out )
   else if (command_name=="LISTMASK")
   {
      if(!parsed) return;
+     //
+     *out << "DCFEB reading setting: " << read_dcfeb << std::endl; 
      // std::cout << "List of all masks:" << std::endl;
      for ( unsigned int i = 0; i < crateVector.size(); i++ )
      {
@@ -3936,6 +4095,8 @@ void EmuPeripheralCrateMonitor::SwitchBoard(xgi::Input * in, xgi::Output * out )
           *out << "TMB Mask: " << crateVector[i]->GetLabel() << " 0x" << std::hex << tmb_mask[i] << std::dec << std::endl;
         if(dmb_mask[i]) 
           *out << "DMB Mask: " << crateVector[i]->GetLabel() << " 0x" << std::hex << dmb_mask[i] << std::dec << std::endl;
+        if(feb_mask[i]) 
+          *out << "DCFEB Mask: " << crateVector[i]->GetLabel() << " 0x" << std::hex << feb_mask[i] << std::dec << std::endl;
      }
   }
   else if (command_name=="MASKON" || command_name=="MASKOFF")
@@ -3986,6 +4147,14 @@ void EmuPeripheralCrateMonitor::SwitchBoard(xgi::Input * in, xgi::Output * out )
                   dmb_mask[i] |= (1<<(maskid-1));
                else
                   dmb_mask[i] &= ~(1<<(maskid-1));
+            }
+            else if (board=="FEB" || board=="feb")
+            {
+               goodmask=true;
+               if(command_name=="MASKON")
+                  feb_mask[i] |= (1<<(maskid-1));
+               else
+                  feb_mask[i] &= ~(1<<(maskid-1));
             }
         }
      }
@@ -4115,7 +4284,7 @@ void EmuPeripheralCrateMonitor::CrateStatus(xgi::Input * in, xgi::Output * out )
   //
   for(unsigned int dmb=0; dmb<myVector.size(); dmb++) {
     *out << cgicc::td();
-    *out << myCrate->GetChamber(myVector[dmb])->GetLabel();
+    *out << myVector[dmb]->GetLabel();
     *out << cgicc::td();
   }
   //
@@ -4294,7 +4463,7 @@ void EmuPeripheralCrateMonitor::Problems(xgi::Input * in, xgi::Output * out )
         DAQMB* mydmb =now_crate->GetDAQMB(slot);
         if(mydmb==NULL) continue;
         confbit= (ccbbits>>(count+18))&0x1;
-        std::string cscname=now_crate->GetChamber(mydmb)->GetLabel();
+        std::string cscname=mydmb->GetLabel();
         if(confbit!=1 && cscname.substr(3,3)!="1/3")
         {
            PROBLEM *prob=new PROBLEM();
@@ -4355,7 +4524,9 @@ void EmuPeripheralCrateMonitor::Problems(xgi::Input * in, xgi::Output * out )
            }
            if(md==6)
               *out << ", Module = ALCT " << std::endl;
-           if(md>0 && md<6)
+           else if(md==4)
+              *out << ", Module = TMB " << std::endl;
+           else if(md==5)
               *out << ", Module = DMB/CFEB " << std::endl;
 
         }
@@ -4398,90 +4569,105 @@ void EmuPeripheralCrateMonitor::InitCounterNames()
     TCounterName.push_back( "CLCT: Pretrigger on CFEB2                               "); 
     TCounterName.push_back( "CLCT: Pretrigger on CFEB3                               ");
     TCounterName.push_back( "CLCT: Pretrigger on CFEB4                               ");
-    TCounterName.push_back( "CLCT: Pretrigger on ME1A CFEB 4 only                    ");
 
-    TCounterName.push_back( "CLCT: Pretrigger on ME1B CFEBs 0-3 only                 "); // 20
+    TCounterName.push_back( "CLCT: Pretrigger on CFEB5                               ");
+    TCounterName.push_back( "CLCT: Pretrigger on CFEB6                               "); // 20
+
+    TCounterName.push_back( "CLCT: Pretrigger on ME1A CFEB 4-6 only                  ");
+    TCounterName.push_back( "CLCT: Pretrigger on ME1B CFEBs 0-3 only                 "); // 22
     TCounterName.push_back( "CLCT: Discarded, no wrbuf available, buffer stalled     "); 
     TCounterName.push_back( "CLCT: Discarded, no ALCT in window                      ");
     TCounterName.push_back( "CLCT: Discarded, CLCT0 invalid pattern after drift      ");
     TCounterName.push_back( "CLCT: CLCT0 pass hit thresh, fail pid_thresh_postdrift  ");
 
-    TCounterName.push_back( "CLCT: CLCT1 pass hit thresh, fail pid_thresh_postdrift  "); // 25
+    TCounterName.push_back( "CLCT: CLCT1 pass hit thresh, fail pid_thresh_postdrift  "); // 27
     TCounterName.push_back( "CLCT: BX pretrig waiting for triads to dissipate        "); 
     TCounterName.push_back( "CLCT: clct0 sent to TMB matching section                ");
     TCounterName.push_back( "CLCT: clct1 sent to TMB matching section                ");
     TCounterName.push_back( "TMB:  TMB accepted alct*clct, alct-only, or clct-only   ");
 
-    TCounterName.push_back( "TMB:  TMB clct*alct matched trigger                     "); // 30 --
+    TCounterName.push_back( "TMB:  TMB clct*alct matched trigger                     "); // 32 --
     TCounterName.push_back( "TMB:  TMB alct-only trigger                             "); 
     TCounterName.push_back( "TMB:  TMB clct-only trigger                             ");
     TCounterName.push_back( "TMB:  TMB match reject event                            ");
     TCounterName.push_back( "TMB:  TMB match reject event, queued for nontrig readout");
 
-    TCounterName.push_back( "TMB:  TMB matching discarded an ALCT pair               "); // 35
+    TCounterName.push_back( "TMB:  TMB matching discarded an ALCT pair               "); // 37
     TCounterName.push_back( "TMB:  TMB matching discarded a CLCT pair                "); 
     TCounterName.push_back( "TMB:  TMB matching discarded CLCT0 from ME1A            ");
     TCounterName.push_back( "TMB:  TMB matching discarded CLCT1 from ME1A            ");
     TCounterName.push_back( "TMB:  Matching found no ALCT                            ");
 
-    TCounterName.push_back( "TMB:  Matching found no CLCT                            "); // 40
+    TCounterName.push_back( "TMB:  Matching found no CLCT                            "); // 42
     TCounterName.push_back( "TMB:  Matching found one ALCT                           "); 
     TCounterName.push_back( "TMB:  Matching found one CLCT                           ");
     TCounterName.push_back( "TMB:  Matching found two ALCTs                          ");
     TCounterName.push_back( "TMB:  Matching found two CLCTs                          ");
 
-    TCounterName.push_back( "TMB:  ALCT0 copied into ALCT1 to make 2nd LCT           "); // 45
+    TCounterName.push_back( "TMB:  ALCT0 copied into ALCT1 to make 2nd LCT           "); // 47
     TCounterName.push_back( "TMB:  CLCT0 copied into CLCT1 to make 2nd LCT           "); 
     TCounterName.push_back( "TMB:  LCT1 has higher quality than LCT0 (ranking Error) ");
     TCounterName.push_back( "TMB:  Transmitted LCT0 to MPC                           ");
     TCounterName.push_back( "TMB:  Transmitted LCT1 to MPC                           ");
 
-    TCounterName.push_back( "TMB:  MPC accepted LCT0                                 "); // 50
+    TCounterName.push_back( "TMB:  MPC accepted LCT0                                 "); // 52
     TCounterName.push_back( "TMB:  MPC accepted LCT1                                 "); 
-    TCounterName.push_back( "TMB:  MPC rejected both LCT0 and LCT1                   ");
+    TCounterName.push_back( "TMB:  MPC rejected both LCT0 and LCT1                   "); // 54 --
     TCounterName.push_back( "L1A:  L1A received                                      ");
-    TCounterName.push_back( "L1A:  L1A received, TMB in L1A window                   "); // 54 --
+    TCounterName.push_back( "L1A:  L1A received, TMB in L1A window                   "); // 56 --
 
-    TCounterName.push_back( "L1A:  L1A received, no TMB in window                    "); // 55
+    TCounterName.push_back( "L1A:  L1A received, no TMB in window                    "); // 57
     TCounterName.push_back( "L1A:  TMB triggered, no L1A in window                   "); 
     TCounterName.push_back( "L1A:  TMB readouts completed                            ");
     TCounterName.push_back( "L1A:  TMB readouts lost by 1-event-per-L1A limit        ");
     TCounterName.push_back( "STAT: CLCT Triads skipped                               ");
 
-    TCounterName.push_back( "STAT: Raw hits buffer had to be reset                   "); // 60
+    TCounterName.push_back( "STAT: Raw hits buffer had to be reset                   "); // 62
     TCounterName.push_back( "STAT: TTC Resyncs received                              "); 
     TCounterName.push_back( "STAT: Sync Error, BC0/BXN=offset mismatch               "); 
     TCounterName.push_back( "STAT: Parity Error in CFEB or RPC raw hits RAM          ");
     TCounterName.push_back( "HDR:  Pretrigger counter                                ");
 
-    TCounterName.push_back( "HDR:  CLCT counter                                      "); // 65
+    TCounterName.push_back( "HDR:  CLCT counter                                      "); // 67
     TCounterName.push_back( "HDR:  TMB trigger counter                               ");
     TCounterName.push_back( "HDR:  ALCTs received counter                            ");
     TCounterName.push_back( "HDR:  L1As received counter (12 bits)                   ");
     TCounterName.push_back( "HDR:  Readout counter (12 bits)                         ");
 
-    TCounterName.push_back( "HDR:  Orbit counter                                     "); // 70
+    TCounterName.push_back( "HDR:  Orbit counter                                     "); // 72
     TCounterName.push_back( "ALCT:Struct Error, expect ALCT0[10:1]=0 when alct0vpf=0 "); 
     TCounterName.push_back( "ALCT:Struct Error, expect ALCT1[10:1]=0 when alct1vpf=0 ");
     TCounterName.push_back( "ALCT:Struct Error, expect ALCT0vpf=1 when alct1vpf=1    ");
     TCounterName.push_back( "ALCT:Struct Error, expect ALCT0[10:1]>0 when alct0vpf=1 ");
 
-    TCounterName.push_back( "ALCT:Struct Error, expect ALCT1[10:1]=0 when alct1vpf=1 "); // 75
+    TCounterName.push_back( "ALCT:Struct Error, expect ALCT1[10:1]=0 when alct1vpf=1 "); // 77
     TCounterName.push_back( "ALCT:Struct Error, expect ALCT1!=alct0 when alct0vpf=1  ");
     TCounterName.push_back( "CCB:  TTCrx lock lost                                   ");
-    TCounterName.push_back( "CCB:  qPLL lock lost                                    "); // last of real TMB counters
-    TCounterName.push_back( "TMB:  CFEB Bad Bits Control                             ");     
+    TCounterName.push_back( "CCB:  qPLL lock lost                                    "); // 80
+    TCounterName.push_back( "TMB: CLCT pre-trigger and L1A coincidence counter       ");
+    TCounterName.push_back( "TMB: CLCT pre-trigger and ALCT coincidence counter      ");
+    TCounterName.push_back( "CLCT: CFEB0 active flag sent to DMB for readout         ");
+    TCounterName.push_back( "CLCT: CFEB1 active flag sent to DMB for readout         ");
+    TCounterName.push_back( "CLCT: CFEB2 active flag sent to DMB for readout         "); // 85
+    TCounterName.push_back( "CLCT: CFEB3 active flag sent to DMB for readout         ");
+    TCounterName.push_back( "CLCT: CFEB4 active flag sent to DMB for readout         ");
+    TCounterName.push_back( "CLCT: CFEB5 active flag sent to DMB for readout         ");
+    TCounterName.push_back( "CLCT: CFEB6 active flag sent to DMB for readout         ");
+    TCounterName.push_back( "CLCT: CFEB active flag sent to DMB was on ME1A CFEB4-6  "); // 90
+    TCounterName.push_back( "CLCT: CFEB active flag sent to DMB was on ME1B CFEB0-3  ");
+    TCounterName.push_back( "CLCT: CFEB active flag sent to DMB was on any CFEB      "); // 92 last of real TMB counters
 
-    TCounterName.push_back( "TMB:  CFEB Bad Bits Pattern 1                           "); // 80    
+    TCounterName.push_back( "TMB:  CFEB Bad Bits Control                             ");     
+    TCounterName.push_back( "TMB:  CFEB Bad Bits Pattern 1                           "); // 94    
     TCounterName.push_back( "TMB:  CFEB Bad Bits Pattern 2                           "); //    
     TCounterName.push_back( "TMB:  CFEB Bad Bits Pattern 3                           "); //    
     TCounterName.push_back( "TMB:  CFEB Bad Bits Pattern 4                           "); //    
     TCounterName.push_back( "TMB:  CFEB Bad Bits Pattern 5                           "); //    
-
-    TCounterName.push_back( "TMB:  CFEB Bad Bits Pattern 6                           "); // 85   
-    TCounterName.push_back( "TMB:  CFEB Bad Bits Pattern 7                           "); //     
+    TCounterName.push_back( "TMB:  CFEB Bad Bits Pattern 6                           "); //   
+    TCounterName.push_back( "TMB:  CFEB Bad Bits Pattern 7                           "); // 100    
     TCounterName.push_back( "TMB:  CFEB Bad Bits Pattern 8                           "); //   
-    TCounterName.push_back( "TMB:  Time since last Hard Reset                        "); // 88
+
+    TCounterName.push_back( "TMB:  Time since last Hard Reset                        "); // 102==
 
     TOTAL_TMB_COUNTERS=TCounterName.size();
 
@@ -4510,8 +4696,7 @@ void EmuPeripheralCrateMonitor::InitCounterNames()
     TCounterName2.push_back( "CLCT: Pretrigger on CFEB5                               ");
 
     TCounterName2.push_back( "CLCT: Pretrigger on CFEB6                               "); // 20
-    TCounterName2.push_back( "CLCT: Pretrigger on ME1A CFEB 4 only                    ");
-
+    TCounterName2.push_back( "CLCT: Pretrigger on ME1A CFEB 4-6 only                  ");
     TCounterName2.push_back( "CLCT: Pretrigger on ME1B CFEBs 0-3 only                 "); // 22
     TCounterName2.push_back( "CLCT: Discarded, no wrbuf available, buffer stalled     "); 
     TCounterName2.push_back( "CLCT: Discarded, no ALCT in window                      ");
@@ -4550,7 +4735,7 @@ void EmuPeripheralCrateMonitor::InitCounterNames()
 
     TCounterName2.push_back( "TMB:  MPC accepted LCT0                                 "); // 52
     TCounterName2.push_back( "TMB:  MPC accepted LCT1                                 "); 
-    TCounterName2.push_back( "TMB:  MPC rejected both LCT0 and LCT1                   ");
+    TCounterName2.push_back( "TMB:  MPC rejected both LCT0 and LCT1                   "); // 54 --
     TCounterName2.push_back( "L1A:  L1A received                                      ");
     TCounterName2.push_back( "L1A:  L1A received, TMB in L1A window                   "); // 56 --
 
@@ -4581,31 +4766,36 @@ void EmuPeripheralCrateMonitor::InitCounterNames()
     TCounterName2.push_back( "ALCT:Struct Error, expect ALCT1[10:1]=0 when alct1vpf=1 "); // 77
     TCounterName2.push_back( "ALCT:Struct Error, expect ALCT1!=alct0 when alct0vpf=1  ");
     TCounterName2.push_back( "CCB:  TTCrx lock lost                                   ");
-    TCounterName2.push_back( "CCB:  qPLL lock lost                                    "); 
-    TCounterName2.push_back( "GTX:  Optical Receiver Error gtx_rx_err_count0          "); // 81 
-    TCounterName2.push_back( "GTX:  Optical Receiver Error gtx_rx_err_count1          "); 
-    TCounterName2.push_back( "GTX:  Optical Receiver Error gtx_rx_err_count2          "); 
-    TCounterName2.push_back( "GTX:  Optical Receiver Error gtx_rx_err_count3          "); 
-    TCounterName2.push_back( "GTX:  Optical Receiver Error gtx_rx_err_count4          "); 
-    TCounterName2.push_back( "GTX:  Optical Receiver Error gtx_rx_err_count5          "); 
-    TCounterName2.push_back( "GTX:  Optical Receiver Error gtx_rx_err_count6          "); // 87  last of real OTMB counters
+    TCounterName2.push_back( "CCB:  qPLL lock lost                                    "); // 80 
+    TCounterName2.push_back( "TMB: CLCT pre-trigger and L1A coincidence counter       ");
+    TCounterName2.push_back( "TMB: CLCT pre-trigger and ALCT coincidence counter      ");
+    TCounterName2.push_back( "CLCT: CFEB0 active flag sent to DMB for readout         ");
+    TCounterName2.push_back( "CLCT: CFEB1 active flag sent to DMB for readout         ");
+    TCounterName2.push_back( "CLCT: CFEB2 active flag sent to DMB for readout         "); // 85
+    TCounterName2.push_back( "CLCT: CFEB3 active flag sent to DMB for readout         ");
+    TCounterName2.push_back( "CLCT: CFEB4 active flag sent to DMB for readout         ");
+    TCounterName2.push_back( "CLCT: CFEB5 active flag sent to DMB for readout         ");
+    TCounterName2.push_back( "CLCT: CFEB6 active flag sent to DMB for readout         ");
+    TCounterName2.push_back( "CLCT: CFEB active flag sent to DMB was on ME1A CFEB4-6  "); // 90
+    TCounterName2.push_back( "CLCT: CFEB active flag sent to DMB was on ME1B CFEB0-3  ");
+    TCounterName2.push_back( "CLCT: CFEB active flag sent to DMB was on any CFEB      "); // 92 last of real TMB counters
 
     TCounterName2.push_back( "TMB:  CFEB Bad Bits Control                             ");     
-    TCounterName2.push_back( "TMB:  CFEB Bad Bits Pattern 1                           "); // 89    
+    TCounterName2.push_back( "TMB:  CFEB Bad Bits Pattern 1                           "); // 94    
     TCounterName2.push_back( "TMB:  CFEB Bad Bits Pattern 2                           "); //    
     TCounterName2.push_back( "TMB:  CFEB Bad Bits Pattern 3                           "); //    
     TCounterName2.push_back( "TMB:  CFEB Bad Bits Pattern 4                           "); //    
     TCounterName2.push_back( "TMB:  CFEB Bad Bits Pattern 5                           "); //    
 
-    TCounterName2.push_back( "TMB:  CFEB Bad Bits Pattern 6                           "); // 94   
-    TCounterName2.push_back( "TMB:  CFEB Bad Bits Pattern 7                           "); //     
+    TCounterName2.push_back( "TMB:  CFEB Bad Bits Pattern 6                           "); // 99   
+    TCounterName2.push_back( "TMB:  CFEB Bad Bits Pattern 7                           "); // 100    
     TCounterName2.push_back( "TMB:  CFEB Bad Bits Pattern 8                           "); //   
     TCounterName2.push_back( "TMB:  CFEB Bad Bits Control extension                   "); //     
     TCounterName2.push_back( "TMB:  CFEB Bad Bits Pattern extension 1                 "); //     
     TCounterName2.push_back( "TMB:  CFEB Bad Bits Pattern extension 2                 "); //     
-    TCounterName2.push_back( "TMB:  CFEB Bad Bits Pattern extension 3                 "); // 100     
+    TCounterName2.push_back( "TMB:  CFEB Bad Bits Pattern extension 3                 "); // 105     
 
-    TCounterName2.push_back( "TMB:  Time since last Hard Reset                        "); // 101
+    TCounterName2.push_back( "TMB:  Time since last Hard Reset                        "); // 106==
 
     TOTAL_TMB_COUNTERS2=TCounterName2.size();
 
@@ -4667,6 +4857,8 @@ void EmuPeripheralCrateMonitor::InitCounterNames()
     TECounterName.push_back( "CFEB5 Temp");  // 5
     TECounterName.push_back( "ALCT  Temp");  // 
     TECounterName.push_back( "TMB Temp  ");  // 7
+    TECounterName.push_back( "CFEB6 Temp");  // 8
+    TECounterName.push_back( "CFEB7 Temp");  // 9
 
     TVCounterName.push_back( "V 5.0 ");  // 0
     TVCounterName.push_back( "V 3.3 ");  //
@@ -4692,30 +4884,17 @@ void EmuPeripheralCrateMonitor::InitCounterNames()
       {   IsErrCounter.push_back(0);
       }
     }
-    IsErrCounter[21]=1;
-    IsErrCounter[22]=1;
+    IsErrCounter[11]=1;
     IsErrCounter[23]=1;
     IsErrCounter[24]=1;
     IsErrCounter[25]=1;
-    IsErrCounter[31]=1;
-    IsErrCounter[32]=1;
-    IsErrCounter[35]=1;
-    IsErrCounter[39]=1;
-    IsErrCounter[40]=1;
-    IsErrCounter[52]=1;
-    IsErrCounter[55]=1;
-    IsErrCounter[75]=1;
-    IsErrCounter[76]=1;
-    for(int i=0; i<9; i++) IsErrCounter[78+i]=1;
-
-#if 0
-    IsErrCounter[8]=1;
-    IsErrCounter[9]=1;
-    IsErrCounter[11]=1;
-    IsErrCounter[12]=1;
     IsErrCounter[26]=1;
     IsErrCounter[27]=1;
-#endif
+    IsErrCounter[62]=1;
+    IsErrCounter[64]=1;
+    IsErrCounter[65]=1;
+    for(int i=0; i<8; i++) IsErrCounter[2+i]=1;
+    for(int i=0; i<8; i++) IsErrCounter[73+i]=1;
 
 }
 

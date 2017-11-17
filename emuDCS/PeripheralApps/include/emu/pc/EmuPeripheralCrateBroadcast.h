@@ -82,6 +82,7 @@ public:
   std::string HomeDir_;
   std::string ConfigDir_;  
   std::string FirmwareDir_;
+  std::string XMLDIR;
   //
   void DefineBroadcastCrate();
   xdata::String PeripheralCrateBroadcastXmlFile_;
@@ -125,8 +126,6 @@ public:
   void VMECCLoadFirmwareBcast(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
   void VMECCTestBcast(xgi::Input * in, xgi::Output * out )throw (xgi::exception::Exception);
   void VMECCTestSkewClear(xgi::Input * in, xgi::Output * out )throw (xgi::exception::Exception);
-  //
-  void MyHeader(xgi::Input * in, xgi::Output * out, std::string title ) throw (xgi::exception::Exception);
   //
   xoap::MessageReference onConfigure (xoap::MessageReference message) throw (xoap::exception::Exception);
   xoap::MessageReference onEnable (xoap::MessageReference message) throw (xoap::exception::Exception);

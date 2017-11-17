@@ -326,6 +326,7 @@
 //-----------------------------------------------------------------------
 #include "emu/pc/CCB.h"
 #include "emu/pc/VMEController.h"
+#include "emu/pc/JTAG_constants.h"
 #include <stdio.h>
 #include <iostream>
 #include <iomanip>
@@ -333,6 +334,7 @@
 #include <unistd.h> // for sleep
 #include <vector>
 #include <string>
+#include <string.h>
 #include <math.h>
 #include "emu/pc/Crate.h"
 #include <stdlib.h> // for rand and srand
@@ -357,6 +359,7 @@ CCB::CCB(Crate * theCrate ,int slot)
   TTCrxCoarseDelay_(0),
   TTCrxFineDelay_(0),
   l1enabled_(false),
+  GEM_enable_TTC_(false),
   mDebug(false)
 {
   MyOutput_ = &std::cout ;
@@ -1167,6 +1170,9 @@ void CCB::configure() {
   rx=ReadTTCrxReg(3);
   if((rx&0xff) != 0xB3) 
      std::cout << "ERROR: TTCrx Control register readback " << std::hex << (rx&0xff) << std::endl; 
+
+  // initialize GEM interface
+  if(hardware_version_>1) gem_set_MUX_bit(1);
 
   // write a special tag to CSRB4
   WriteRegister(CSRB4, 0xCCB0+(TTCrxID_&0xF)); 
@@ -1980,6 +1986,1143 @@ std::string CCB::GetTTCCommandName( const int ttcCommand ) {
   ttcCommandNames[0x32] = "Bunch Counter Reset";
   
   return ttcCommandNames[ttcCommand];
+}
+
+// code used by GEM interface
+void CCB::gem_hardreset()
+{
+   if(hardware_version_<=1) return;
+   unsigned short regV=(ReadRegister(GEM_COM)&0x2800) + (1<<12);
+   WriteRegister(GEM_COM, regV);
+   ::sleep(1);
+}
+
+void CCB::gem_enable_TTC_hardreset(bool v)
+{
+   if(hardware_version_<=1) return;
+   GEM_enable_TTC_ = (v?1:0);
+   unsigned short regV=(ReadRegister(GEM_COM)&0x800)+(GEM_enable_TTC_<<13);
+   WriteRegister(GEM_COM, regV);
+}
+
+void CCB::gem_set_MUX_bit(int v)
+{
+   if(hardware_version_<=1) return;
+   unsigned short regV=(GEM_enable_TTC_<<13)+((v & 1)<<11)+(7<<8);;
+   WriteRegister(GEM_COM, regV);
+}
+
+void CCB::gem_scan(int reg,const char *snd,int cnt,char *rcv,int ird, int gem)
+{
+   // same interface as regular scan() except the last parameter
+   // gem = select which GEM to operate on; 
+   //       0 None
+   //       1-6 for each GEM
+   //       7 broadcast (READ only) to all
+
+   if(hardware_version_<=1) return;
+   unsigned long TDI=0, TMS=1, TCK=2, TDO=3; 
+   unsigned long regV=(GEM_enable_TTC_<<13)+((gem&0x7)<<8);
+   unsigned long handle=(TDI)+(TMS<<4)+(TCK<<8)+(TDO<<12) + (regV<<16) + ((unsigned long)GEM_COM<<32);
+   Jtag_Norm(handle, reg, snd, cnt, rcv, ((gem==7)?0:ird), NOW);
+}
+
+void CCB::gem_RestoreIdle(int gem)
+{
+   int tmp=0;
+   gem_scan(0, (char *)&tmp,-1, (char *)&tmp, 0,  gem);
+}
+
+unsigned CCB::gem_FPGA_IDCode(int gem)
+{
+     unsigned short comd;
+     unsigned ttt=0, tout=0;
+     if(hardware_version_<=1) return 0;
+   
+     //restore idle;
+     gem_RestoreIdle(gem);
+
+     comd=VTX6_IDCODE;
+     gem_scan(0, (char *)&comd, 10, rcvbuf, 0, gem);
+     gem_scan(1, (char *)&ttt, 32, (char *)&tout, 1, gem);     
+     (*MyOutput_) << "FPGA IDCODE=" << std::hex << tout << std::dec << std::endl;
+     return tout;
+}
+
+unsigned CCB::gem_FPGA_UserCode(int gem)
+{
+     unsigned short comd;
+     unsigned ttt=0, tout=0;
+     if(hardware_version_<=1) return 0;
+   
+     //restore idle;
+     gem_RestoreIdle(gem);
+
+     comd=VTX6_USERCODE;
+     gem_scan(0, (char *)&comd, 10, rcvbuf, 0, gem);
+     gem_scan(1, (char *)&ttt, 32, (char *)&tout, 1, gem);     
+     (*MyOutput_) << "FPGA USERCODE=" << std::hex << tout << std::dec << std::endl;
+     return tout;
+}
+
+void CCB::gem_program_virtex6(const char *mcsfile, int gem)
+{
+   if(hardware_version_<=1) return;
+   const int FIRMWARE_SIZE=5464972; // in bytes
+   char *bufin, c;
+   bufin=(char *)malloc(16*1024*1024);
+   if(bufin==NULL)  return;
+   FILE *fin=fopen(mcsfile,"r");
+   if(fin==NULL ) 
+   { 
+      free(bufin);  
+      std::cout << "ERROR: Unable to open MCS file :" << mcsfile << std::endl;
+      return; 
+   }
+   int mcssize=read_mcs(bufin, fin);
+   fclose(fin);
+   std::cout << "Read MCS size: " << std::dec << mcssize << " bytes" << std::endl;
+   if(mcssize<FIRMWARE_SIZE)
+   {
+       std::cout << "ERROR: Wrong MCS file. Quit..." << std::endl;
+       free(bufin);
+       return;
+   }
+// byte swap
+   for(int i=0; i<FIRMWARE_SIZE/2; i++)
+   {  c=bufin[i*2];
+      bufin[i*2]=bufin[i*2+1];
+      bufin[i*2+1]=c;
+   }
+
+     int blocks=FIRMWARE_SIZE/4;  // firmware size must be in units of 32-bit words
+     int p1pct=blocks/100;
+     int j=0, pcnts=0;
+     unsigned short comd, tmp;
+     unsigned long ttt=0, tout=0;
+
+//    getTheController()->Debug(2);
+     getTheController()->SetUseDelay(true);
+  
+    //restore idle;
+    gem_RestoreIdle(gem);
+
+//
+// The IEEE 1532 ISC (In-System-Configuration) procedure is used.       
+// The bitstream doesn't need to be sent in one JTAG package.
+// It is different from Xilinx's Jtag procedure which uses CFG_IN.
+//
+   
+     comd=VTX6_IDCODE;
+     gem_scan(0, (char *)&comd, 10, rcvbuf, 0, gem);
+     gem_scan(1, (char *)&ttt, 32, (char *)&tout, 1, gem);     
+     udelay(100);
+     std::cout << "IDCODE=" << std::hex << tout << std::dec << std::endl;
+    
+     comd=VTX6_SHUTDN;
+     gem_scan(0, (char *)&comd, 10, rcvbuf, 0, gem);
+     std::cout <<" Start sending 400 clocks... " << std::endl;
+     gem_scan(2, (char *)&comd, 400, rcvbuf, 0, gem);
+     udelay(10000);
+
+     comd=VTX6_JPROG;
+     gem_scan(0, (char *)&comd, 10, rcvbuf, 0, gem);
+
+     comd=VTX6_ISC_NOOP; 
+     gem_scan(0, (char *)&comd, 10, rcvbuf, 0, gem);
+     udelay(10000);
+     comd=VTX6_ISC_ENABLE; 
+     tmp=0;
+     gem_scan(0, (char *)&comd, 10, rcvbuf, 0, gem);
+     scan(1, (char *)&tmp, 5, rcvbuf, 0);
+     std::cout <<" Start sending 128 clocks... " << std::endl;
+     gem_scan(2, (char *)&comd, 128, rcvbuf, 0, gem);
+     udelay(500);
+
+//     udelay(100);
+     comd=VTX6_ISC_PROGRAM; 
+     gem_scan(0, (char *)&comd, 10, rcvbuf, 0, gem);
+     udelay(1000);
+    for(int i=0; i<blocks-1; i++)
+    {
+//    if(i>50) getTheController()->Debug(0);
+       gem_scan(1, bufin+4*i, 32, rcvbuf, 0, gem);
+       udelay(32);
+       j++;
+       if(j==p1pct)
+       {  pcnts++;
+          if(pcnts<100) std::cout << "Sending " << pcnts <<"%..." << std::endl;
+          j=0;
+       }   
+    }
+    std::cout << "Sending 100%..." << std::endl;
+//    getTheController()->Debug(2);
+
+    comd=VTX6_ISC_DISABLE; 
+    gem_scan(0, (char *)&comd, 10, rcvbuf, 0, gem);
+    std::cout <<" Start sending clocks... " << std::endl;
+    gem_scan(2, (char *)&comd, 128, rcvbuf, 0, gem);
+//    scan(0, 0, (char *)&comd, -100, &tmp, rcvbuf, 0);
+    udelay(100);
+    comd=VTX6_BYPASS;
+    gem_scan(0, (char *)&comd, 10, rcvbuf, 0, gem);
+
+    comd=VTX6_JSTART;
+    gem_scan(0, (char *)&comd, 10, rcvbuf, 0, gem);
+    std::cout <<" Start sending clocks... " << std::endl;
+    gem_scan(2, (char *)&comd, 128, rcvbuf, 0, gem);
+    udelay(500);
+    //restore idle;
+    gem_RestoreIdle(gem);
+    comd=VTX6_BYPASS;
+    gem_scan(0, (char *)&comd, 10, rcvbuf, 0, gem);
+    
+    std::cout << "FPGA configuration done!" << std::endl;             
+    free(bufin);
+     getTheController()->SetUseDelay(false);
+
+}
+
+unsigned CCB::gem_virtex6_readreg(int reg, int gem)
+{
+  if(hardware_version_==2)
+  {
+     //restore idle;
+     gem_RestoreIdle(gem);
+
+     unsigned short comd;
+     unsigned data[7]={0x66AA9955, 4, 0, 4, 4, 4};
+     unsigned *rt, rtv;
+     comd=VTX6_CFG_IN;
+     gem_scan(0, (char *)&comd, 10, rcvbuf, 0, gem);
+     unsigned ins=((reg&0x1F)<<13)+(1<<27)+(1<<29)+1;
+     data[2]=shuffle32(ins);
+     gem_scan(1, (char *)data, 6*32, rcvbuf, 0, gem);     
+
+     comd=VTX6_CFG_OUT;
+     gem_scan(0, (char *)&comd, 10, rcvbuf, 0, gem);
+     data[0]=0;
+     gem_scan(1, (char *)data, 32, rcvbuf, 1, gem);     
+     rt = (unsigned *)rcvbuf;
+     rtv=shuffle32(*rt);
+//     printf("return: %08X\n", rtv);
+     comd=VTX6_BYPASS;
+     gem_scan(0, (char *)&comd, 10, rcvbuf, 0, gem);
+     return rtv;
+  } 
+  else return 0;
+}
+
+void CCB::gem_virtex6_writereg(int reg, unsigned value, int gem)
+{
+  if(hardware_version_==2)
+  {
+     //restore idle;
+     gem_RestoreIdle(gem);
+
+     unsigned short comd;
+     unsigned data[6]={0x66AA9955, 4, 0, 0, 4, 4};
+     comd=VTX6_CFG_IN;
+     gem_scan(0, (char *)&comd, 10, rcvbuf, 0, gem);
+     unsigned ins=((reg&0x1F)<<13)+(2<<27)+(1<<29)+1;
+     data[2]=shuffle32(ins);
+     data[3]=shuffle32(value);
+     gem_scan(1, (char *)data, 6*32, rcvbuf, 0, gem);     
+     comd=VTX6_BYPASS;
+     gem_scan(0, (char *)&comd, 10, rcvbuf, 0, gem);
+  }
+}
+
+std::vector<float> CCB::gem_virtex6_monitor(int gem)
+{
+  std::vector<float> readout;
+  int comd=VTX6_SYSMON;
+  unsigned data, ibrd, adc;
+  float readf;
+
+  readout.clear();
+  if(hardware_version_==2)
+  {
+     //restore idle;
+     gem_RestoreIdle(gem);
+
+     comd=VTX6_SYSMON;
+     gem_scan(0, (char *)&comd, 10, rcvbuf, 0, gem);
+//     this can be used to change register 0x48 to enable more channels
+//     data=0x8483F00;
+//     scan(1,(char *)&data, 32, rcvbuf, 1);
+     data=0x4000000;
+     gem_scan(1, (char *)&data, 32, rcvbuf, 1, gem);     
+     udelay(50);
+     for(unsigned i=0; i<3; i++)
+     {
+        data += 0x10000;
+        gem_scan(1, (char *)&data, 32, (char *)&ibrd, 1, gem);     
+//        std::cout << "S Channel: " << i << std::hex << " readout " << ibrd << std::endl;  
+        udelay(100);
+        adc = (ibrd>>6)&0x3FF;
+        if(i==0)
+          readf=adc*503.975/1024.0-273.15;
+        else
+          readf=adc*3.0/1024.0;
+        readout.push_back(readf);
+//        std::cout << " result: " << std::dec<< readf << std::endl; 
+     }
+     comd=VTX6_BYPASS;
+     gem_scan(0, (char *)&comd, 10, rcvbuf, 0, gem);
+     udelay(1000);
+  }
+  return readout;
+}
+
+int CCB::gem_virtex6_dna(void *dna, int gem)
+{
+     unsigned short comd;
+     unsigned char *dout, data[8];
+     int rtv;
+
+     // random bits as signature
+     data[0]=((int)time(NULL) & 0xFF);
+
+     comd=VTX6_SHUTDN;
+     gem_scan(0, (char *)&comd, 10, rcvbuf, 0, gem);
+//     std::cout <<" Start sending 128 clocks... " << std::endl;
+     gem_scan(2, (char *)&comd, 128, rcvbuf, 0, gem);
+     udelay(10000);
+
+     dout=(unsigned char *)dna;
+     comd=VTX6_ISC_ENABLE;
+     gem_scan(0, (char *)&comd, 10, rcvbuf, 0, gem);
+     udelay(1000);
+     comd=VTX6_ISC_DNA;
+     gem_scan(0, (char *)&comd, 10, rcvbuf, 0, gem);
+     udelay(1000);
+     gem_scan(1, (char *)data, 64, (char *)dna, 1, gem);     
+     
+     // the last 7 bits must be the same as the signature's lowest 7 bits
+     if((dout[7]>>1)==(data[0]&0x7F))
+     {
+        shuffle57(dout);
+        rtv=0;
+     }
+     else
+     {
+        rtv=-1;
+        std::cout << "Error: DNA readback verification failed!" << std::endl;
+     }
+     comd=VTX6_BYPASS;
+     gem_scan(0, (char *)&comd, 10, rcvbuf, 0, gem);
+
+     comd=VTX6_JSTART;
+     gem_scan(0, (char *)&comd, 10, rcvbuf, 0, gem);
+//     std::cout <<" Start sending 128 clocks... " << std::endl;
+     gem_scan(2, (char *)&comd, 128, rcvbuf, 0, gem);
+     udelay(100000);
+     return rtv;
+}
+
+
+unsigned CCB::gem_FPGA_Status(int gem)
+{
+     if(hardware_version_<=1) return 0;
+   
+     unsigned tout=gem_virtex6_readreg(VTX6_REG_STAT, gem);
+     (*MyOutput_) << "FPGA STATUS=" << std::hex << tout << ", Done bit=" << ((tout&0x4000)?"1":"0") << std::dec << std::endl;
+     return tout;
+}
+
+
+int CCB::gem_SVFLoad(int gem, const char *fn, int db, int verify)
+{
+  int MAXBUFSIZE=8200;
+  unsigned char snd[MAXBUFSIZE], rcv[MAXBUFSIZE], expect[MAXBUFSIZE],rmask[MAXBUFSIZE],smask[MAXBUFSIZE],cmpbuf[MAXBUFSIZE];
+  unsigned char sndbuf[MAXBUFSIZE],rcvbuf[MAXBUFSIZE], realsnd[MAXBUFSIZE];
+  unsigned char sndhdr[MAXBUFSIZE],sndtdr[MAXBUFSIZE], sndhir[MAXBUFSIZE], sndtir[MAXBUFSIZE];
+  unsigned char hdrsmask[MAXBUFSIZE],tdrsmask[MAXBUFSIZE], hirsmask[MAXBUFSIZE], tirsmask[MAXBUFSIZE];
+  FILE *dwnfp;
+  char buf[MAXBUFSIZE+200], buf2[256];
+  //  char buf[8192],buf2[256];
+  char *Word[256],*lastn;
+  const char *downfile;
+  unsigned char send_tmp, tmp;
+  int i,j,Count,nbytes,tbytes, nbits,nframes,step_mode,pause;
+  int hdrbits = 0, tdrbits = 0, hirbits = 0, tirbits = 0;
+  int hdrbytes = 0, tdrbytes = 0, hirbytes = 0, tirbytes = 0; 
+  int nowrit, cmpflag, errcntr;
+  static int count;
+  // MvdM struct JTAG_BBitStruct   driver_data;
+  // int jtag_chain[4] = {1, 0, 5, 4};
+  //int jtag_chain_tmb[6] = {7, 6, 9, 8, 3, 1};
+  // === SIR Go through SelectDRScan->SelectIRScan->CaptureIR->ShiftIR  
+  //char tms_pre_sir[4]={ 1, 1, 0, 0 }; 
+  char tdi_pre_sir[4]={ 0, 0, 0, 0 };
+  // === SDR Go through SelectDRScan->CaptureDR->ShiftDR
+  // char tms_pre_sdr[3]={ 1, 0, 0 };
+  char tdi_pre_sdr[3]={ 0, 0, 0 };
+  // === SDR,SIR Go to RunTestIdle after scan
+  // char tms_post[4]={ 0, 1, 1, 0 };
+  char tdi_post[4]={ 0, 0, 0, 0 };
+  int total_packages, one_pct;
+  int send_packages ;
+  bool readprom=false;
+  int read_packages=0, repeat=1, total_read=0;
+  
+  total_packages = 0 ;
+  send_packages = 0 ;
+  downfile = fn;
+  errcntr = 0;
+  if (downfile==NULL)    downfile="default.svf";
+  
+  dwnfp    = fopen(downfile,"r");
+  if (dwnfp == NULL)
+    {
+      fprintf(stderr, "ERROR: failed to open file %s\n", downfile);
+      
+      return -1;
+    }
+  
+  while (fgets(buf,256,dwnfp) != NULL) 
+    {
+      Parse(buf, &Count, &(Word[0]));
+      if( strcmp(Word[0],"SDR")==0 ) 
+         total_packages++ ;
+      else if( strcmp(Word[0],"READ")==0)
+      {
+         total_read++;
+         readprom=true;
+      }
+    }
+  fseek(dwnfp, 0, SEEK_SET);
+  
+//  printf("=== Programming Design with %s to GEM %d\n",downfile, gem);  
+//  printf("=== Have to send %d DATA packages \n",total_packages) ;
+  one_pct=(total_packages+99)/100;
+  if(one_pct<=0) one_pct=1;
+  
+  this->start(); 
+// turn on delay, otherwise the VCC's FIFO full
+  theController->SetUseDelay(true);
+  count=0; 
+  nowrit=1;
+  step_mode=0;
+  while (fgets(buf,256,dwnfp) != NULL)  
+    {
+      if((buf[0]=='/'&&buf[1]=='/')||buf[0]=='!')
+	{
+	  if (db>4)          printf("%s",buf);
+	}
+      else 
+	{
+	  if(strrchr(buf,';')==0)
+	    {
+	      lastn=strrchr(buf,'\r');
+	      if(lastn!=0)lastn[0]='\0';
+	      lastn=strrchr(buf,'\n');
+	      if(lastn!=0)lastn[0]='\0';
+	      memcpy(buf2,buf,256);
+	      Parse(buf2, &Count, &(Word[0]));
+	      if(( strcmp(Word[0],"SDR")==0) || (strcmp(Word[0],"SIR")==0) || (strcmp(Word[0],"SWR")==0) || (strcmp(Word[0],"SBR")==0) || (strcmp(Word[0],"SER")==0))
+		{
+		  sscanf(Word[1],"%d",&nbits);
+		  if (nbits>MAXBUFSIZE) // === Handle Big Bitstreams
+		    {
+		      //(*MyOutput_) << "EMUjtag. nbits larger than buffer size" << std::endl;
+		    }
+		  else do  // == Handle Normal Bitstreams
+		    {
+		      lastn=strrchr(buf,'\r');
+		      if(lastn!=0)lastn[0]='\0';
+		      lastn=strrchr(buf,'\n');
+		      if(lastn!=0)lastn[0]='\0';
+		      if (fgets(buf2,256,dwnfp) != NULL)
+			{
+			  strcat(buf,buf2);
+			}
+		      else 
+			{
+			  if (db)              printf("End of File encountered.  Quiting\n");
+			  return -1;
+			}
+		    }
+		  while (strrchr(buf,';')==0);
+		}
+	    } 
+	  bzero(snd, sizeof(snd));
+	  bzero(cmpbuf, sizeof(cmpbuf));
+	  bzero(sndbuf, sizeof(sndbuf));
+	  bzero(rcvbuf, sizeof(rcvbuf));
+	  
+	  Parse(buf, &Count, &(Word[0]));
+	  count=count+1;
+	  cmpflag=0;
+	  // ==================  Parsing commands from SVF file ====================
+	  // === Handling HDR ===
+	  if(strcmp(Word[0],"HDR")==0)
+	    {
+	      sscanf(Word[1],"%d",&hdrbits);
+	      hdrbytes=(hdrbits)?(hdrbits-1)/8+1:0;
+	    if (db)	  
+	      printf("Sending %d bits of Data Header\n", hdrbits);
+	    // if (db>3)          printf("HDR: Num of bits - %d, num of bytes - %d\n",hdrbits,hdrbytes);
+	    for(i=2;i<Count;i+=2)
+	      {
+		if(strcmp(Word[i],"TDI")==0)
+		  {
+		    for(j=0;j<hdrbytes;j++)
+		      {
+			sscanf(&Word[i+1][2*(hdrbytes-j-1)+1],"%2X",(int *)&sndhdr[j]);
+			// printf("%2X",sndhdr[j]);
+		      }
+		    // printf("\n%d\n",nbytes);
+    		  }
+      		if(strcmp(Word[i],"SMASK")==0)
+		  {
+		    for(j=0;j<hdrbytes;j++)
+		      {
+      		  	sscanf(&Word[i+1][2*(hdrbytes-j-1)+1],"%2X",(int *)&hdrsmask[j]);
+		      }
+		  }
+     	 	if(strcmp(Word[i],"TDO")==0)
+		  {
+		    //if (db>2)             cmpflag=1;
+		    cmpflag=1;
+		    for(j=0;j<hdrbytes;j++)
+		      {
+			sscanf(&Word[i+1][2*(hdrbytes-j-1)+1],"%2X",(int *)&expect[j]);
+		      }
+		  }
+      		if(strcmp(Word[i],"MASK")==0)
+		  {
+		    for(j=0;j<hdrbytes;j++)
+		      {
+			sscanf(&Word[i+1][2*(hdrbytes-j-1)+1],"%2X",(int *)&rmask[j]);
+		      }
+		  }
+	      }
+	    }
+	  
+	  // === Handling HIR ===
+	  else if(strcmp(Word[0],"HIR")==0)
+	    {
+	      sscanf(Word[1],"%d",&hirbits);
+	      hirbytes=(hirbits)?(hirbits-1)/8+1:0;
+	      if (db)	  
+		printf("Sending %d bits of Instruction Header\n", hirbits);
+	      // if (db>3)          printf("HIR: Num of bits - %d, num of bytes - %d\n",hirbits,hirbytes);
+	      for(i=2;i<Count;i+=2)
+		{
+		  if(strcmp(Word[i],"TDI")==0)
+		  {
+		    for(j=0;j<hirbytes;j++)
+		      {
+			sscanf(&Word[i+1][2*(hirbytes-j-1)+1],"%2X",(int *)&sndhir[j]);
+			// printf("%2X",sndhir[j]);
+		      }
+		    // printf("\n%d\n",nbytes);
+    		  }
+		  if(strcmp(Word[i],"SMASK")==0)
+		    {
+		      for(j=0;j<hirbytes;j++)
+		      {
+      		  	sscanf(&Word[i+1][2*(hirbytes-j-1)+1],"%2X",(int *)&hirsmask[j]);
+		      }
+		    }
+		  if(strcmp(Word[i],"TDO")==0)
+		    {
+		      //if (db>2)             cmpflag=1;
+		      cmpflag=1;
+		      for(j=0;j<hirbytes;j++)
+			{
+			  sscanf(&Word[i+1][2*(hirbytes-j-1)+1],"%2X",(int *)&expect[j]);
+			}
+		    }
+		  if(strcmp(Word[i],"MASK")==0)
+		    {
+		      for(j=0;j<hirbytes;j++)
+			{
+			  sscanf(&Word[i+1][2*(hirbytes-j-1)+1],"%2X",(int *)&rmask[j]);
+			}
+		    }
+		}
+	    }	
+	  
+	  // === Handling TDR ===
+	  else if(strcmp(Word[0],"TDR")==0)
+	    {
+	      sscanf(Word[1],"%d",&tdrbits);
+	      tdrbytes=(tdrbits)?(tdrbits-1)/8+1:0;
+	      if (db)	  
+		printf("Sending %d bits of Data Tailer\n", tdrbits);
+	      // if (db>3)          printf("TDR: Num of bits - %d, num of bytes - %d\n",tdrbits,tdrbytes);
+	      for(i=2;i<Count;i+=2)
+	      {
+		if(strcmp(Word[i],"TDI")==0)
+		  {
+		    for(j=0;j<tdrbytes;j++)
+		      {
+			sscanf(&Word[i+1][2*(tdrbytes-j-1)+1],"%2X",(int *)&sndtdr[j]);
+			// printf("%2X",sndhir[j]);
+		      }
+		    // printf("\n%d\n",nbytes);
+    		  }
+      		if(strcmp(Word[i],"SMASK")==0)
+		  {
+		    for(j=0;j<tdrbytes;j++)
+		      {
+			sscanf(&Word[i+1][2*(tdrbytes-j-1)+1],"%2X",(int *)&tdrsmask[j]);
+		      }
+		  }
+		if(strcmp(Word[i],"TDO")==0)
+		  {
+		    //if (db>2)             cmpflag=1;
+		    cmpflag=1;
+		    for(j=0;j<tdrbytes;j++)
+		      {
+			sscanf(&Word[i+1][2*(tdrbytes-j-1)+1],"%2X",(int *)&expect[j]);
+		      }
+		  }
+      		if(strcmp(Word[i],"MASK")==0)
+		  {
+		    for(j=0;j<tdrbytes;j++)
+		      {
+			sscanf(&Word[i+1][2*(tdrbytes-j-1)+1],"%2X",(int *)&rmask[j]);
+		      }	
+		  }
+	      }
+	    }
+	  
+	  // === Handling TIR ===
+	 else if(strcmp(Word[0],"TIR")==0)
+	 {
+	    sscanf(Word[1],"%d",&tirbits);
+	    tirbytes=(tirbits)?(tirbits-1)/8+1:0;
+	    if (db)	  
+	      printf("Sending %d bits of Instruction Tailer\n", tdrbits);
+	    // if (db>3)          printf("TIR: Num of bits - %d, num of bytes - %d\n",tirbits,tirbytes);
+	    for(i=2;i<Count;i+=2)
+	      {
+		if(strcmp(Word[i],"TDI")==0)
+		  {
+		    for(j=0;j<tirbytes;j++)
+		      {
+			sscanf(&Word[i+1][2*(tirbytes-j-1)+1],"%2X",(int *)&sndtir[j]);
+			    // printf("%2X",sndhir[j]);
+		      }
+		    // printf("\n%d\n",nbytes);
+    		  }
+      		if(strcmp(Word[i],"SMASK")==0)
+		  {
+		    for(j=0;j<tirbytes;j++)
+		      {
+			sscanf(&Word[i+1][2*(tirbytes-j-1)+1],"%2X",(int *)&tirsmask[j]);
+		      }
+		  }
+		if(strcmp(Word[i],"TDO")==0)
+		  {
+		    //if (db>2)             cmpflag=1;
+		    cmpflag=1;
+		    for(j=0;j<tirbytes;j++)
+		      {
+			sscanf(&Word[i+1][2*(tirbytes-j-1)+1],"%2X",(int *)&expect[j]);
+		      }
+		  }
+      		if(strcmp(Word[i],"MASK")==0)
+		  {
+		    for(j=0;j<tirbytes;j++)
+		      {
+			sscanf(&Word[i+1][2*(tirbytes-j-1)+1],"%2X",(int *)&rmask[j]);
+		      }
+		  }
+	      }
+	 }
+	 // === Handling SDR ===
+	 else if(strcmp(Word[0],"SDR")==0 || strcmp(Word[0],"SWR")==0)
+	 {
+            bool word_by_word=false;
+            if(strcmp(Word[0],"SWR")==0) word_by_word=true; 
+	      //std::cout << "SDR" << std::endl;
+	      for(i=0;i<3;i++)sndbuf[i]=tdi_pre_sdr[i];
+	      // cmpflag=1;    //disable the comparison for no TDO SDR
+	    sscanf(Word[1],"%d",&nbits);
+	    nbytes=(nbits+7)/8;
+            tbytes=(hdrbits+nbits+tdrbits+7)/8;
+	    if (db)	  printf("Sending %d bits Data\n", nbits);
+	    // if (db>3)          printf("SDR: Num of bits - %d, num of bytes - %d\n",nbits,nbytes);
+	    for(i=2;i<Count;i+=2)
+	      {
+	      if(strcmp(Word[i],"TDI")==0)
+		{
+		  for(j=0;j<nbytes;j++)
+		    {
+		      sscanf(&Word[i+1][2*(nbytes-j-1)+1],"%2X",(int *)&snd[j]);
+		      //                printf("%2X",snd[j]);
+		    }
+		  //                printf("\n%d\n",nbytes);
+		}
+	      if(strcmp(Word[i],"SMASK")==0)
+		{
+		  for(j=0;j<nbytes;j++)
+		    {
+		      sscanf(&Word[i+1][2*(nbytes-j-1)+1],"%2X",(int *)&smask[j]);
+		    }
+		}
+	      if(strcmp(Word[i],"TDO")==0)
+		{
+		  //if (db>2)             cmpflag=1;
+		  cmpflag=1;
+		  for(j=0;j<nbytes;j++)
+		    {
+		      sscanf(&Word[i+1][2*(nbytes-j-1)+1],"%2X",(int *)&expect[j]);
+		    }
+		}
+	      if(strcmp(Word[i],"MASK")==0)
+		{
+		  for(j=0;j<nbytes;j++)
+		    {
+		      sscanf(&Word[i+1][2*(nbytes-j-1)+1],"%2X",(int *)&rmask[j]);
+		    }
+		}
+	      }
+	    for(i=0;i<nbytes;i++)
+	      {
+	      send_tmp = snd[i]&smask[i];
+	      for(j=0;j<8;j++)
+		{
+		  if ((i*8+j)< nbits) 
+		    { 
+		      sndbuf[i*8+j+3]=send_tmp&0x01; 
+		    }
+		  send_tmp = send_tmp >> 1;
+		}
+	      }
+	    for(i=0;i<4;i++)sndbuf[nbits+3]=tdi_post[i];         
+	    nframes=nbits+7;
+            // Put send SDR here
+	    for (i=0; i< tbytes; i++)
+	      realsnd[i] = 0;
+	    if (hdrbytes>0) {
+	      for (i=0;i<hdrbytes;i++)
+		realsnd[i]=sndhdr[i];
+	    }
+	    for (i=0;i<nbits;i++)
+ 	      realsnd[(i+hdrbits)/8] |= (snd[i/8] >> (i%8)) << ((i+hdrbits)%8);
+	    if (tdrbytes>0) {
+	      for (i=0;i<tdrbits;i++)
+		realsnd[(i+hdrbits+nbits)/8] |= (sndtdr[i/8] >> (i%8)) << ((i+hdrbits+nbits)%8);
+	    }	    
+	    //
+	    send_packages++ ;
+            if(!readprom)
+            {
+               if ( total_packages>=100 && (send_packages%one_pct)==0 ) 
+                  std::cout << "Sending " << std::dec << send_packages/one_pct << "%..." << std::endl;
+	       if ( send_packages == total_packages ) std::cout << "Done!" << std::endl;
+            }
+	    //
+            gem_scan(DATA_REG, (char*)realsnd, hdrbits+nbits+tdrbits, (char*)rcv, (verify>0 && cmpflag>0)?1:0, gem); 
+	    //
+	    if (db)
+	    {	
+	      printf("SDR Sent Data: ");
+	      for (i=0; i< tbytes; i++) 
+		printf("%02X",realsnd[i]);
+	      printf("\n");
+	      //
+	      printf("SDR Readback Data: ");
+	      for (i=0; i< tbytes; i++) 
+		printf("%02X",rcv[i]);
+	      printf("\n");
+	    }		    
+	    //
+	    if (verify && cmpflag==1)
+	    {     
+               if(hdrbits>0)
+               {
+                  //   1. expend bytes into bits
+   	          for(i=0;i<tbytes;i++)
+	          {
+                      tmp=rcv[i];
+                      for(j=0; j<8; j++)
+                      {
+                          buf[i*8+j]=tmp&1;
+                          tmp >>= 1;
+                      }
+                  }
+                  //   2. put bits (without HDR & TDR) back into bytes
+                  int rcvindex=0;
+	          for(i=0;i<nbytes;i++)
+	          {
+                      tmp=0;
+                      for(j=7; j>=0; j--)
+                      {
+                          tmp <<= 1;
+                          tmp |= (buf[i*8+j+hdrbits]&1);
+                      }
+                      rcv[rcvindex++]=tmp;
+                  }
+               } //end of removing HDR & TDR           
+
+	       for(i=0;i<nbytes;i++)
+	       {
+		   if (((rcv[i]^expect[i]) & rmask[i])!=0)
+		   {
+		      if(db) printf("SDR read back wrong, at i %02d  rdbk %02X  expect %02X  rmask %02X\n",i,rcv[i]&0xFF,expect[i]&0xFF,rmask[i]&0xFF);
+		      errcntr++;
+		   }
+	       }	
+	    }
+         }
+        // === Handling SIR ===
+        else if(strcmp(Word[0],"SIR")==0)
+          {
+	    for(i=0;i<4;i++)sndbuf[i]=tdi_pre_sir[i];
+	    // cmpflag=1;    //disable the comparison for no TDO SDR
+	    sscanf(Word[1],"%d",&nbits);
+	    nbytes=(nbits+7)/8;
+            tbytes=(hirbits+nbits+tirbits+7)/8;
+	    if (db)	  printf("Sending %d bits of Command\n",nbits);
+	    // if (db>3)          printf("SIR: Num of bits - %d, num of bytes - %d\n",nbits,nbytes);
+	    for(i=2;i<Count;i+=2)
+	      {
+		if(strcmp(Word[i],"TDI")==0)
+		  {
+		    for(j=0;j<nbytes;j++)
+		      {
+			sscanf(&Word[i+1][2*(nbytes-j-1)+1],"%2X",(int *)&snd[j]);
+		      }
+		  }
+		if(strcmp(Word[i],"SMASK")==0)
+		  {
+		    for(j=0;j<nbytes;j++)
+		      {
+			sscanf(&Word[i+1][2*(nbytes-j-1)+1],"%2X",(int *)&smask[j]);
+		      }
+		  }
+		if(strcmp(Word[i],"TDO")==0)
+		  {
+			cmpflag=1;
+			// if (db>2)              cmpflag=1;
+			for(j=0;j<nbytes;j++)
+			  {
+			    sscanf(&Word[i+1][2*(nbytes-j-1)+1],"%2X",(int *)&expect[j]);
+			  }
+		  }
+		if(strcmp(Word[i],"MASK")==0)
+		  {
+		    for(j=0;j<nbytes;j++)
+		      {
+			sscanf(&Word[i+1][2*(nbytes-j-1)+1],"%2X",(int *)&rmask[j]);
+		      }
+		  }
+	      }
+	    for(i=0;i<nbytes;i++)
+	      {
+		send_tmp = snd[i]&smask[i];
+		// printf("\n%d - ", send_tmp);
+		for(j=0;j<8;j++)
+		  {
+		    if ((i*8+j)< nbits) 
+		      {
+			sndbuf[i*8+j+4]=send_tmp&0x01;
+			// printf("%d", sndbuf[i*8+j+4]);
+		      }
+		    send_tmp = send_tmp >> 1;
+		  }
+	      }
+	    for(i=0;i<4;i++)sndbuf[nbits+4]=tdi_post[i];
+	    nframes=nbits+8;
+	    // Put send SIR here
+	    for (i=0; i< tbytes;  i++)
+	      realsnd[i] = 0;
+	    if (hirbytes>0) {
+	      for (i=0;i<hirbytes;i++)
+		realsnd[i]=sndhir[i];
+	    }
+	    for (i=0;i<nbits;i++)
+	      realsnd[(i+hirbits)/8] |= (snd[i/8] >> (i%8)) << ((i+hirbits)%8);
+	    if (tirbytes>0) {
+	      for (i=0;i<tirbits;i++)
+		realsnd[(i+hirbits+nbits)/8] |= (sndtir[i/8] >> (i%8)) << ((i+hirbits+nbits)%8);
+	    }
+	    //
+	    gem_scan(INSTR_REG, (char*)realsnd, hirbits+nbits+tirbits, (char*)rcv, (verify>0 && cmpflag>0)?1:0, gem); 
+	    //	   
+	    if (db)
+	    { 	printf("SIR Send Data: ");
+	        for (i=0; i< tbytes;  i++)
+	           printf("%02X",realsnd[i]);
+	        printf("\n");
+
+	        printf("SIR Readback Data: ");
+	        for (i=0; i< nbytes;  i++)
+	           printf("%02X",rcv[i]);
+	        printf("\n");
+	    }
+	    //
+	    if (verify && cmpflag==1)
+	    {
+               if(hirbits>0)
+               {
+                  //   1. expend bytes into bits
+   	          for(i=0;i<tbytes;i++)
+	          {
+                      tmp=rcv[i];
+                      for(j=0; j<8; j++)
+                      {
+                          buf[i*8+j]=tmp&1;
+                          tmp >>= 1;
+                      }
+                  }
+                  //   2. put bits (without HIR & TIR) back into bytes
+                  int rcvindex=0;
+	          for(i=0;i<nbytes;i++)
+	          {
+                      tmp=0;
+                      for(j=7; j>=0; j--)
+                      {
+                          tmp <<= 1;
+                          tmp |= (buf[i*8+j+hirbits]&1);
+                      }
+                      rcv[rcvindex++]=tmp;
+                  }
+               } //end of removing HIR & TIR           
+
+                for(i=0;i<nbytes;i++)
+		{
+		    if (((rcv[i]^expect[i]) & rmask[i])!=0)
+		    {
+			if(db) printf("SIR read back wrong, at i %02d  rdbk %02X  expect %02X  rmask %02X\n",i,rcv[i]&0xFF,expect[i]&0xFF,rmask[i]&0xFF);
+                	errcntr++;
+		    }
+		}
+	    }
+          }
+	  // === Handling RUNTEST ===
+	  else if(strcmp(Word[0],"RUNTEST")==0)
+	  {
+	    // printf("RUNTEST:  %d\n",pause);
+            if (Count>1 && strcmp(Word[2],"SEC")==0)
+            {
+               //  if it is not "xxxxE-6 SEC", we have to use float number
+               //  float fpause=0.;
+               //  sscanf(Word[1],"%g",&fpause);
+               sscanf(Word[1],"%d",&pause);
+               if(pause>5) ::usleep(pause-5);
+            }
+            else
+            {
+	       sscanf(Word[1],"%d",&pause);
+               if( pause<20 || (pause%10)>0 )
+               {
+                  // std::cout << "STATE: send clocks" << std::endl;
+                  gem_scan(2, NULL, pause, NULL, 0, gem);
+
+               }
+               else
+               {
+                  // pause /= 2;
+                  if(pause>=1000000)
+                  {
+                     // printf("pause %d seconds. ", pause/1000000);
+                     ::sleep(pause/1000000);
+                  }
+                  else if(pause>5)
+                  {
+                     // sending a VME command needs more than 5 micro-sec,
+                     // we can safely ignore those short delays
+                     ::usleep(pause-5);
+                  }
+               }
+            }
+	  }
+	  // === Handling STATE ===
+	  else if((strcmp(Word[0],"STATE")==0))
+	    {
+          // the following different statements in SVF file:
+          //   1)  STATE RESET; 
+          //   2)  STATE IDLE;
+          //   3)  STATE RESET IDLE;
+          //   4)  STATE RESET; STATE IDLE;
+          // all imply the same action: 
+          //    ==> bring the TAP to RESET state, then to IDLE state which is required
+          // for all other actions. And this action is exactly RestoreIdle().
+                // RestoreIdle();
+                gem_RestoreIdle(gem);
+	    }
+	  else if(strcmp(Word[0],"TRST")==0)
+	    {
+	      //          printf("TRST\n");
+	    }
+	  // === Handling ENDIR ===
+	  else if(strcmp(Word[0],"ENDIR")==0)
+	    {
+	      //          printf("ENDIR\n");
+	    }
+	  // === Handling ENDDR ===
+	  else if(strcmp(Word[0],"ENDDR")==0)
+	    {
+	    //	   printf("ENDDR\n");
+	    }
+	  // === Handling READ ===
+	  else if(strcmp(Word[0],"READ")==0)
+	  {
+ 	    sscanf(Word[1],"%d",&nbits);
+            if (Count>2 && strcmp(Word[2],"REPEAT")==0) sscanf(Word[3],"%d",&repeat);
+            if(repeat<=1) repeat=1;
+            for(int jj=0; jj<repeat; jj++)
+            {
+               if(jj>0) ::usleep(50);
+               nbytes=(nbits-1)/8+1;
+               tbytes=(hdrbits+nbits+tdrbits-1)/8+1;
+	       for (i=0; i< tbytes; i++)   realsnd[i] = 0;
+	       read_packages++ ;
+               std::cout << "Reading " << std::dec << read_packages << "..." << std::endl;
+	       gem_scan(DATA_REG, (char*)realsnd, hdrbits+nbits+tdrbits, (char*)rcv, verify, gem); 
+	       if (db)
+	       {	
+	           printf("Readback Data: ");
+	           for (i=0; i< tbytes; i++)  printf("%02X",rcv[i]);
+	           printf("\n");
+	       }		    
+	       // Next to extract real bitstream  (remove HDR and TDR bits if any)
+               if(hdrbits==0)
+               {
+                   for(i=0;i<nbytes;i++)
+                   {
+                      bitstream[bitbufindex++]=rcv[i];
+                   }
+               }
+               else
+               {
+                  //   1. expend bytes into bits
+   	          for(i=0;i<tbytes;i++)
+	          {
+                      tmp=rcv[i];
+                      for(j=0; j<8; j++)
+                      {
+                          buf[i*8+j]=tmp&1;
+                          tmp >>= 1;
+                      }
+                  }
+                  //   2. put bits (without HDR & TDR) back into bytes
+	          for(i=0;i<nbytes;i++)
+	          {
+                      tmp=0;
+                      for(j=7; j>=0; j--)
+                      {
+                          tmp <<= 1;
+                          tmp |= (buf[i*8+j+hdrbits]&1);
+                      }
+                      bitstream[bitbufindex++]=tmp;
+                  }
+               } //end of extracting bitstream           
+            }  // end of repeat
+	  } //end of READ
+	}
+    }
+  // At the end of downloading, bring JTAG to RESET state.
+  // Not absolutely necessary if it is always followed by a Hard-Reset.
+  // gem_RestoreIdle(gem);
+  // turn off delay.
+  theController->SetUseDelay(false);
+
+  if(readprom && bitbufindex>0)
+  {
+      std::cout << "Total read back " <<  bitbufindex << " bytes from PROM." << std::endl;
+  }
+  fclose(dwnfp);
+  return errcntr; 
+}
+
+void CCB::gem_program_eprom(const char *mcsfile, int gem)
+{
+   unsigned short comd;
+   if(hardware_version_<=1) return;
+   const int FIRMWARE_SIZE=5464972; // in bytes
+   char *bufin, bufcmd[128], c;
+   bufin=(char *)malloc(16*1024*1024);
+   if(bufin==NULL)  return;
+   bzero(bufcmd, 128);
+   FILE *fin=fopen(mcsfile,"r");
+   if(fin==NULL ) 
+   { 
+      free(bufin);  
+      std::cout << "ERROR: Unable to open MCS file :" << mcsfile << std::endl;
+      return; 
+   }
+   int mcssize=read_mcs(bufin, fin);
+   fclose(fin);
+   std::cout << "Read MCS size: " << std::dec << mcssize << " bytes" << std::endl;
+   if(mcssize<FIRMWARE_SIZE)
+   {
+       std::cout << "ERROR: Wrong MCS file. Quit..." << std::endl;
+       free(bufin);
+       return;
+   }
+/*
+// byte swap
+   for(int i=0; i<FIRMWARE_SIZE/2; i++)
+   {  c=bufin[i*2];
+      bufin[i*2]=bufin[i*2+1];
+      bufin[i*2+1]=c;
+   }
+*/
+     int blocks=FIRMWARE_SIZE/1024;  // firmware size must be in units of 8192-bit units
+     if (FIRMWARE_SIZE%1024)
+     {  
+         for(int i=0; i<1024; i++) bufin[FIRMWARE_SIZE+i]=0xFF;  // pad the last block with 0xFF
+         blocks++;
+     }
+     int p1pct=blocks/100;
+     int j=0, pcnts=0;
+
+//    getTheController()->Debug(2);
+     getTheController()->SetUseDelay(true);
+  
+    for(int i=0; i<blocks; i++)
+    {
+//    if(i>50) getTheController()->Debug(0);
+       comd=VTX6_USR2; 
+       gem_scan(0, (char *)&comd, 10, rcvbuf, 0, gem);
+       udelay(1000);
+       gem_scan(1, bufin+1024*i, 8192, rcvbuf, 0, gem);
+       udelay(100);
+       comd=VTX6_BYPASS; 
+       gem_scan(0, (char *)&comd, 10, rcvbuf, 0, gem);
+       if(i==0)
+       {
+          comd=VTX6_USR3; 
+          gem_scan(0, (char *)&comd, 10, rcvbuf, 0, gem);
+          udelay(10000);
+          bufcmd[0]=0x0E;
+          gem_scan(1, bufcmd, 1024, rcvbuf, 0, gem);
+          comd=VTX6_BYPASS; 
+          gem_scan(0, (char *)&comd, 10, rcvbuf, 0, gem);
+          udelay(100000);
+       }
+       udelay(150000);
+       comd=VTX6_USR3; 
+       gem_scan(0, (char *)&comd, 10, rcvbuf, 0, gem);
+       udelay(10000);
+       bufcmd[0]=0xA0;
+       gem_scan(1, bufcmd, 1024, rcvbuf, 0, gem);
+       comd=VTX6_BYPASS; 
+       gem_scan(0, (char *)&comd, 10, rcvbuf, 0, gem);
+       comd=VTX6_BYPASS; 
+       gem_scan(0, (char *)&comd, 10, rcvbuf, 0, gem);
+
+       j++;
+       if(p1pct>0 && j==p1pct)
+       {  pcnts++;
+          if(pcnts<100) std::cout << "Sending " << pcnts <<"%..." << std::endl;
+          j=0;
+       }   
+    }
+    std::cout << "Sending 100%..." << std::endl;
+//    getTheController()->Debug(2);
+
+    comd=VTX6_BYPASS;
+    gem_scan(0, (char *)&comd, 10, rcvbuf, 0, gem);
 }
 
   } // namespace emu::pc

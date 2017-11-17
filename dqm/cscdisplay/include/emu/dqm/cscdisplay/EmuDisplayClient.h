@@ -123,6 +123,12 @@ private:
   time_t timestamp;
 };
 
+typedef DQMNodesStatus DQMNodesStatusT;
+typedef std::list< std::pair<time_t, DQMNodesStatusT> > DQMNodesHistory; 
+
+typedef CSCCounters CSCCountersT;
+typedef std::list< std::pair<time_t, CSCCountersT> > CSCCountersHistory;
+
 using namespace toolbox;
 
 class EmuDisplayClient : 
@@ -157,11 +163,14 @@ public:
   void getPlot (xgi::Input * in, xgi::Output * out)  throw (xgi::exception::Exception);
   void getRefPlot (xgi::Input * in, xgi::Output * out)  throw (xgi::exception::Exception);
   void getCSCCounters (xgi::Input * in, xgi::Output * out)  throw (xgi::exception::Exception);
+  void getCSCCountersHistory (xgi::Input * in, xgi::Output * out)  throw (xgi::exception::Exception);
   void getDQMReport (xgi::Input * in, xgi::Output * out)  throw (xgi::exception::Exception);
   void getROOTFile (xgi::Input * in, xgi::Output * out)  throw (xgi::exception::Exception);
+  void getNodesHistory (xgi::Input * in, xgi::Output * out)  throw (xgi::exception::Exception);
 
   void controlDQM (xgi::Input * in, xgi::Output * out)  throw (xgi::exception::Exception);
   void configureDQM (xgi::Input * in, xgi::Output * out)  throw (xgi::exception::Exception);
+  void controlDisplay (xgi::Input * in, xgi::Output * out)  throw (xgi::exception::Exception);
   void redir (xgi::Input * in, xgi::Output * out)  throw (xgi::exception::Exception);
 
 
@@ -256,11 +265,16 @@ protected:
   bool isCSCCountersFileAvailable(std::string runname);
 
   int syncMonitorsStates();
+  int syncNodesToCurrentRun();
   int prepareReportFacts(std::string runname);
   int updateNodesStatusFacts();
   inline void addFact(const emu::base::Fact &fact) {
                                 collectedFacts.push_back(fact);
                         }
+
+  int addToNodesStatusHistory(time_t timestamp, DQMNodesStatus nodes_status);
+  int addToCSCCountersHistory(time_t timestamp, CSCCounters counters);
+  
   int svc();
   std::string generateLoggerName();
 
@@ -285,6 +299,10 @@ private:
   CSCReadoutMappingFromFile 	cscMapping;
   std::map<std::string, int> 	tmap;
   std::vector<std::string> 	runsList;
+  std::map<std::string, std::vector<std::string> > multi_runList; 	// Run lists for multiple folders
+  std::map<std::string, int>	nodeSyncFlag;	// Flags for Nodes syncronization
+
+ 
 
 
   toolbox::exception::HandlerSignature*	 	errorHandler_;
@@ -307,16 +325,23 @@ private:
   xdata::Boolean 	viewOnly_;
   xdata::Boolean 	debug;
   xdata::Boolean 	useExSys; 		// Use Expert System
+  xdata::Boolean        enableNodesAutoSync;	// Enable sending of sync to current run commands to EmuMonitor nodes 
   xdata::String 	BaseDir;
   xdata::String 	ResultsDir;
   xdata::String 	refImagePath;     
   xdata::UnsignedInteger saveResultsDelay; 	// Time delay for sending saveResults command to Monitors 
- 
+   
+  bool 			fSkipUpdateTasks;	// Skip updates tasks for one cycle if nodes were synched 
 
   FoldersMap 		foldersMap; 		// Associate DDUs and CSCs with Monitoring nodes
   CSCCounters 		cscCounters;	 	// CSC Counters from EmuMonitor nodes
   DQMNodesStatus 	nodesStatus; 		// DQM Monitoring Nodes Statuses
   DQMNodesStatus 	prevNodesStatus;	// Saved copy of previous DQM Monitoring Nodes Statuses
+  DQMNodesHistory       nodesStatusHistory; 	// Container for Historical DQM Monitoring Nodes Statuses data
+  xdata::UnsignedInteger maxNodesHistorySize;
+  CSCCountersHistory    cscCountersHistory;	// Container for Historical DQM CSC Counters data
+  xdata::UnsignedInteger maxCSCCountersHistorySize;
+
   BSem 			appBSem_;
   BSem			utilBSem_;
   struct timeval 	bsem_tout;

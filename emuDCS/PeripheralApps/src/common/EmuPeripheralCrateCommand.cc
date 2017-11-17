@@ -245,7 +245,7 @@ void EmuPeripheralCrateCommand::MainPage(xgi::Input * in, xgi::Output * out )
 	  for (unsigned chamber_index=0; chamber_index<(tmbVector.size()<9?tmbVector.size():9) ; chamber_index++) 
 	    if (alct_check_ok[current_crate_][chamber_index] == 0) 
 	      *out << thisCrate->GetLabel() << "   "
-		   << thisCrate->GetChamber(tmbVector[chamber_index]->slot())->GetLabel().c_str() 
+		   << tmbVector[chamber_index]->GetLabel().c_str() 
 		   << "   ALCT   " << thisCrate->GetChamber(tmbVector[chamber_index]->slot())->GetProblemDescription() 
 		   << cgicc::br();
 	}
@@ -255,7 +255,7 @@ void EmuPeripheralCrateCommand::MainPage(xgi::Input * in, xgi::Output * out )
 	  for (unsigned chamber_index=0; chamber_index<(tmbVector.size()<9?tmbVector.size():9) ; chamber_index++) 
 	    if (tmb_check_ok[current_crate_][chamber_index] == 0) 
 	      *out << thisCrate->GetLabel() << "    "
-		   << thisCrate->GetChamber(tmbVector[chamber_index]->slot())->GetLabel().c_str() 
+		   << tmbVector[chamber_index]->GetLabel().c_str() 
 		   << "   TMB   " << thisCrate->GetChamber(tmbVector[chamber_index]->slot())->GetProblemDescription() 
 		   << cgicc::br();
 	}
@@ -265,7 +265,7 @@ void EmuPeripheralCrateCommand::MainPage(xgi::Input * in, xgi::Output * out )
 	  for (unsigned chamber_index=0; chamber_index<(tmbVector.size()<9?tmbVector.size():9) ; chamber_index++) 
 	    if (dmb_check_ok[current_crate_][chamber_index] == 0) 
 	      *out << thisCrate->GetLabel() << "    "
-		   << thisCrate->GetChamber(tmbVector[chamber_index]->slot())->GetLabel().c_str() 
+		   << tmbVector[chamber_index]->GetLabel().c_str() 
 		   << "   DMB   " << thisCrate->GetChamber(tmbVector[chamber_index]->slot())->GetProblemDescription() 
 		   << cgicc::br();
 	}
@@ -303,23 +303,9 @@ void EmuPeripheralCrateCommand::MainPage(xgi::Input * in, xgi::Output * out )
 }
 
 // 
-void EmuPeripheralCrateCommand::MyHeader(xgi::Input * in, xgi::Output * out, std::string title ) 
-  throw (xgi::exception::Exception) {
-  //
-  *out << cgicc::HTMLDoctype(cgicc::HTMLDoctype::eStrict) << std::endl;
-  *out << cgicc::html().set("lang", "en").set("dir","ltr") << std::endl;
-  //
-  //*out << cgicc::title(title) << std::endl;
-  //*out << "<a href=\"/\"><img border=\"0\" src=\"/daq/xgi/images/XDAQLogo.gif\" title=\"XDAQ\" alt=\"\" style=\"width: 145px; height: 89px;\"></a>" << std::endl;
-  //
-  std::string myUrn = getApplicationDescriptor()->getURN().c_str();
-  xgi::Utils::getPageHeader(out,title,myUrn,"","");
-  //
-}
-//
 void EmuPeripheralCrateCommand::Default(xgi::Input * in, xgi::Output * out ) 
   throw (xgi::exception::Exception) {
-  *out << "<meta HTTP-EQUIV=\"Refresh\" CONTENT=\"0; URL=/" <<getApplicationDescriptor()->getURN()<<"/"<<"MainPage"<<"\">" <<std::endl;
+  *out << "<head> <meta HTTP-EQUIV=\"Refresh\" CONTENT=\"0; URL=/" <<getApplicationDescriptor()->getURN()<<"/"<<"MainPage"<<"\"> </head>" <<std::endl;
 }
 //
 /////////////////////////////////////////////////////////////////////
@@ -766,7 +752,7 @@ xoap::MessageReference EmuPeripheralCrateCommand::onConfigCalCFEB (xoap::Message
 
   if(!parsed) ParsingXML();
   int cfeb_clk_delay=31;
-  int pre_block_end=7;
+  int pre_block_end=8; //7;
   int feb_cable_delay=0;
   int dword= (6 | (20<<4) | (10<<9) | (15<<14) ) &0xfffff;
   float dac=1.00;
@@ -807,6 +793,8 @@ xoap::MessageReference EmuPeripheralCrateCommand::onConfigCalCFEB (xoap::Message
 
 	  dmbVector[dmb]->settrgsrc(1);
 	  dmbVector[dmb]->fxpreblkend(pre_block_end);
+          // if(dmbVector[dmb]->GetHardwareVersion()==2) dmbVector[dmb]->fxpreblkend(pre_block_end);
+	  // else                                        dmbVector[dmb]->fxpreblkend(9); // moved to EmuPeripheralCrateBroadcast::onEnableCalCFEBGains
 	  dmbVector[dmb]->SetCfebClkDelay(cfeb_clk_delay);
 	  dmbVector[dmb]->setfebdelay(dmbVector[dmb]->GetKillFlatClk());
 	  dmbVector[dmb]->load_feb_clk_delay();
@@ -820,7 +808,24 @@ xoap::MessageReference EmuPeripheralCrateCommand::onConfigCalCFEB (xoap::Message
 	  dmbVector[dmb]->SetCfebCableDelay(feb_cable_delay);
 	  dmbVector[dmb]->setcbldly(dmbVector[dmb]->GetCableDelay());
 	  dmbVector[dmb]->calctrl_global();
+
+          //     ODMB-DCFEB specific configuration for calibration
+          if(dmbVector[dmb]->GetHardwareVersion()==2)
+          {
+	    dmbVector[dmb]->odmb_calib_mode(0); // 0: do not generate own L1A (TTC/TCDS will send it)
+	    dmbVector[dmb]->toggle_pedestal(); // Toggle ODMB to pedestal mode (to send L1A_MATCH to DCFEB for each L1A)
+	    dmbVector[dmb]->odmb_mask_pulse(0);   // 0: allow EXTPLS/INJPLS, 1: no EXTPLS/INJPLS
+
+	    dmbVector[dmb]->odmb_set_kill_mask(0x0180); // kill ALCT (0x0100) and TMB (0x0080)
+	    LOG4CPLUS_INFO( getApplicationLogger(), 
+			    "Crate " << dmbVector[dmb]->crate() << " slot " << dmbVector[dmb]->slot() << " ODMB now has"
+			    << " kill mask set to 0x"    << std::hex << dmbVector[dmb]->odmb_read_kill_mask()
+			    << ", calib mode set to "    << std::dec << dmbVector[dmb]->odmb_read_calib_mode()
+			    << ", pedestal mode set to "             << dmbVector[dmb]->odmb_read_pedestal_mode()
+			    << ", mask pulse set to "                << dmbVector[dmb]->odmb_read_mask_pulse() );
+          }
 	  //
+
 	  // Now check the DAQMB status.  Did the configuration "take"?
 	  std::cout << "After config: check status " << (chamberVector[dmb]->GetLabel()).c_str() << std::endl;
 	  usleep(50);
@@ -880,7 +885,7 @@ xoap::MessageReference EmuPeripheralCrateCommand::onEnableCalALCTConnectivity (x
 				time (&currentTime); // fill now with the current time
 
 				int strip_mask = (1 << calsetup);
-				std::cout << "XTEP: "<< ctime(&currentTime)  << " setting up chamber: " << thisCrate->GetChamber(tmbVector[tn]->slot())->GetLabel().c_str() << std::endl;
+				std::cout << "XTEP: "<< ctime(&currentTime)  << " setting up chamber: " << tmbVector[tn]->GetLabel().c_str() << std::endl;
 				std::cout << "XTEP: calibration step: " << calsetup << std::endl;
 				std::cout << "XTEP: strip mask: " << std::hex << "0x" << strip_mask << std::dec << std::endl;
 
@@ -955,7 +960,7 @@ xoap::MessageReference EmuPeripheralCrateCommand::onEnableCalALCTThresholds (xoa
 				time_t currentTime;
 				time (&currentTime); // fill now with the current time
 
-				std::cout << "XTEP: "<< ctime(&currentTime)  << " setting up chamber: " << thisCrate->GetChamber(tmbVector[tn]->slot())->GetLabel().c_str() << std::endl;
+				std::cout << "XTEP: "<< ctime(&currentTime)  << " setting up chamber: " << tmbVector[tn]->GetLabel().c_str() << std::endl;
 				std::cout << "XTEP: calibration step: " << calsetup << std::endl;
 
 				tmbVector[tn]->SetCheckJtagWrite(1);
@@ -1007,7 +1012,7 @@ xoap::MessageReference EmuPeripheralCrateCommand::onEnableCalALCTDelays (xoap::M
 				time_t currentTime;
 				time (&currentTime); // fill now with the current time
 
-				std::cout << "XTEP: "<< ctime(&currentTime)  << " setting up chamber: " << thisCrate->GetChamber(tmbVector[tn]->slot())->GetLabel().c_str() << std::endl;
+				std::cout << "XTEP: "<< ctime(&currentTime)  << " setting up chamber: " << tmbVector[tn]->GetLabel().c_str() << std::endl;
 				std::cout << "XTEP: calibration step: " << calsetup << std::endl;
 
 				tmbVector[tn]->SetCheckJtagWrite(1);
@@ -1041,7 +1046,7 @@ xoap::MessageReference EmuPeripheralCrateCommand::onEnableCalALCTDelays (xoap::M
 // macro to fill the parameter map
 #define map_add(tnum, parname) map##tnum[#parname] = &(tcs->t##tnum.parname)
 
-int EmuPeripheralCrateCommand::read_test_config(char* xmlFile, test_config_struct * tcs) 
+int EmuPeripheralCrateCommand::read_test_config(const char* xmlFile, test_config_struct * tcs) 
 {
 	char* step_path_ch = getenv("HOME");
 	if (step_path_ch == NULL) return -1;

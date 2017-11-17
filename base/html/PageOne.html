@@ -16,7 +16,7 @@
       <tr>
 
 	<td style="vertical-align:top;">
-	  <div id="PCMan">
+	  <div id="PCMan_panel">
 	    <table class="root" rules="all">
 	      <tr>
 		<td>
@@ -60,7 +60,7 @@
 	</td>
 
 	<td style="vertical-align:top;">
-	  <div id="BlueP">
+	  <div id="BlueP_panel">
 	    <table class="root" rules="all">
 	      <tr>
 		<td>
@@ -92,7 +92,7 @@
 	</td>
 
 	<td style="vertical-align:top;">
-	  <div id="BlueM">
+	  <div id="BlueM_panel">
 	    <table class="root" rules="all">
 	      <tr>
 		<td>
@@ -124,7 +124,7 @@
 	</td>
 
 	<td style="vertical-align:top;">
-	  <div id="PCMonP">
+	  <div id="PCMonP_panel">
 	    <table class="root" rules="all">
 	      <tr>
 		<td>
@@ -162,7 +162,7 @@
 	</td>
 
 	<td style="vertical-align:top;">
-	  <div id="PCMonM">
+	  <div id="PCMonM_panel">
 	    <table class="root" rules="all">
 	      <tr>
 		<td>
@@ -200,7 +200,7 @@
 	</td>
 
 	<td style="vertical-align:top;">
-	  <div id="DAQDisks">
+	  <div id="DAQDisks_panel">
 	    <table class="root" rules="all">
 	      <tr>
 		<td>
@@ -240,11 +240,11 @@
       <tr>
 	<td style="vertical-align:top;">
 
-	  <div id="CSCTF">
+	  <div id="CSCTF_panel">
 	  <table class="fresh" rules="all" id="CSCTF-fadingTable">
 	    <tr>
 	      <th colspan="2" class="title">
-		<a id="CSCTF-a_value_title" target="_blank" href="http://csc-tf.cms:2974/urn:xdaq-application:lid=13" title="Click to visit the CSC Track Finder Cell's page." class="title">CSC Track Finder</a>
+		<a id="CSCTF-a_value_title" target="_blank" href="http://l1ts-emtf.cms:3333/urn:xdaq-application:lid=13" title="Click to visit the CSC Track Finder Cell's page." class="title">EMTF</a>
 	      </th>
 	    </tr>
 	    <tr>
@@ -255,45 +255,61 @@
 	    </tr>
 	    <tr>
 	      <th id="CSCTF-th_name_state">
-		<a target="_blank" id="CSCTF-a_name_state" href="http://csc-tf.cms:2974/urn:xdaq-application:lid=13" title="The state of the TF cell.">state</a>
+		<a target="_blank" id="CSCTF-a_name_state" href="http://l1ts-emtf.cms:3333/urn:xdaq-application:lid=13" title="The state of the TF cell.">state</a>
 	      </th>
 	      <td id="CSCTF-td_value_state">
-		<a target="_blank" id="CSCTF-a_value_state" href="http://csc-tf.cms:2974/urn:xdaq-application:lid=13" title=""></a>
+		<a target="_blank" id="CSCTF-a_value_state" href="http://l1ts-emtf.cms:3333/urn:xdaq-application:lid=13" title=""></a>
 	      </td>
 	    </tr>
 	    <tr>
 	      <th id="CSCTF-th_name_confkey">
-		<a target="_blank" id="CSCTF-a_name_confkey" href="http://csc-tf.cms:2974/urn:xdaq-application:lid=13" title="The TF configuration key.">key</a>
+		<a target="_blank" id="CSCTF-a_name_confkey" href="http://l1ts-emtf.cms:3333/urn:xdaq-application:lid=13" title="The TF configuration key.">key</a>
 	      </th>
 	      <td id="CSCTF-td_value_confkey">
-		<a target="_blank" id="CSCTF-a_value_confkey" href="http://csc-tf.cms:2974/urn:xdaq-application:lid=13" title=""></a>
+		<a target="_blank" id="CSCTF-a_value_confkey" href="http://l1ts-emtf.cms:3333/urn:xdaq-application:lid=13" title=""></a>
 	      </td>
 	    </tr>
 	    <tr>
-	      <th id="CSCTF-th_name_afd">
-		<a target="_blank" id="CSCTF-a_name_afd" href="http://csc-tf.cms:2974/urn:xdaq-application:lid=13" title="Absolute value of the maximum change of any AFD register's value. In enabled state, they should be constant to within a couple of units.">ΔAFD</a>
-	      </th>
-	      <td id="CSCTF-td_value_afd">
-		<a target="_blank" id="CSCTF-a_value_afd" href="http://csc-tf.cms:2974/urn:xdaq-application:lid=13" title="No reading available yet...">N/A</a>
-	      </td>
-	    </tr>
-	    <tr>
-	      <th>rates
+	      <th>LCT&nbsp;rates
 	      </th>
 	      <td class="layout">
 		<table class="layout">
 		  <tr class="layout">
-		    <th id="CSCTF-th_name_min">
-		      <a target="_blank" id="CSCTF-a_name_min" href="http://csc-tf.cms:2974/urn:xdaq-application:lid=13" title="The lowest rate of any Sector Processor.">min</a>
+ 		    <th id="CSCTF-th_name_min_in">
+		      <a target="_blank" id="CSCTF-a_name_min_in" href="http://l1ts-emtf.cms:3333/urn:xdaq-application:lid=13" title="The lowest input LCT rate of any Sector Processor.">min</a>
 		    </th>
-		    <td id="CSCTF-td_value_min">
-		      <a target="_blank" id="CSCTF-a_value_min" href="http://csc-tf.cms:2974/urn:xdaq-application:lid=13" title=""></a>
+		    <td id="CSCTF-td_value_min_in">
+		      <a target="_blank" id="CSCTF-a_value_min_in" href="http://l1ts-emtf.cms:3333/urn:xdaq-application:lid=13" title=""></a>
 		    </td>
-		    <th id="CSCTF-th_name_total">
-		      <a target="_blank" id="CSCTF-a_name_total" href="http://csc-tf.cms:2974/urn:xdaq-application:lid=13" title="The total rate of all Sector Processors.">total</a>
+		    <th id="CSCTF-th_name_total_in">
+		      <a target="_blank" id="CSCTF-a_name_total_in" href="http://l1ts-emtf.cms:3333/urn:xdaq-application:lid=13" title="The total input LCT rate of all Sector Processors.">total</a>
 		    </th>
-		    <td id="CSCTF-td_value_total">
-		      <a target="_blank" id="CSCTF-a_value_total" href="http://csc-tf.cms:2974/urn:xdaq-application:lid=13" title=""></a>
+		    <td id="CSCTF-td_value_total_in">
+		      <a target="_blank" id="CSCTF-a_value_total_in" href="http://l1ts-emtf.cms:3333/urn:xdaq-application:lid=13" title=""></a>
+		      <div id="CSCTF-a_value_total_in_tooltip" class="paneltooltip"></div>
+		    </td>
+		  </tr>
+		</table>
+	      </td>
+	    </tr>
+	    <tr>
+	      <th>track&nbsp;rates
+	      </th>
+	      <td class="layout">
+		<table class="layout">
+		  <tr class="layout">
+		    <th id="CSCTF-th_name_min_out">
+		      <a target="_blank" id="CSCTF-a_name_min_out" href="http://l1ts-emtf.cms:3333/urn:xdaq-application:lid=13" title="The lowest output track rate of any Sector Processor.">min</a>
+		    </th>
+		    <td id="CSCTF-td_value_min_out">
+		      <a target="_blank" id="CSCTF-a_value_min_out" href="http://l1ts-emtf.cms:3333/urn:xdaq-application:lid=13" title=""></a>
+		    </td>
+		    <th id="CSCTF-th_name_total_out">
+		      <a target="_blank" id="CSCTF-a_name_total_out" href="http://l1ts-emtf.cms:3333/urn:xdaq-application:lid=13" title="The total output track rate of all Sector Processors.">total</a>
+		    </th>
+		    <td id="CSCTF-td_value_total_out">
+		      <a target="_blank" id="CSCTF-a_value_total_out" href="http://l1ts-emtf.cms:3333/urn:xdaq-application:lid=13" title=""></a>
+		      <div id="CSCTF-a_value_total_out_tooltip" class="paneltooltip"></div>
 		    </td>
 		  </tr>
 		</table>
@@ -305,61 +321,77 @@
 	</td>
 	<td style="vertical-align:top;">
 
-	  <div id="TTC">
-          <table class="fresh" rules="all" id="TTC-fadingTable">
+	  <div id="TCDS_panel">
+          <table class="fresh" rules="all" id="TCDS-fadingTable">
             <tr>
               <th colspan="7" class="title">
-                <a id="TTC-a_value_Title" target="_blank" class="title" href="http://ttc-csc.cms:20110">TTC</a>
+                <a id="TCDS-a_value_Title" target="_blank" class="title" href="http://tcds-control-central.cms:2000/urn:xdaq-application:service=tcds-central">TCDS</a>
               </th>
             </tr>
+
             <tr>
               <td colspan="2" class="time">
-                <span style="float:left;" id="TTC-td_ageOfPage"></span>
-                <span style="float:right;">Values at <span id="TTC-td_localDateTime"></span></span>
+                <span style="float:left;" id="TCDS-td_ageOfPage"></span>
+                <span style="float:right;">Values at <span id="TCDS-td_localDateTime"></span></span>
               </td>
             </tr>
+
             <tr>
-              <th id="TTC-th_name_State">
-                <a target="_blank" id="TTC-a_name_State" href="http://ttc-csc.cms:20110" title="The combined state of the TTCci applications.">State</a>
+              <th id="TCDS-th_name_LPMState">
+                <a target="_blank" id="TCDS-a_name_LPMState" href="http://tcds-control-csc-pri.cms:2104/urn:xdaq-application:service=lpm-csc-pri" title="The state of the LPM (Local Partition Manager) Controller application.">LPM&nbsp;State</a>
               </th>
-              <td colspan="6" id="TTC-td_value_State">
-                <a target="_blank" id="TTC-a_value_State" href="http://ttc-csc.cms:20110"></a>
+              <td colspan="1" style="width:100%;" id="TCDS-td_value_LPMState">
+                <a target="_blank" id="TCDS-a_value_LPMState" href="http://tcds-control-csc-pri.cms:2104/urn:xdaq-application:service=lpm-csc-pri"></a>
+                <div id="TCDS-a_value_LPMState_tooltip" class="paneltooltip paneltooltipwithoutpadding"></div>
               </td>
             </tr>
+
             <tr>
-              <th>L1A</th>
-              <td class="layout">
-                <table class="layout">
-                  <tr class="layout">
-                    <th id="TTC-th_name_L1APlus">
-                      <a target="_blank" id="TTC-a_name_L1APlus" href="http://ttc-csc.cms:20110/urn:xdaq-application:lid=40/" title="The L1A rate in the plus-side TTCci.">ME+</a>
-                    </th>
-                    <td id="TTC-td_value_L1APlus">
-                      <a target="_blank" id="TTC-a_value_L1APlus" href="http://ttc-csc.cms:20110/urn:xdaq-application:lid=40/" title="The L1A rate in the plus-side TTCci."></a>
-                    </td>
-                    <th id="TTC-th_name_L1AMinus">
-                      <a target="_blank" id="TTC-a_name_L1AMinus" href="http://ttc-csc.cms:20110/urn:xdaq-application:lid=41/" title="The L1A rate in the minus-side TTCci.">ME-</a>
-                    </th>
-                    <td id="TTC-td_value_L1AMinus">
-                      <a target="_blank" id="TTC-a_value_L1AMinus" href="http://ttc-csc.cms:20110/urn:xdaq-application:lid=41/" title="The L1A rate in the minus-side TTCci."></a>
-                    </td>
-                    <th id="TTC-th_name_L1ATF">
-                      <a target="_blank" id="TTC-a_name_L1ATF" href="http://ttc-csc.cms:20110/urn:xdaq-application:lid=42/" title="The L1A rate in the TrackFinder TTCci.">TF</a>
-                    </th>
-                    <td id="TTC-td_value_L1ATF">
-                      <a target="_blank" id="TTC-a_value_L1ATF" href="http://ttc-csc.cms:20110/urn:xdaq-application:lid=42/" title="The L1A rate in the TrackFinder TTCci."></a>
-                    </td>
-                  </tr>
-                </table>
+              <th id="TCDS-th_name_CPMState">
+                <a target="_blank" id="TCDS-a_name_CPMState" href="http://tcds-control-cpm-pri.cms:2050/urn:xdaq-application:service=cpm-pri" title="The state of the primary CPM (Central Partition Manager) Controller application.">CPM&nbsp;State</a>
+              </th>
+              <td colspan="1" style="width:100%;" id="TCDS-td_value_CPMState">
+                <a target="_blank" id="TCDS-a_value_CPMState" href="http://tcds-control-cpm-pri.cms:2050/urn:xdaq-application:service=cpm-pri"></a>
+                <div id="TCDS-a_value_CPMState_tooltip" class="paneltooltip paneltooltipwithoutpadding"></div>
               </td>
             </tr>
+
+            <tr>
+              <th id="TCDS-th_name_State">
+                <a target="_blank" id="TCDS-a_name_State" href="http://tcds-control-csc-pri.cms:2104" title="The combined state of the TCDS CI and PI Controller applications.">CSC&nbsp;PI&nbsp;and&nbsp;CI</a>
+              </th>
+              <td colspan="1" style="width:100%;" id="TCDS-td_value_State">
+                <a target="_blank" id="TCDS-a_value_State" href="http://tcds-control-csc-pri.cms:2104"></a>
+                <div  id="TCDS-a_value_State_tooltip" class="paneltooltip"></div>
+              </td>
+            </tr>
+
+            <tr>
+            	<th>
+            		<a target="_blank" id="TCDS-th_name_MUTFUPState" href="http://tcds-control-rpc-pri.cms:2103/urn:xdaq-application:lid=302" title="The combined state of the MUTFUP TCDS CI and PI Controller applications">MUTFUP&nbsp;PI&nbsp;and&nbsp;CI</a>
+            	</th>
+            	<td colspan="1" style="width: 100%;" id="TCDS-td_value_MUTFUPState">
+            		<a target="_blank" id="TCDS-a_value_MUTFUPState" href="http://tcds-control-rpc-pri.cms:2103/urn:xdaq-application:lid=502"></a>
+            		<div id="TCDS-a_value_MUTFUPState_tooltip" class="paneltooltip"></div>
+            	</td>
+            </tr>
+
+            <tr>
+              <th id="TCDS-th_name_LastHardReset">
+                <a target="_blank" id="TCDS-a_name_LastHardReset" href="http://tcds-control-csc-pri.cms:2104/urn:xdaq-application:service=pi-cscm-pri" title="The time of the last hard reset. Click to visit the minus-side PI.">Last&nbsp;HardReset</a>
+              </th>
+              <td colspan="1" style="width:100%;" id="TCDS-td_value_LastHardReset">
+                <a target="_blank" id="TCDS-a_value_LastHardReset" href="http://tcds-control-csc-pri.cms:2104/urn:xdaq-application:service=pi-cscp-pri"></a>
+              </td>
+            </tr>
+
           </table>
 	  </div>
 
 	</td>
 	<td style="vertical-align:top;">
 
-	  <div id="FED">
+	  <div id="FED_panel">
           <table class="fresh" rules="all" id="FED-fadingTable">
             <tr>
               <th colspan="7" class="title">
@@ -461,7 +493,7 @@
 	</td>
 	<td style="vertical-align:top;">
 
-	  <div id="DAQ">
+	  <div id="DAQ_panel">
           <table class="fresh" rules="all" id="DAQ-fadingTable">
             <tr>
               <th colspan="5" class="title">
@@ -564,7 +596,7 @@
 	</td>
 
         <td style="vertical-align:top;">
-	  <div id="DQM">
+	  <div id="DQM_panel">
           <table class="fresh" rules="all" id="DQM-fadingTable">
             <tr>
               <th colspan="5" class="title">
@@ -634,7 +666,7 @@
 		<line x1="0" y1="-2000" x2="0" y2="2000" stroke="#ffffff" stroke-width="10"/>
 		<line x1="2500" y1="-2000" x2="2500" y2="2000" stroke="#ffffff" stroke-width="10"/>
 	      </g>
-	      <rect id="CSCTF-pad" title="Left click to pan, mouse wheel to zoom, left-Alt mouse wheel to zoom in time." class="" x="-5000" y="-2000" width="10000" height="4000" fill="#000000" opacity="0.8" transform=""/>
+	      <rect id="CSCTF-pad" title="Left click to pan. Mouse wheel to zoom in time. Alt + mouse wheel to zoom." class="" x="-5000" y="-2000" width="10000" height="4000" fill="#000000" opacity="0.8" transform=""/>
 	      <polyline id="CSCTF-graph" fill="none" stroke="#7777FF" stroke-width="50" points="">
 	      </polyline>
 	      <path d="M -6700 -3000 v 6000 h 12600 v -6000 z M -5000 -2000 v 4000 h 10000 v -4000 z" stroke="black" stroke-width="10" fill="#333333" fill-rule="evenodd"/>
@@ -694,22 +726,22 @@
 	</td>
 
         <td style="padding: 0px 0px 0px 0px;">
-          <svg xmlns="http://www.w3.org/2000/svg" id="TTC-svgRoot" version="1.1" width="315" height="150" viewBox="0 0 12600 6000" preserveAspectRatio="none">
-            <g id="TTC-transformer" transform="translate(6700 ,3000)">
-              <g id="TTC-vGrid">
+          <svg xmlns="http://www.w3.org/2000/svg" id="TCDS-svgRoot" version="1.1" width="315" height="150" viewBox="0 0 12600 6000" preserveAspectRatio="none">
+            <g id="TCDS-transformer" transform="translate(6700 ,3000)">
+              <g id="TCDS-vGrid">
                 <line x1="-5000" y1="1000" x2="5000" y2="1000" stroke="#ffffff" stroke-width="10"/>
                 <line x1="-5000" y1="0" x2="5000" y2="0" stroke="#ffffff" stroke-width="10"/>
                 <line x1="-5000" y1="-1000" x2="5000" y2="-1000" stroke="#ffffff" stroke-width="10"/>
               </g>
-              <g id="TTC-hGrid">
+              <g id="TCDS-hGrid">
                 <line x1="-2500" y1="-2000" x2="-2500" y2="2000" stroke="#ffffff" stroke-width="10"/>
                 <line x1="0" y1="-2000" x2="0" y2="2000" stroke="#ffffff" stroke-width="10"/>
                 <line x1="2500" y1="-2000" x2="2500" y2="2000" stroke="#ffffff" stroke-width="10"/>
               </g>
-              <rect id="TTC-pad" title="Left click to pan, mouse wheel to zoom, left-Alt mouse wheel to zoom in time." class="" x="-5000" y="-2000" width="10000" height="4000" fill="#000000" opacity="0.8" transform=""/>
-              <polyline id="TTC-graph" fill="none" stroke="#7777FF" stroke-width="50" points=""/>
+              <rect id="TCDS-pad" title="Left click to pan. Mouse wheel to zoom in time. Alt + mouse wheel to zoom." class="" x="-5000" y="-2000" width="10000" height="4000" fill="#000000" opacity="0.8" transform=""/>
+              <polyline id="TCDS-graph" fill="none" stroke="#7777FF" stroke-width="50" points=""/>
               <path d="M -6700 -3000 v 6000 h 12600 v -6000 z M -5000 -2000 v 4000 h 10000 v -4000 z" stroke="black" stroke-width="10" fill="#333333" fill-rule="evenodd"/>
-              <g id="TTC-xAxis">
+              <g id="TCDS-xAxis">
                 <text transform="translate(-5000, 2400)" text-anchor="middle" font-size="350" fill="#eeeeee">date</text>
                 <text transform="translate(-2500, 2400)" text-anchor="middle" font-size="350" fill="#eeeeee">date</text>
                 <text transform="translate(    0, 2400)" text-anchor="middle" font-size="350" fill="#eeeeee">date</text>
@@ -721,43 +753,43 @@
                 <text transform="translate( 2500, 2800)" text-anchor="middle" font-size="350" fill="#888888">time</text>
                 <text transform="translate( 5000, 2800)" text-anchor="middle" font-size="350" fill="#888888">time</text>
               </g>
-              <g id="TTC-yAxis">
+              <g id="TCDS-yAxis">
                 <text transform="translate(-5100, 2000)" text-anchor="end" font-size="350" fill="#eeeeee">Y</text>
                 <text transform="translate(-5100, 1000)" text-anchor="end" font-size="350" fill="#eeeeee">Y</text>
                 <text transform="translate(-5100,    0)" text-anchor="end" font-size="350" fill="#eeeeee">Y</text>
                 <text transform="translate(-5100,-1000)" text-anchor="end" font-size="350" fill="#eeeeee">Y</text>
                 <text transform="translate(-5100,-2000)" text-anchor="end" font-size="350" fill="#eeeeee">Y</text>
               </g>
-              <g id="TTC-vTicks">
+              <g id="TCDS-vTicks">
                 <line x1="-5050" y1="2000" x2="-4950" y2="2000" stroke="#ffffff" stroke-width="10"/>
                 <line x1="-5050" y1="1000" x2="-4950" y2="1000" stroke="#ffffff" stroke-width="10"/>
                 <line x1="-5050" y1="0" x2="-4950" y2="0" stroke="#ffffff" stroke-width="10"/>
                 <line x1="-5050" y1="-1000" x2="-4950" y2="-1000" stroke="#ffffff" stroke-width="10"/>
                 <line x1="-5050" y1="-2000" x2="-4950" y2="-2000" stroke="#ffffff" stroke-width="10"/>
               </g>
-              <g id="TTC-hTicks">
+              <g id="TCDS-hTicks">
                 <line x1="-5000" y1="2050" x2="-5000" y2="1950" stroke="#ffffff" stroke-width="10"/>
                 <line x1="-2500" y1="2050" x2="-2500" y2="1950" stroke="#ffffff" stroke-width="10"/>
                 <line x1="0" y1="2050" x2="0" y2="1950" stroke="#ffffff" stroke-width="10"/>
                 <line x1="2500" y1="2050" x2="2500" y2="1950" stroke="#ffffff" stroke-width="10"/>
                 <line x1="5000" y1="2050" x2="5000" y2="1950" stroke="#ffffff" stroke-width="10"/>
               </g>
-              <text id="TTC-pointerCoords" transform="translate(0, -2100)" text-anchor="middle" font-size="350" fill="#eeeeee">(time, value) at cursor</text>
-              <text id="TTC-title" transform="translate(-6500, -2500)" text-anchor="start" font-size="500" fill="#eeeeee">
+              <text id="TCDS-pointerCoords" transform="translate(0, -2100)" text-anchor="middle" font-size="350" fill="#eeeeee">(time, value) at cursor</text>
+              <text id="TCDS-title" transform="translate(-6500, -2500)" text-anchor="start" font-size="500" fill="#eeeeee">
 	    Title
-	    <tspan id="TTC-lastValue" dx="500" fill="#7777ff">last value</tspan></text>
-              <text id="TTC-ageOfGraph" transform="translate(5700, -2500)" text-anchor="end" font-size="500" fill="#eeeeee">ago</text>
-              <g id="TTC-follow" transform="translate(5400,-1200) rotate(-90)">
-                <path id="TTC-follow_edge1" d="M -800 -250 v  500 h  1600 z" fill="#111111"/>
-                <path id="TTC-follow_edge2" d="M  800  250 v -500 h -1600 z" fill="#888888"/>
-                <rect id="TTC-follow_rect" title="click to stop following last point" x="-750" y="-200" width="1500" height="400" fill="#333333"/>
-                <text id="TTC-follow_text" title="click to stop following last point" x="0" y="110" font-size="350" fill="#eeeeee" text-anchor="middle">freeze</text>
+	    <tspan id="TCDS-lastValue" dx="500" fill="#7777ff">last value</tspan></text>
+              <text id="TCDS-ageOfGraph" transform="translate(5700, -2500)" text-anchor="end" font-size="500" fill="#eeeeee">ago</text>
+              <g id="TCDS-follow" transform="translate(5400,-1200) rotate(-90)">
+                <path id="TCDS-follow_edge1" d="M -800 -250 v  500 h  1600 z" fill="#111111"/>
+                <path id="TCDS-follow_edge2" d="M  800  250 v -500 h -1600 z" fill="#888888"/>
+                <rect id="TCDS-follow_rect" title="click to stop following last point" x="-750" y="-200" width="1500" height="400" fill="#333333"/>
+                <text id="TCDS-follow_text" title="click to stop following last point" x="0" y="110" font-size="350" fill="#eeeeee" text-anchor="middle">freeze</text>
               </g>
-              <g id="TTC-zoom" transform="translate(5400,900) rotate(-90)">
+              <g id="TCDS-zoom" transform="translate(5400,900) rotate(-90)">
                 <path d="M -1100 -250 v  500 h  2200 z" fill="#111111"/>
                 <path d="M  1100  250 v -500 h -2200 z" fill="#888888"/>
-                <rect id="TTC-zoom_rect" title="click to fix vertical range" x="-1050" y="-200" width="2100" height="400" fill="#333333"/>
-                <text id="TTC-zoom_text" title="click to fix vertical range" x="0" y="110" font-size="350" fill="#eeeeee" text-anchor="middle">fix range</text>
+                <rect id="TCDS-zoom_rect" title="click to fix vertical range" x="-1050" y="-200" width="2100" height="400" fill="#333333"/>
+                <text id="TCDS-zoom_text" title="click to fix vertical range" x="0" y="110" font-size="350" fill="#eeeeee" text-anchor="middle">fix range</text>
               </g>
             </g>
           </svg>
@@ -776,7 +808,7 @@
                 <line x1="0" y1="-2000" x2="0" y2="2000" stroke="#ffffff" stroke-width="10"/>
                 <line x1="2500" y1="-2000" x2="2500" y2="2000" stroke="#ffffff" stroke-width="10"/>
               </g>
-              <rect id="FED-pad" title="Left click to pan, mouse wheel to zoom, left-Alt mouse wheel to zoom in time." class="" x="-5000" y="-2000" width="10000" height="4000" fill="#000000" opacity="0.8" transform=""/>
+              <rect id="FED-pad" title="Left click to pan. Mouse wheel to zoom in time. Alt + mouse wheel to zoom." class="" x="-5000" y="-2000" width="10000" height="4000" fill="#000000" opacity="0.8" transform=""/>
               <polyline id="FED-graph" fill="none" stroke="#7777FF" stroke-width="50" points=""/>
               <path d="M -6700 -3000 v 6000 h 12600 v -6000 z M -5000 -2000 v 4000 h 10000 v -4000 z" stroke="black" stroke-width="10" fill="#333333" fill-rule="evenodd"/>
               <g id="FED-xAxis">
@@ -846,7 +878,7 @@
                 <line x1="0" y1="-2000" x2="0" y2="2000" stroke="#ffffff" stroke-width="10"/>
                 <line x1="2500" y1="-2000" x2="2500" y2="2000" stroke="#ffffff" stroke-width="10"/>
               </g>
-              <rect id="DAQ-pad" title="Left click to pan, mouse wheel to zoom, left-Alt mouse wheel to zoom in time." class="" x="-5000" y="-2000" width="10000" height="4000" fill="#000000" opacity="0.8" transform=""/>
+              <rect id="DAQ-pad" title="Left click to pan. Mouse wheel to zoom in time. Alt + mouse wheel to zoom." class="" x="-5000" y="-2000" width="10000" height="4000" fill="#000000" opacity="0.8" transform=""/>
               <polyline id="DAQ-graph" fill="none" stroke="#7777FF" stroke-width="50" points=""/>
               <path d="M -6700 -3000 v 6000 h 12600 v -6000 z M -5000 -2000 v 4000 h 10000 v -4000 z" stroke="black" stroke-width="10" fill="#333333" fill-rule="evenodd"/>
               <g id="DAQ-xAxis">
@@ -916,7 +948,7 @@
                 <line x1="0" y1="-2000" x2="0" y2="2000" stroke="#ffffff" stroke-width="10"/>
                 <line x1="2500" y1="-2000" x2="2500" y2="2000" stroke="#ffffff" stroke-width="10"/>
               </g>
-              <rect id="DQM-pad" title="Left click to pan, mouse wheel to zoom, left-Alt mouse wheel to zoom in time." class="" x="-5000" y="-2000" width="10000" height="4000" fill="#000000" opacity="0.8" transform=""/>
+              <rect id="DQM-pad" title="Left click to pan. Mouse wheel to zoom in time. Alt + mouse wheel to zoom." class="" x="-5000" y="-2000" width="10000" height="4000" fill="#000000" opacity="0.8" transform=""/>
               <polyline id="DQM-graph" fill="none" stroke="#7777FF" stroke-width="50" points=""/>
               <path d="M -6700 -3000 v 6000 h 12600 v -6000 z M -5000 -2000 v 4000 h 10000 v -4000 z" stroke="black" stroke-width="10" fill="#333333" fill-rule="evenodd"/>
               <g id="DQM-xAxis">
@@ -977,7 +1009,7 @@
 
     </table>
 
-    <div id="TMB" title=""></div>
+    <div id="TMB_panel" title=""></div>
 
   </body>
 </html>

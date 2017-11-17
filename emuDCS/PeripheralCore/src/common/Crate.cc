@@ -543,9 +543,7 @@ int Crate::configure(int c, int ID) {
 
   std::vector<DAQMB*> myDmbs = this->daqmbs();
 
-  std::cout << " HardReset, then lowv_onoff " << std::endl;
-  ccb->hardReset();
-  ::sleep(1);
+  std::cout << " Lowv_onoff, then hard reset " << std::endl;
   for (unsigned dmb=0; dmb<myDmbs.size(); dmb++) 
   {
     std::cout << "DMB slot " << myDmbs[dmb]->slot() 
@@ -563,6 +561,8 @@ int Crate::configure(int c, int ID) {
     myDmbs[dmb]->restoreMotherboardIdle();
   }
   ::sleep(2);
+  ccb->hardReset();
+  ::sleep(1);
 
   if(!IsAlive())
   {  std::cout << "ERROR: Crate dead, stop!!" << std::endl;
@@ -620,6 +620,11 @@ int Crate::configure(int c, int ID) {
       myDmbs[i]->configure();
     }
   }
+
+  // Liu July-20,2015: add one Hard-Reset at the end, make sure all FPGAs are configured from flash memory
+  ccb->hardReset();
+  ::sleep(1);
+
   return 0;
   //  
 }
@@ -718,6 +723,8 @@ void Crate::MonitorCCB(int cycle, char * buf)
   MPC * mpc = this->mpc();
   //
   if(ccb==NULL || mpc==NULL || !IsAlive()) return;
+  if(vmeController()->GetDebug()) 
+      std::cout << "MonitorCCB in crate " << label_ << std::endl;
   ccb->read_later(0x0);
   ccb->read_later(0x2);
   ccb->read_later(0x4);
@@ -747,7 +754,7 @@ void Crate::MonitorTMB(int cycle, char * buf, unsigned mask)
   //                1   good reading
   //                0   bad reading or no reading (skipped/masked)
 
-  int MAX_TMB_COUNTERS=120;  // larger than TMB:89 and OTMB:102 
+  int MAX_TMB_COUNTERS=120;  // larger than TMB: 102 and OTMB:106 
   int * countbuf, *buf4;
   short *buf2, flag=0;
  
@@ -755,6 +762,8 @@ void Crate::MonitorTMB(int cycle, char * buf, unsigned mask)
   buf2=(short *)buf;
   buf4=(int *)buf;
   for(int i=0; i<= MAX_TMB_COUNTERS*9; i++) buf4[i]=0;
+  if(vmeController()->GetDebug()) 
+      std::cout << "MonitorTMB (counters) in crate " << label_ << std::endl;
   vmeController()->SetUseDelay(true);
   std::vector<DAQMB*> myDmbs = this->daqmbs();
   std::vector<TMB*> myTmbs = this->tmbs();
@@ -800,13 +809,15 @@ void Crate::MonitorDMB(int cycle, char * buf, unsigned mask)
   return;
 
   for(int i=0; i<= TOTAL_DMB_COUNTERS*9; i++) buf2[i]=0;
+  if(vmeController()->GetDebug()) 
+      std::cout << "MonitorDMB (counters) in crate " << label_ << std::endl;
   vmeController()->SetUseDelay(true);
   std::vector<DAQMB*> myDmbs = this->daqmbs();
   for(unsigned i =0; i < myDmbs.size(); ++i) 
   {
     int imask= 0x3F & (myDmbs[i]->GetPowerMask());
     bool chamber_on = (imask!=0x3F);
-    int Dversion=myDmbs[i]->GetHardwareVersion();
+    //SK: not used//    int Dversion=myDmbs[i]->GetHardwareVersion();
 
     if(IsAlive() && (mask & (1<<i))==0 && chamber_on)
     {  countbuf=myDmbs[i]->GetCounters();
@@ -846,6 +857,8 @@ void Crate::MonitorDCS(int cycle, char * buf, unsigned mask)
   buf2=(short *)buf;
   *buf2 = 0;
   for(int i=0; i<= TOTAL_DCS_COUNTERS*9; i++) buf2[i]=0;
+  if(vmeController()->GetDebug()) 
+      std::cout << "MonitorDCS (TMB & DMB) in crate " << label_ << std::endl;
   vmeController()->SetUseDelay(true);
   std::vector<DAQMB*> myDmbs = this->daqmbs();
   std::vector<TMB*> myTmbs = this->tmbs();
@@ -853,8 +866,8 @@ void Crate::MonitorDCS(int cycle, char * buf, unsigned mask)
   {
     int imask= 0xFF & (myDmbs[i]->GetPowerMask());
     bool chamber_on = (imask!=0xFF);
-    int Dversion=myDmbs[i]->GetHardwareVersion();
-    int Tversion=myTmbs[i]->GetHardwareVersion();
+    //SK: not used//    int Dversion=myDmbs[i]->GetHardwareVersion();
+    //SK: not used//    int Tversion=myTmbs[i]->GetHardwareVersion();
 
     if(IsAlive() && (dmask & (1<<i))==0)
     {  
@@ -884,14 +897,14 @@ void Crate::MonitorDCS(int cycle, char * buf, unsigned mask)
   return;
 }
 
-void Crate::MonitorDCS2(int cycle, char * buf, unsigned mask) 
+void Crate::MonitorDCS2(int cycle, char * buf, unsigned mask, int read_dcfeb) 
 {
   // flag  bits 13-10:  if !=0, bad TMB/DMB # (1-9)
   // flag  bit pattern 8-0:  for each TMB/DMB
   //                1   good reading
   //                0   bad reading or no reading (skipped/masked)
 
-  int rn, TOTAL_DCS_COUNTERS=200; // (19+8)*7+9+2 aligned at 4 bytes (integer)
+  int rn, TOTAL_DCS_COUNTERS=222; // (19+8+3)*7+9+3 aligned at 4 bytes (integer)
   short *buf2, flag=0;
   unsigned dmask, tmask;
 
@@ -900,19 +913,21 @@ void Crate::MonitorDCS2(int cycle, char * buf, unsigned mask)
   buf2=(short *)buf;
   *buf2 = 0;
   for(int i=0; i<= TOTAL_DCS_COUNTERS*9; i++) buf2[i]=0;
+  if(vmeController()->GetDebug()) 
+      std::cout << "MonitorDCS2 (ODMB & DCFEB) in crate " << label_ << std::endl;
   vmeController()->SetUseDelay(true);
   std::vector<DAQMB*> myDmbs = this->daqmbs();
   std::vector<TMB*> myTmbs = this->tmbs();
   for(unsigned i =0; i < myDmbs.size(); ++i) 
   {
-    int imask= 0xFF & (myDmbs[i]->GetPowerMask());
-    bool chamber_on = (imask!=0xFF);
+    //SK: not used:    int imask= 0xFF & (myDmbs[i]->GetPowerMask());
+    //SK: not used:    bool chamber_on = (imask!=0xFF);
     int Dversion=myDmbs[i]->GetHardwareVersion();
-    int Tversion=myTmbs[i]->GetHardwareVersion();
+    //SK: not used:    int Tversion=myTmbs[i]->GetHardwareVersion();
 
     if(IsAlive() && Dversion==2 && (dmask & (1<<i))==0)
     {  
-        rn=myDmbs[i]->DCSread2(buf+4+i*2*TOTAL_DCS_COUNTERS);
+        rn=myDmbs[i]->DCSread2(buf+4+i*2*TOTAL_DCS_COUNTERS, read_dcfeb);
         if( rn>0) flag |= (1<<i);
         else if(rn<0) 
         {  
@@ -941,6 +956,8 @@ void Crate::MonitorTCS(int cycle, char * buf, unsigned mask)
   buf2=(short *)buf;
   *buf2 = 0;
   for(int i=0; i<= TOTAL_DCS_COUNTERS*9; i++) buf2[i]=0;
+  if(vmeController()->GetDebug()) 
+      std::cout << "MonitorTCS (TMB voltages) in crate " << label_ << std::endl;
   vmeController()->SetUseDelay(true);
   std::vector<TMB*> myTmbs = this->tmbs();
   for(unsigned i =0; i < myTmbs.size(); ++i) 

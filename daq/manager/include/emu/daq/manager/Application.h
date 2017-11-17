@@ -320,6 +320,9 @@ private:
   // STEP-specific stuff
   xdata::UnsignedInteger64 STEPCount_; // The lowest of any RUI's lowest count in a STEP run.
   xdata::Boolean STEPFinished_; // set to TRUE when all DDUs' all live and unmasked inputs have produced the requested number of events
+  xdata::String STEPCountsTableDir_; // Directory to save the STEP counts table in as an ascii file. Default: /tmp
+  void saveSTEPCountsTable();
+  bool printSTEPCountsTableASCII( stringstream& out );
   bool printSTEPCountsTable( stringstream& out, bool control );
   bool isSTEPFinished();
   void maskDDUInputs( const bool in, const std::vector<cgicc::FormEntry>& fev );

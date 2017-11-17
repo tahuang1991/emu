@@ -62,15 +62,15 @@ void emu::step::Tester::exportParameters(){
 void emu::step::Tester::loadFiles(){
   testParametersXML_     = emu::utils::readFile( emu::utils::performExpansions( testParametersFileName_     ) );
   if ( testParametersXML_.size() == 0 ){
-    XCEPT_RAISE( xcept::Exception, testParametersFileName_.toString() + " could not be read in or is empty." );
+    XCEPT_RAISE( xcept::Exception, "Test parameters file name '" + testParametersFileName_.toString() + "' could not be read in or is empty." );
   }
   vmeSettingsXML_        = emu::utils::readFile( emu::utils::performExpansions( vmeSettingsFileName_        ) );
   if ( vmeSettingsXML_.size() == 0 ){
-    XCEPT_RAISE( xcept::Exception, vmeSettingsFileName_.toString() + " could not be read in or is empty." );
+    XCEPT_RAISE( xcept::Exception, "VME settings file name '" + vmeSettingsFileName_.toString() + "' could not be read in or is empty." );
   }
   specialVMESettingsXML_ = emu::utils::readFile( emu::utils::performExpansions( specialVMESettingsFileName_ ) );
   if ( specialVMESettingsXML_.size() == 0 ){
-    XCEPT_RAISE( xcept::Exception, specialVMESettingsFileName_.toString() + " could not be read in or is empty." );
+    XCEPT_RAISE( xcept::Exception, "Special VME settings file name '" + specialVMESettingsFileName_.toString() + "' could not be read in or is empty." );
   }
 }
 
@@ -147,7 +147,10 @@ void emu::step::Tester::configureAction( toolbox::Event::Reference e ){
   // Create the test
   try{
     loadFiles();
+    // cout << "vmeSettingsXML_\n" << vmeSettingsXML_ << endl;
+    // cout << "specialVMESettingsXML_\n" << specialVMESettingsXML_ << endl;
     string selectedVMESettingsXML = selectCratesAndChambers( vmeSettingsXML_ );
+    // cout << "selectedVMESettingsXML\n" << selectedVMESettingsXML << endl;
     test_ = new Test( testId_,
 		      group_,
 		      testParametersXML_,

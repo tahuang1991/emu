@@ -404,11 +404,13 @@
 #define TMB_h
 
 #include "emu/pc/VMEModule.h"
+#include "emu/pc/JTAG_constants.h"
 #include <cstdio>
 #include <cassert>
 #include <vector>
 #include <string>
 #include <bitset>
+#include <stdlib.h>
 
 #include "emu/pc/EMUjtag.h"
 #include "emu/pc/EmuLogger.h"
@@ -431,7 +433,7 @@ public:
   //friend class TMBParser;
   friend class EMUjtag;
   //
-  explicit TMB(Crate * , Chamber *, int, int );
+  explicit TMB(Crate * , Chamber *, int, int, int gem_enabled = 0 );
   virtual ~TMB();
   //
   //
@@ -458,6 +460,11 @@ public:
   //
   void DecodeCLCT();
   void PrintCLCT();
+  void DecodeMPCFrames();
+  void PrintMPCFrames();
+  void DecodeMPCFramesFromFIFO();
+  void PrintMPCFramesFromFIFO();
+  void DecodeAndPrintMPCFrames(unsigned int);
   int  GetALCTWordCount();
   void DecodeALCT();
   void PrintALCT();
@@ -476,6 +483,7 @@ public:
   //
   //!Extract ALCT raw hits data from VME
   void ALCTRawhits();
+  void GEMRawhits();
   bool ResetALCTRAMAddress();
   bool CheckAlctFIFOBusy(int number_of_checks_before_aborting);
   //
@@ -484,7 +492,6 @@ public:
   /// default is 0.1seconds
   void TMBRawhits(); 
   void ResetRAMAddress();
-  inline int GetAlctInClctMatchWindow() { return h11_alct_in_clct_match_window_ ; }
   void PrintTMBRawHits();
   //
   //
@@ -502,8 +509,17 @@ public:
   void SetALCTPatternTrigger();
   void SetCLCTPatternTrigger();
   //
+  inline std::string GetLabel(){return label_;}            
+  //
   //  inline void SetHardwareVersion(int version) {hardware_version_ = version;} //in TMB constructor now
   inline int GetHardwareVersion() {return hardware_version_;}
+  inline int GetGemEnabled() {return gem_enabled_;}
+  inline void SetGemEnabled(int value) { gem_enabled_ = value; }
+
+  static const int MAX_GEM_FIBERS_ME11 = 4;
+  inline int GetNGemEnabledLinks() {
+    if (GetGemEnabled()) return MAX_GEM_FIBERS_ME11;
+    else return 0;} 
   //
   //!read the Firmware date from the TMB
   int  FirmwareDate();
@@ -557,6 +573,12 @@ public:
     if (GetExpectedTmbFirmwareYear() >= 2015) return 1;
     else return 0;
   }
+  int HasGroupedGemRxValues() {
+    if (GetHardwareVersion() < 2) return -1;
+    if (not ExpectedTmbFirmwareConfigIsSet() ) return -1;
+    if (gem_enabled_ && GetExpectedTmbFirmwareYear() >= 2015) return 1;
+    else return 0;
+  }
   //
   // called by TRGMODE, depending on version_
   void trgmode_bprsq_alct();
@@ -598,9 +620,13 @@ public:
   int * GetCounters();                   /// read TMB counters, fill values in software
   int * NewCounters();                   /// read TMB counters in jumbo packet
   int  GetCounter(int counter);         /// return counter value
+  int  GetGemCounter(int counter);         /// return gem counter value
   void PrintCounters(int counter=-1);   /// print counter value (-1 means print all)
+  void PrintGemCounters(int counter=-1);   /// print counter value (-1 means print all)
   std::string CounterName(int counter); /// return counter label
-  inline int GetMaxCounter() { return ((hardware_version_<=1) ? MaxCounter : (MaxCounter + 9)); }
+  inline int GetMaxCounter() { return MaxCounter; }
+  std::string GEMCounterName(int counter); /// return counter label
+  inline int GetMaxGEMCounter() { return MaxGEMCounter;}
   inline int GetALCTSentToTMBCounterIndex()  { return alct_sent_to_tmb_counter_index_;  }
   inline int GetECCTriggerPathOneErrorCounterIndex()  { return ecc_trigger_path_one_error_counter_index_;  }
   inline int GetECCTriggerPathTwoErrorsCounterIndex()  { return ecc_trigger_path_two_errors_counter_index_;  }
@@ -608,10 +634,10 @@ public:
   inline int GetALCTRawHitsReadoutCounterIndex()  { return alct_raw_hits_readout_counter_index_;  }
   inline int GetCLCTPretriggerCounterIndex() { return clct_pretrigger_counter_index_;   }
 
-  // for OTMB, the following counters shifted by 2
-  inline int GetLCTSentToMPCCounterIndex()   { return ((hardware_version_<=1) ? lct_sent_to_mpc_counter_index_ : (lct_sent_to_mpc_counter_index_ + 2));   }
-  inline int GetLCTAcceptedByMPCCounterIndex()   { return ((hardware_version_<=1) ? lct_accepted_by_mpc_counter_index_ : (lct_accepted_by_mpc_counter_index_ + 2));   }
-  inline int GetL1AInTMBWindowCounterIndex() { return ((hardware_version_<=1) ? l1a_in_tmb_window_counter_index_ : (l1a_in_tmb_window_counter_index_ + 2)); }
+  // the following counters shifted by 2 due to DCFEB6&7
+  inline int GetLCTSentToMPCCounterIndex()   { return lct_sent_to_mpc_counter_index_ ;   }
+  inline int GetLCTAcceptedByMPCCounterIndex()   { return lct_accepted_by_mpc_counter_index_ ;   }
+  inline int GetL1AInTMBWindowCounterIndex() { return l1a_in_tmb_window_counter_index_ ; }
   //
   void FireALCTInjector();
   void FireCLCTInjector();
@@ -628,14 +654,6 @@ public:
   ALCTController * alctController() const {return alctController_;}
   RAT * getRAT() const {return rat_;}
   //      
-  int tmb_get_id(struct tmb_id_regs* tmb_id);
-  int tmb_set_jtag_src(unsigned short int jtag_src);
-  int tmb_get_jtag_src(unsigned short int* jtag_src);
-  int tmb_set_jtag_chain(unsigned int jchain);
-  //
-  int tmb_set_reg(unsigned int vmereg, unsigned short int value );
-  int tmb_get_reg(unsigned int vmereg, unsigned short int* value );
-  int tmb_vme_reg(unsigned int vmereg, unsigned short int* value);
   int tmb_get_boot_reg(unsigned short int* value);
   int tmb_set_boot_reg(unsigned short int value);
   int tmb_hard_reset_alct_fpga();
@@ -649,10 +667,45 @@ public:
   //  int GetCLCT0Cfeb() { return -999; }  //does not exist in TMB firmware anymore
   //  int GetCLCT1Cfeb() { return -999; }  //does not exist in TMB firmware anymore
   //
-  int FmState();
-  //
   void enableAllClocks();
   void disableAllClocks();
+  void disableALCTClock();
+  //
+  // Public OTMB BPI-->EPROM access rountines
+  // Functions to access VME registers defined for BPI
+  void           otmb_bpi_reset(bool debug = false);
+  void           otmb_bpi_disable(bool debug = false);
+  void           otmb_bpi_enable(bool debug = false);
+  void           otmb_bpi_write_to_command_fifo(unsigned short command, bool debug = true);
+  unsigned short otmb_bpi_read(bool debug = false);
+  unsigned short otmb_bpi_read_n_words(bool debug = false);
+  unsigned short otmb_bpi_status(bool debug = false);
+  unsigned int   otmb_bpi_timer_read(bool debug = false); // Returns combined 2 16-bit words accessed separately
+  // Functions to send commands to BPI command FIFO through BPI_Write VME register
+  void otmb_bpi_prom_noop(bool debug = false);
+  void otmb_bpi_prom_block_erase(bool debug = false);
+  void otmb_bpi_prom_block_lock(bool debug = false);
+  void otmb_bpi_prom_block_unlock(bool debug = false);
+  void otmb_bpi_prom_timerstart(bool debug = false);
+  void otmb_bpi_prom_timerstop(bool debug = false);
+  void otmb_bpi_prom_timerreset(bool debug = false);
+  void otmb_bpi_prom_clearstatus(bool debug = false);
+  // Functions to send sequence of commands to BPI command FIFO
+  void otmb_bpi_prom_block_unlockerase(bool debug = false);
+  void otmb_bpi_prom_loadaddress(unsigned short uaddress, unsigned short laddress, bool debug = true);
+
+  // Old OTMB BPI-->EPROM access rountines
+  void otmbeprom_multi(int cnt, unsigned short *manbuf);
+  bool otmbeprom_pec_ready(unsigned int poll_interval);
+  void otmbeprom_read(unsigned nwords, unsigned short *pdata);
+  void otmbeprom_bufferprogram(unsigned nwords, unsigned short *prm_dat);
+  void otmb_readparam(int paramblock,int nval,unsigned short int  *val);
+  void otmb_loadparam(int paramblock,int nval,unsigned short int  *val);
+  void otmb_readfirmware_mcs(const char *filename);
+  void otmb_program_eprom_bpi(const char *mcsfile);
+  bool otmb_program_eprom_poll(const char *mcsfile);
+  void otmb_program_eprom(const char *mcsfile);
+
   //
   ////////////////////////
   // The following methods deal with data going from TMB to MPC...
@@ -682,10 +735,14 @@ public:
   //!Values of "MPC accept" data sent from MPC to TMB 
   int MPC0Accept();
   int MPC1Accept();
-  ////////////////////////
-  //
+
+  //------------------------------------------------------------------------------
+  //  Trigger Test Function Prototypes
+  //------------------------------------------------------------------------------
   void TriggerTestInjectALCT();
   void TriggerTestInjectCLCT();
+
+  //------------------------------------------------------------------------------
   //
   bool SelfTest() ;
   void init() ;
@@ -805,7 +862,7 @@ public:
   inline int  GetReadDDDStateMachineClock1Lock() {return read_ddd_state_machine_clock1_lock_;}
   inline int  GetReadDDDStateMachineClockALCTLock() {return read_ddd_state_machine_clock_alct_lock_;}
   inline int  GetReadDDDStateMachineClockdALCTLock() {return read_ddd_state_machine_clockd_alct_lock_;}
-  inline int  GetReadDDDStateMachineClockCFEBLock() {return read_ddd_state_machine_clock_cfeb_lock_;}
+  inline int  GetReadDDDStateMachineClockMPCLock() {return read_ddd_state_machine_clock_mpc_lock_;}
   inline int  GetReadDDDStateMachineClockDCCLock() {return read_ddd_state_machine_clock_dcc_lock_;}
   inline int  GetReadDDDStateMachineClockRPCLock() {return read_ddd_state_machine_clock_rpc_lock_;}
   //
@@ -1563,6 +1620,9 @@ public:
   //!mpc_tx_delay = [0-15] = delay sending LCT to MPC (bx)
   inline void SetMpcTxDelay(int mpc_tx_delay) { mpc_tx_delay_ = mpc_tx_delay; }
   inline  int GetMpcTxDelay() { return mpc_tx_delay_; }
+  //!clct_match_window_size = [0-15] = new algo ALCT/CLCT match window width for trigger (bx)
+  inline void Set_clct_match_window_size(int clct_match_window_size) { clct_match_window_size_ = clct_match_window_size; }
+  inline  int Get_clct_match_window_size() { return clct_match_window_size_; }
   //
   //-----------------------------------------------------------------
   //0XB6 = ADR_RPC_CFG:  RPC Configuration:
@@ -2008,8 +2068,15 @@ public:
     cfeb6_rx_clock_delay_ = cfeb456_rx_clock_delay; 
     cfeb456_rx_clock_delay_ = cfeb456_rx_clock_delay; 
   }
+  inline void SetCfeb456RxFineDelay(int cfeb456_rx_fine_delay) {
+    cfeb4_rx_fine_delay_   = cfeb456_rx_fine_delay;
+    cfeb5_rx_fine_delay_   = cfeb456_rx_fine_delay;
+    cfeb6_rx_fine_delay_   = cfeb456_rx_fine_delay;
+    cfeb456_rx_fine_delay_ = cfeb456_rx_fine_delay;
+  }
   inline void SetCFEB456delay(int cfeb456_rx_clock_delay)        { SetCfeb456RxClockDelay(cfeb456_rx_clock_delay);  } //legacy setter
   inline int  GetCfeb456RxClockDelay() { return cfeb456_rx_clock_delay_; }
+  inline int  GetCfeb456RxFineDelay() { return cfeb456_rx_clock_delay_; }
   inline int  GetCFEB456delay()        { return GetCfeb456RxClockDelay(); } //legacy getter
   inline int  GetReadCfeb456RxClockDelay() { return read_cfeb456_rx_clock_delay_; }
   //
@@ -2041,8 +2108,16 @@ public:
     cfeb3_rx_clock_delay_ = cfeb0123_rx_clock_delay; 
     cfeb0123_rx_clock_delay_ = cfeb0123_rx_clock_delay; 
   }
+  inline void SetCfeb0123RxFineDelay(int cfeb0123_rx_fine_delay) {
+    cfeb0_rx_fine_delay_    = cfeb0123_rx_fine_delay;
+    cfeb1_rx_fine_delay_    = cfeb0123_rx_fine_delay;
+    cfeb2_rx_fine_delay_    = cfeb0123_rx_fine_delay;
+    cfeb3_rx_fine_delay_    = cfeb0123_rx_fine_delay;
+    cfeb0123_rx_fine_delay_ = cfeb0123_rx_fine_delay;
+  }
   inline void SetCFEB0123delay(int cfeb0123_rx_clock_delay)        { SetCfeb0123RxClockDelay(cfeb0123_rx_clock_delay);  } //legacy setter
   inline int  GetCfeb0123RxClockDelay() { return cfeb0123_rx_clock_delay_; }
+  inline int  GetCfeb0123RxFineDelay() { return cfeb0123_rx_fine_delay_; }
   inline int  GetCFEB0123delay()        { return GetCfeb0123RxClockDelay(); } //legacy getter
   inline int  GetReadCfeb0123RxClockDelay() { return read_cfeb0123_rx_clock_delay_; }
   //
@@ -2122,7 +2197,7 @@ public:
     assert(HasGroupedME11ABCFEBRxValues()>0); return  cfeb456_rxd_int_delay_; }
   inline int  GetReadCFEB456RxdIntDelay() { 
     assert(HasGroupedME11ABCFEBRxValues()>0); return  read_cfeb456_rxd_int_delay_; }
-  //
+
   //
   //---------------------------------------------------------------------
   // 0X120 = ADR_SYNC_ERR_CTRL:  Synchronization Error Control
@@ -2304,6 +2379,7 @@ public:
   inline int  GetReadGtxRxPrbsTestEnable(int cfebNum) { return read_gtx_rx_prbs_test_enable_[cfebNum]; }
 
   //Writes all GTX control registers to FPGA
+  void ReadDcfebGtxRxRegisters();
   void WriteGtxControlRegisters();
   
   //GTX ready
@@ -2372,6 +2448,42 @@ public:
   // 0X192 = ADR_GTX_SYNC_DONE_TIME
   //---------------------------------------------------------------------
   inline int GetReadGtxSyncDoneTime() { return read_gtx_sync_done_time_;}
+  //---------------------------------------------------------------------
+  // 0X198 = ADR_NEWALGO_CTRL:  Controls parameters of new trigger algorithm (Yuriy, 2016)
+  //---------------------------------------------------------------------
+  inline void Set_use_dead_time_zone(int use_dead_time_zone) { use_dead_time_zone_ = use_dead_time_zone; }
+  inline int  Get_use_dead_time_zone() { return use_dead_time_zone_; }
+  inline int  GetRead_use_dead_time_zone() { return read_use_dead_time_zone_; }
+
+  inline void Set_dead_time_zone_size(int dead_time_zone_size) { dead_time_zone_size_ = dead_time_zone_size; }
+  inline int  Get_dead_time_zone_size() { return dead_time_zone_size_; }
+  inline int  GetRead_dead_time_zone_size() { return read_dead_time_zone_size_; }
+
+  inline void Set_use_dynamic_dead_time_zone(int use_dynamic_dead_time_zone) { use_dynamic_dead_time_zone_ = use_dynamic_dead_time_zone; }
+  inline int  Get_use_dynamic_dead_time_zone() { return use_dynamic_dead_time_zone_; }
+  inline int  GetRead_use_dynamic_dead_time_zone() { return read_use_dynamic_dead_time_zone_; }
+
+  inline void Set_clct_to_alct(int clct_to_alct) { clct_to_alct_ = clct_to_alct; }
+  inline int  Get_clct_to_alct() { return clct_to_alct_; }
+  inline int  GetRead_clct_to_alct() { return read_clct_to_alct_; }
+  
+  inline void Set_drop_used_clcts(int drop_used_clcts) { drop_used_clcts_ = drop_used_clcts; }
+  inline int  Get_drop_used_clcts() { return drop_used_clcts_; }
+  inline int  GetRead_drop_used_clcts() { return read_drop_used_clcts_; }
+  
+  inline void Set_cross_bx_algorithm(int cross_bx_algorithm) { cross_bx_algorithm_ = cross_bx_algorithm; }
+  inline int  Get_cross_bx_algorithm() { return cross_bx_algorithm_; }
+  inline int  GetRead_cross_bx_algorithm() { return read_cross_bx_algorithm_; }
+  
+  // inline void Set_(int ) { _ = ; }
+  // inline int  Get_() { return _; }
+  // inline int  GetRead_() { return read__; }
+  
+  inline void Set_clct_use_corrected_bx(int clct_use_corrected_bx) { clct_use_corrected_bx_ = clct_use_corrected_bx; }
+  inline int  Get_clct_use_corrected_bx() { return clct_use_corrected_bx_; }
+  inline int  GetRead_clct_use_corrected_bx() { return read_clct_use_corrected_bx_; }
+  
+
   //
   //---------------------------------------------------------------------
   // 0X15C ADR_V6_CFEB_BADBITS_CTRL: CFEB Bad Bits Control/Status (See Adr 0x122) (extra DCFEB Bad Bits on OTMB)
@@ -2402,6 +2514,145 @@ public:
   //
   //!layer=[0-5], distrip=[0-39] = 1 = "bad"
   inline int  GetComparatorBadBit(int layer,int distrip) { return read_badbits_[layer][distrip]; }
+  //
+  //------------------------------------------------------------------
+  //0X184 = ADR_MPC_FRAMES_FIFO_CTRL:  Controls FIFO
+  //------------------------------------------------------------------
+  inline void SetMPCFramesFifoCtrlWrEn(int mpc_frames_fifo_ctrl_wr_en) { mpc_frames_fifo_ctrl_wr_en_ = mpc_frames_fifo_ctrl_wr_en; }
+  inline int  GetMPCFramesFifoCtrlWrEn() { return mpc_frames_fifo_ctrl_wr_en_; }
+  inline int  GetReadMPCFramesFifoCtrlWrEn() { return read_mpc_frames_fifo_ctrl_wr_en_; }
+
+  inline void SetMPCFramesFifoCtrlRdEn(int mpc_frames_fifo_ctrl_rd_en) { mpc_frames_fifo_ctrl_rd_en_ = mpc_frames_fifo_ctrl_rd_en; }
+  inline int  GetMPCFramesFifoCtrlRdEn() { return mpc_frames_fifo_ctrl_rd_en_; }
+  inline int  GetReadMPCFramesFifoCtrlRdEn() { return read_mpc_frames_fifo_ctrl_rd_en_; }
+  //-----------------------------------------------------------------------------
+  // 0X300 - 0X306 = ADR_GEM_GTX_RX[0-3]: GTX link control and monitoring for GEM
+  //-----------------------------------------------------------------------------
+  //Enable this GTX optical input,  disables copper input
+  inline void SetGemGtxRxEnable(int gemNum, int gem_gtx_rx_enable) { gem_gtx_rx_enable_[gemNum] = gem_gtx_rx_enable; }
+  inline int  GetGemGtxRxEnable(int gemNum) { return gem_gtx_rx_enable_[gemNum]; }
+  inline int  GetReadGemGtxRxEnable(int gemNum) { return read_gem_gtx_rx_enable_[gemNum]; }
+
+  //Reset this GTX
+  inline void SetGemGtxRxReset(int gemNum, int gem_gtx_rx_reset) { gem_gtx_rx_reset_[gemNum] = gem_gtx_rx_reset; }
+  inline int  GetGemGtxRxReset(int gemNum) { return gem_gtx_rx_reset_[gemNum]; }
+  inline int  GetReadGemGtxRxReset(int gemNum) { return read_gem_gtx_rx_reset_[gemNum]; }
+
+  //Select this GTX for PRBS test input mode
+  inline void SetGemGtxRxPrbsTestEnable(int gemNum, int gem_gtx_rx_prbs_test_enable) { gem_gtx_rx_prbs_test_enable_[gemNum] = gem_gtx_rx_prbs_test_enable; }
+  inline int  GetGemGtxRxPrbsTestEnable(int gemNum) { return gem_gtx_rx_prbs_test_enable_[gemNum]; }
+  inline int  GetReadGemGtxRxPrbsTestEnable(int gemNum) { return read_gem_gtx_rx_prbs_test_enable_[gemNum]; }
+
+  //Writes all GTX control registers to FPGA
+  void ReadGemGtxRxRegisters();
+  void WriteGemGtxControlRegisters();
+
+  //GTX ready
+  inline int  GetReadGemGtxRxReady(int gemNum) { return read_gem_gtx_rx_ready_[gemNum]; }
+
+  //GTX link is locked (over 15 BX with clean data frames)
+  inline int  GetReadGemGtxRxLinkGood(int gemNum) { return read_gem_gtx_rx_link_good_[gemNum]; }
+
+  //GTX link had an error (bad data frame) since last reset
+  inline int  GetReadGemGtxRxLinkHadError(int gemNum) { return read_gem_gtx_rx_link_had_error_[gemNum]; }
+
+  //GTX link had over 100 errors since last reset
+  inline int  GetReadGemGtxRxLinkBad(int gemNum) { return read_gem_gtx_rx_link_bad_[gemNum]; }
+
+  //GTX 5,6 [ie dcfeb 4,5] have swapped rx board routes
+  inline int  GetReadGemGtxRxPolSwap(int gemNum) { return read_gem_gtx_rx_pol_swap_[gemNum]; }
+
+  //GTX link error count (full scale count is hex E0)
+  inline int  GetReadGemGtxRxErrorCount(int gemNum) { return read_gem_gtx_rx_error_count_[gemNum]; }
+
+  //-----------------------------------------------------------------------------
+  // 0x308 & 0x30A GEM Phasers
+  //-----------------------------------------------------------------------------
+
+  inline void SetGemARxClockDelay(int gemA_rx_clock_delay) {
+      gem_rx_clock_delay_  = gemA_rx_clock_delay;
+      gemA_rx_clock_delay_ = gemA_rx_clock_delay;
+  }
+  inline void SetGemBRxClockDelay(int gemB_rx_clock_delay) { gemB_rx_clock_delay_ = gemB_rx_clock_delay; }
+  //
+  inline void SetGemRxClockDelay(int gem_rx_clock_delay) {
+      gem_rx_clock_delay_  = gem_rx_clock_delay;
+      gemA_rx_clock_delay_ = gem_rx_clock_delay;
+      gemB_rx_clock_delay_ = gem_rx_clock_delay;
+  }
+  //
+  inline void SetGemRxFineDelay(int gem_rx_fine_delay) {
+      gem_rx_fine_delay_  = gem_rx_fine_delay;
+      gemA_rx_fine_delay_ = gem_rx_fine_delay;
+      gemB_rx_fine_delay_ = gem_rx_fine_delay;
+  }
+  inline int GetGemRxFineDelay() { return  gem_rx_fine_delay_; } 
+  //
+  inline int GetGemARxClockDelay() { return gemA_rx_clock_delay_; }
+  inline int GetGemBRxClockDelay() { return gemB_rx_clock_delay_; }
+  inline int GetGemRxClockDelay()  { return gem_rx_clock_delay_; }
+  inline int GetReadGemRxClockDelay()  { return read_gem_rx_clock_delay_ ;}
+  inline int GetReadGemRxPosNeg(){return read_gem_rx_posneg_;}
+  //
+  inline void SetGemRxPosNeg  (int gem_rx_posneg)  { gem_rx_posneg_  = gem_rx_posneg;}
+  inline void SetGemARxPosNeg (int gemA_rx_posneg) { gemA_rx_posneg_ = gemA_rx_posneg;}
+  inline void SetGemBRxPosNeg (int gemB_rx_posneg) { gemB_rx_posneg_ = gemB_rx_posneg;}
+  //
+  inline int  GetGemARxPosNeg() { return gemA_rx_posneg_;}
+  inline int  GetGemBRxPosNeg() { return gemB_rx_posneg_;}
+  inline int  GetGemRxPosNeg() {
+    return gem_rx_posneg_;
+  }
+
+  //-----------------------------------------------------------------------------
+  // 0X310 ADR_GEM_TBINS
+  //-----------------------------------------------------------------------------
+
+  inline int  GetGemFifoTbins ()                                   { return gem_fifo_tbins_;}
+  inline void SetGemFifoTbins (int gem_fifo_tbins)                 { gem_fifo_tbins_ = gem_fifo_tbins;}
+
+  inline int  GetGemFifoPreTrig ()                                 { return gem_fifo_pretrig_;}
+  inline void SetGemFifoPreTrig (int fifo_pretrig)                 { gem_fifo_pretrig_ = fifo_pretrig;}
+
+  inline int  GetGemDecoupleTbins ()                               { return gem_fifo_decouple_; }
+  inline void SetGemDecoupleTbins(int gem_fifo_decouple)           { gem_fifo_decouple_ = gem_fifo_decouple ;}
+
+  inline int  GetGemReadEnable()                                   { return gem_read_enable_; }
+  inline void SetGemReadEnable(int gem_read_enable)                { gem_read_enable_ = gem_read_enable; }
+
+  inline int  GetGemZeroSupressEnable()                            { return gem_zero_supress_enable_; }
+  inline void SetGemZeroSupressEnable(int gem_zero_supress_enable) { gem_zero_supress_enable_ = gem_zero_supress_enable; }
+
+  //-----------------------------------------------------------------------------
+  // 0X312 GEM_CFG
+  //-----------------------------------------------------------------------------
+
+  inline int  GetGemARxdIntDelay ()                                { return gemA_rxd_int_delay_ ;}
+  inline int  GetReadGemARxdIntDelay ()                            { return read_gemA_rxd_int_delay_ ;}
+  inline void SetGemARxdIntDelay (int gemA_rxd_int_delay)          { gemA_rxd_int_delay_ = gemA_rxd_int_delay;}
+
+  inline int  GetGemBRxdIntDelay ()                                { return gemB_rxd_int_delay_;}
+  inline int  GetReadGemBRxdIntDelay ()                            { return read_gemB_rxd_int_delay_ ;}
+  inline void SetGemBRxdIntDelay (int gemB_rxd_int_delay)          { gemB_rxd_int_delay_ = gemB_rxd_int_delay;}
+
+  inline int  GetGemRxdIntDelay ()                                 { return gem_rxd_int_delay_;}
+  inline void SetGemRxdIntDelay (int gem_rxd_int_delay)            {
+      gem_rxd_int_delay_  = gem_rxd_int_delay;
+      gemA_rxd_int_delay_ = gem_rxd_int_delay;
+      gemB_rxd_int_delay_ = gem_rxd_int_delay;
+  }
+  inline int  GetReadGemRxdIntDelay() {
+    assert(HasGroupedGemRxValues()>0);
+    return GetReadGemARxdIntDelay();
+  }
+
+  inline int  GetDecoupleGemRxdIntDelay ()                               { return decouple_gem_rxd_int_delay_ ;}
+  inline void SetDecoupleGemRxdIntDelay (int decouple_gem_rxd_int_delay) { decouple_gem_rxd_int_delay_ = decouple_gem_rxd_int_delay;}
+
+  inline int  GetGemReadoutMask ()                     { return gem_readout_mask_;}
+  inline void SetGemReadoutMask (int gem_readout_mask) { gem_readout_mask_ = gem_readout_mask;}
+
+
   //
   //
   // **********************************************************************************
@@ -2531,7 +2782,11 @@ public:
   //std::string version_;
   //
   void SetTMBRegisterDefaults();               //set the software write values for TMB registers to default values
+
+  void clear_mpc_tx_delay();   // clear the mpc_tx_delay field in register ADR_TMBTIM; used by TMB-MPC test
   //
+  void new_scan(int reg, char *snd,int cnt,char *rcv,int ird, int chain); // new unified JTAG routine
+  
 protected:
   void new_clk_delays(unsigned short int time, int cfeb_id);
   //
@@ -2544,6 +2799,8 @@ private:
   //
   Chamber * csc_;
   int tmb_idcode_[7];
+  /// chamber name
+  std::string label_;
   //
   // VME access methods which should never be called except from within TMB...
   // ucla_start was always called with a dev and a slot
@@ -2583,12 +2840,26 @@ private:
   int CLCT0_data_;
   int CLCT1_data_;
   //
+  int mpc0_frame0_data_;
+  int mpc0_frame1_data_;
+  int mpc1_frame0_data_;
+  int mpc1_frame1_data_;
+  //
+  int mpc0_frame0_fifo_data_;
+  int mpc0_frame1_fifo_data_;
+  int mpc1_frame0_fifo_data_;
+  int mpc1_frame1_fifo_data_;
+  //
+  int mpc_frames_fifo_ctrl_data_;
+  //
   int ALCT0_data_;
   int ALCT1_data_;
   //
   // The following is actually the MaxCounter in TMB + 1 (i.e., they count from 0)
-  static const int MaxCounter = 79;
+  static const int MaxCounter = 93;
+  static const int MaxGEMCounter = 59;
   int FinalCounter[MaxCounter+40];
+  int FinalGEMCounter[MaxGEMCounter+1];
   int alct_sent_to_tmb_counter_index_;
   int ecc_trigger_path_one_error_counter_index_;
   int ecc_trigger_path_two_errors_counter_index_;
@@ -2737,7 +3008,7 @@ private:
   int read_ddd_state_machine_clock1_lock_;
   int read_ddd_state_machine_clock_alct_lock_;
   int read_ddd_state_machine_clockd_alct_lock_;
-  int read_ddd_state_machine_clock_cfeb_lock_;
+  int read_ddd_state_machine_clock_mpc_lock_;
   int read_ddd_state_machine_clock_dcc_lock_;
   int read_ddd_state_machine_clock_rpc_lock_;
   //
@@ -3118,6 +3389,78 @@ private:
   int read_mpc_output_enable_;
   //
   //------------------------------------------------------------------
+  //0X88 = ADR_MPC0_FRAME0:  MPC0 Frame0 Data Sent to MPC
+  //------------------------------------------------------------------
+  int read_mpc0_frame0_alct_first_key_;
+  int read_mpc0_frame0_clct_first_pat_;
+  int read_mpc0_frame0_lct_first_quality_;
+  int read_mpc0_frame0_first_vpf_;
+  //
+  //------------------------------------------------------------------
+  //0X8A = ADR_MPC0_FRAME1:  MPC0 Frame1 Data Sent to MPC
+  //------------------------------------------------------------------
+  int read_mpc0_frame1_clct_first_key_;
+  int read_mpc0_frame1_clct_first_bend_;
+  int read_mpc0_frame1_sync_err_;
+  int read_mpc0_frame1_alct_first_bxn_;
+  int read_mpc0_frame1_clct_first_bx0_local_;
+  int read_mpc0_frame1_csc_id_;
+  //
+  //------------------------------------------------------------------
+  //0X8C = ADR_MPC1_FRAME0:  MPC1 Frame0 Data Sent to MPC
+  //------------------------------------------------------------------
+  int read_mpc1_frame0_alct_second_key_;
+  int read_mpc1_frame0_clct_second_pat_;
+  int read_mpc1_frame0_lct_second_quality_;
+  int read_mpc1_frame0_second_vpf_;
+  //
+  //------------------------------------------------------------------
+  //0X8E = ADR_MPC1_FRAME1:  MPC1 Frame1 Data Sent to MPC
+  //------------------------------------------------------------------
+  int read_mpc1_frame1_clct_second_key_;
+  int read_mpc1_frame1_clct_second_bend_;
+  int read_mpc1_frame1_sync_err_;
+  int read_mpc1_frame1_alct_second_bxn_;
+  int read_mpc1_frame1_clct_second_bx0_local_;
+  int read_mpc1_frame1_csc_id_;
+  //
+  //------------------------------------------------------------------
+  //0X17C = ADR_MPC0_FRAME0_FIFO:  MPC0 Frame0 Data Sent to MPC and Stored in FIFO
+  //------------------------------------------------------------------
+  int read_mpc0_frame0_fifo_alct_first_key_;
+  int read_mpc0_frame0_fifo_clct_first_pat_;
+  int read_mpc0_frame0_fifo_lct_first_quality_;
+  int read_mpc0_frame0_fifo_first_vpf_;
+  //
+  //------------------------------------------------------------------
+  //0X17E = ADR_MPC0_FRAME1_FIFO:  MPC0 Frame1 Data Sent to MPC and Stored in FIFO
+  //------------------------------------------------------------------
+  int read_mpc0_frame1_fifo_clct_first_key_;
+  int read_mpc0_frame1_fifo_clct_first_bend_;
+  int read_mpc0_frame1_fifo_sync_err_;
+  int read_mpc0_frame1_fifo_alct_first_bxn_;
+  int read_mpc0_frame1_fifo_clct_first_bx0_local_;
+  int read_mpc0_frame1_fifo_csc_id_;
+  //
+  //------------------------------------------------------------------
+  //0X180 = ADR_MPC1_FRAME0_FIFO:  MPC1 Frame0 Data Sent to MPC and Stored in FIFO
+  //------------------------------------------------------------------
+  int read_mpc1_frame0_fifo_alct_second_key_;
+  int read_mpc1_frame0_fifo_clct_second_pat_;
+  int read_mpc1_frame0_fifo_lct_second_quality_;
+  int read_mpc1_frame0_fifo_second_vpf_;
+  //
+  //------------------------------------------------------------------
+  //0X182 = ADR_MPC1_FRAME1_FIFO:  MPC1 Frame1 Data Sent to MPC and Stored in FIFO
+  //------------------------------------------------------------------
+  int read_mpc1_frame1_fifo_clct_second_key_;
+  int read_mpc1_frame1_fifo_clct_second_bend_;
+  int read_mpc1_frame1_fifo_sync_err_;
+  int read_mpc1_frame1_fifo_alct_second_bxn_;
+  int read_mpc1_frame1_fifo_clct_second_bx0_local_;
+  int read_mpc1_frame1_fifo_csc_id_;
+  //
+  //------------------------------------------------------------------
   //0X98 = ADR_SCP_CTRL:  Scope control
   //------------------------------------------------------------------
   int scope_in_readout_;
@@ -3188,10 +3531,12 @@ private:
   int alct_vpf_delay_;
   int alct_match_window_size_;
   int mpc_tx_delay_;
+  int clct_match_window_size_;
   //
   int read_alct_vpf_delay_;
   int read_alct_match_window_size_;
   int read_mpc_tx_delay_;
+  int read_clct_match_window_size_;
   //
   //------------------------------------------------------------------
   //0XB6 = ADR_RPC_CFG:  RPC Configuration
@@ -3293,13 +3638,14 @@ private:
   //0XD4 = ADR_JTAGSM0:  JTAG State Machine Control (reads JTAG PROM)
   //------------------------------------------------------------------
   int jtag_state_machine_start_;
+  int jtag_state_machine_select_;
   int jtag_state_machine_sreset_;
   int jtag_disable_write_to_adr10_;
   int jtag_state_machine_throttle_;
   //
   int read_jtag_state_machine_start_;
   int read_jtag_state_machine_sreset_;
-  int read_jtag_state_machine_autostart_;
+  int read_jtag_state_machine_select_;
   int read_jtag_state_machine_busy_;
   int read_jtag_state_machine_aborted_;
   int read_jtag_state_machine_cksum_ok_;
@@ -3539,9 +3885,11 @@ private:
   //[0X112] = ADR_PHASER2:  values in the xml file for cfeb0_rx
   //--------------------------------------------------------------
   int cfeb0_rx_clock_delay_ ;
+  int cfeb0_rx_fine_delay_ ;
   int cfeb0_rx_posneg_;
   //
   int read_cfeb0_rx_clock_delay_ ;
+  int read_cfeb0_rx_fine_delay_ ;
   int read_cfeb0_rx_posneg_;
   //
   //
@@ -3549,9 +3897,11 @@ private:
   //[0X114] = ADR_PHASER3:  values in the xml file for cfeb1_rx
   //--------------------------------------------------------------
   int cfeb1_rx_clock_delay_ ;
+  int cfeb1_rx_fine_delay_ ;
   int cfeb1_rx_posneg_;
   //
   int read_cfeb1_rx_clock_delay_ ;
+  int read_cfeb1_rx_fine_delay_ ;
   int read_cfeb1_rx_posneg_;
   //
   //
@@ -3559,9 +3909,11 @@ private:
   //[0X116] = ADR_PHASER4:  values in the xml file for cfeb2_rx
   //--------------------------------------------------------------
   int cfeb2_rx_clock_delay_ ;
+  int cfeb2_rx_fine_delay_ ;
   int cfeb2_rx_posneg_;
   //
   int read_cfeb2_rx_clock_delay_ ;
+  int read_cfeb2_rx_fine_delay_ ;
   int read_cfeb2_rx_posneg_;
   //
   //
@@ -3569,9 +3921,11 @@ private:
   //[0X118] = ADR_PHASER5:  values in the xml file for cfeb3_rx
   //--------------------------------------------------------------
   int cfeb3_rx_clock_delay_ ;
+  int cfeb3_rx_fine_delay_ ;
   int cfeb3_rx_posneg_;
   //
   int read_cfeb3_rx_clock_delay_ ;
+  int read_cfeb3_rx_fine_delay_ ;
   int read_cfeb3_rx_posneg_;
   //
   //
@@ -3579,9 +3933,11 @@ private:
   //[0X11A] = ADR_PHASER6:  values in the xml file for cfeb4_rx
   //--------------------------------------------------------------
   int cfeb4_rx_clock_delay_ ;
+  int cfeb4_rx_fine_delay_ ;
   int cfeb4_rx_posneg_;
   //
   int read_cfeb4_rx_clock_delay_ ;
+  int read_cfeb4_rx_fine_delay_ ;
   int read_cfeb4_rx_posneg_;
   //
   //
@@ -3589,13 +3945,17 @@ private:
   //[0X16A] = ADR_V6_PHASER7:  values in the xml file for A side dcfebs - cfeb456_rx
   //--------------------------------------------------------------
   int cfeb456_rx_clock_delay_ ;
+  int cfeb456_rx_fine_delay_ ;
   int cfeb456_rx_posneg_;
   int cfeb5_rx_clock_delay_ ;
+  int cfeb5_rx_fine_delay_ ;
   int cfeb5_rx_posneg_;
   //
   int read_cfeb456_rx_clock_delay_ ;
+  int read_cfeb456_rx_fine_delay_ ;
   int read_cfeb456_rx_posneg_;
   int read_cfeb5_rx_clock_delay_ ;
+  int read_cfeb5_rx_fine_delay_ ;
   int read_cfeb5_rx_posneg_;
   //
   //
@@ -3603,18 +3963,49 @@ private:
   //[0X16C] = ADR_V6_PHASER8:  values in the xml file for B side dcfebs - cfeb0123_rx
   //--------------------------------------------------------------
   int cfeb0123_rx_clock_delay_ ;
+  int cfeb0123_rx_fine_delay_ ;
   int cfeb0123_rx_posneg_;
   int cfeb6_rx_clock_delay_ ;
+  int cfeb6_rx_fine_delay_ ;
   int cfeb6_rx_posneg_;
   //
   int read_cfeb0123_rx_clock_delay_ ;
+  int read_cfeb0123_rx_fine_delay_ ;
   int read_cfeb0123_rx_posneg_;
   int read_cfeb6_rx_clock_delay_ ;
+  int read_cfeb6_rx_fine_delay_ ;
   int read_cfeb6_rx_posneg_;
+  //
+  //--------------------------------------------------------------
+  //[0X308] = ADR_V6_PHASER9:  values in the xml file for GEMA
+  //--------------------------------------------------------------
+  int gem_rx_clock_delay_ ;
+  int gem_rx_fine_delay_  ;
+  int gem_rx_posneg_;
+  int read_gem_rx_clock_delay_ ;
+  int read_gem_rx_fine_delay_  ;
+  int read_gem_rx_posneg_;
+  //
+  int gemA_rx_clock_delay_ ;
+  int gemA_rx_fine_delay_  ;
+  int gemA_rx_posneg_;
+  int read_gemA_rx_clock_delay_ ;
+  int read_gemA_rx_fine_delay_  ;
+  int read_gemA_rx_posneg_;
+  //
+  //--------------------------------------------------------------
+  //[0X30A] = ADR_V6_PHASER10:  values in the xml file for GEMB
+  //--------------------------------------------------------------
+  int gemB_rx_clock_delay_ ;
+  int gemB_rx_fine_delay_  ;
+  int gemB_rx_posneg_;
+  int read_gemB_rx_clock_delay_ ;
+  int read_gemB_rx_fine_delay_  ;
+  int read_gemB_rx_posneg_;
   //
   //
   //!convert the user value to values which are written to the VME Register
-  int ConvertDigitalPhaseToVMERegisterValues_(int digital_phase,int posneg);
+  int ConvertDigitalPhaseToVMERegisterValues_(int digital_phase,int posneg,int fine_phase=0);
   //
   //!convert the user value (in nsec) to values which are written to the VME Register
   void ConvertVMERegisterValuesToDigitalPhases_(long unsigned int vme_address);
@@ -3697,6 +4088,16 @@ private:
   int cfeb_badbits_nbx_;
   //
   int read_cfeb_badbits_nbx_;
+  //
+  //
+  //------------------------------------------------------------------
+  //0X126,128,12A = ADR_BADBITS001,BADBITS023,BADBITS045 = CFEB0 BadBits Masks
+  //0X12C,12E,130 = ADR_BADBITS101,BADBITS123,BADBITS145 = CFEB1 BadBits Masks
+  //0X132,134,136 = ADR_BADBITS201,BADBITS223,BADBITS245 = CFEB2 BadBits Masks
+  //0X138,13A,13C = ADR_BADBITS301,BADBITS323,BADBITS345 = CFEB3 BadBits Masks
+  //0X13E,140,142 = ADR_BADBITS401,BADBITS423,BADBITS445 = CFEB4 BadBits Masks
+  //------------------------------------------------------------------
+  int read_badbits_[MAX_NUM_LAYERS][MAX_NUM_DISTRIPS_PER_LAYER_EXT];
   //
   //
   //---------------------------------------------------------------------
@@ -3817,233 +4218,255 @@ private:
   // 0X192 = ADR_GTX_SYNC_DONE_TIME
   //---------------------------------------------------------------------
   int read_gtx_sync_done_time_;
-
-  //------------------------------------------------------------------
-  //0X126,128,12A = ADR_BADBITS001,BADBITS023,BADBITS045 = CFEB0 BadBits Masks
-  //0X12C,12E,130 = ADR_BADBITS101,BADBITS123,BADBITS145 = CFEB1 BadBits Masks
-  //0X132,134,136 = ADR_BADBITS201,BADBITS223,BADBITS245 = CFEB2 BadBits Masks
-  //0X138,13A,13C = ADR_BADBITS301,BADBITS323,BADBITS345 = CFEB3 BadBits Masks
-  //0X13E,140,142 = ADR_BADBITS401,BADBITS423,BADBITS445 = CFEB4 BadBits Masks
-  //------------------------------------------------------------------
-  int read_badbits_[MAX_NUM_LAYERS][MAX_NUM_DISTRIPS_PER_LAYER_EXT];
   //
+  //------------------------------------------------------------------
+  //0X184 = ADR_MPC_FRAMES_FIFO_CTRL:  Controls FIFO
+  //------------------------------------------------------------------
+  int mpc_frames_fifo_ctrl_wr_en_;
+  int mpc_frames_fifo_ctrl_rd_en_;
+  //
+  int read_mpc_frames_fifo_ctrl_wr_en_;
+  int read_mpc_frames_fifo_ctrl_rd_en_;
+  int read_mpc_frames_fifo_ctrl_full_;
+  int read_mpc_frames_fifo_ctrl_wr_ack_;
+  int read_mpc_frames_fifo_ctrl_overflow_;
+  int read_mpc_frames_fifo_ctrl_empty_;
+  int read_mpc_frames_fifo_ctrl_prog_full_;
+  int read_mpc_frames_fifo_ctrl_sbiterr_;
+  int read_mpc_frames_fifo_ctrl_sditter_;
+  //
+  //------------------------------------------------------------------
+  //0X198 = ADR_NEWALGO_CTRL:  Controls parameters of new trigger algorithm  (Yuriy, 2016)
+  //------------------------------------------------------------------
+  int use_dead_time_zone_;
+  int dead_time_zone_size_;
+  int use_dynamic_dead_time_zone_;
+  int clct_to_alct_;
+  int drop_used_clcts_;
+  int cross_bx_algorithm_;
+  int clct_use_corrected_bx_;
+
+  int read_use_dead_time_zone_;
+  int read_dead_time_zone_size_;
+  int read_use_dynamic_dead_time_zone_;
+  int read_clct_to_alct_;
+  int read_drop_used_clcts_;
+  int read_cross_bx_algorithm_;
+  int read_clct_use_corrected_bx_;
+  //
+  //-----------------------------------------------------------------------------
+  // 0X300 - 0X306 = ADR_GEM_GTX_RX[0-3]: GTX link control and monitoring for GEM
+  //-----------------------------------------------------------------------------
+  int gem_gtx_rx_enable_[MAX_GEM_FIBERS_ME11];
+  int gem_gtx_rx_reset_[MAX_GEM_FIBERS_ME11];
+  int gem_gtx_rx_prbs_test_enable_[MAX_GEM_FIBERS_ME11];
+  //
+  int read_gem_gtx_rx_enable_[MAX_GEM_FIBERS_ME11];
+  int read_gem_gtx_rx_reset_[MAX_GEM_FIBERS_ME11];
+  int read_gem_gtx_rx_prbs_test_enable_[MAX_GEM_FIBERS_ME11];
+  int read_gem_gtx_rx_ready_[MAX_GEM_FIBERS_ME11];
+  int read_gem_gtx_rx_link_good_[MAX_GEM_FIBERS_ME11];
+  int read_gem_gtx_rx_link_had_error_[MAX_GEM_FIBERS_ME11];
+  int read_gem_gtx_rx_link_bad_[MAX_GEM_FIBERS_ME11];
+  int read_gem_gtx_rx_pol_swap_[MAX_GEM_FIBERS_ME11];
+  int read_gem_gtx_rx_error_count_[MAX_GEM_FIBERS_ME11];
+  //
+  //-----------------------------------------------------------------------------
+  // 0X310 ADR_GEM_TBINS
+  //-----------------------------------------------------------------------------
+  //
+  int gem_fifo_tbins_;
+  int gem_fifo_pretrig_;
+  int gem_fifo_decouple_;
+  int gem_read_enable_;
+  int gem_zero_supress_enable_;
+  //
+  int read_gem_fifo_tbins_;
+  int read_gem_fifo_pretrig_;
+  int read_gem_fifo_decouple_;
+  int read_gem_read_enable_;
+  int read_gem_zero_supress_enable_;
+  //
+  //-----------------------------------------------------------------------------
+  // 0X312 ADR_GEM_CFG
+  //-----------------------------------------------------------------------------
+  //
+  int gemA_rxd_int_delay_;
+  int gemB_rxd_int_delay_;
+  int gem_rxd_int_delay_;
+
+  int decouple_gem_rxd_int_delay_;
+
+  int gem_readout_mask_;
+  //
+  int read_gemA_rxd_int_delay_;
+  int read_gemB_rxd_int_delay_;
+  int read_gem_rxd_int_delay_;
+
+  int read_decouple_gem_rxd_int_delay_;
+  int read_gem_readout_mask_;
   //
   //*******************************************************************
   // TMB Raw Hits header words
   //*******************************************************************
-  //-----------
-  // header 0
-  //-----------
-  int h0_beginning_of_cathode_ ;
-  int h0_marker_6_             ;
-  //
-  //-----------
-  // header 1
-  //-----------
-  int h1_nTbins_per_cfeb_ ;
-  int h1_cfebs_read_      ;
-  //
-  // fifo mode
-  // 0 = no raw hits, full header (if buffer was available at pretrigger)
-  // 1 = all 5 CFEBs raw hits, full header (if buffer was available at pretrigger)
-  // 2 = Local raw hits, full header (if buffer was available at pretrigger)
-  // 3 = no raw hits, short header
-  // 4 = no raw hits, no header
-  int h1_fifo_mode_       ;
-  //
-  //-----------
-  // header 2
-  //-----------
-  int h2_l1a_counter_ ;
-  int h2_csc_id_      ;
-  int h2_board_id_    ;
-  //
-  // L1A pop type mode:  
-  // 0 = Normal CLCT trigger with buffer data and L1A window match
-  // 1 = ALCT-only trigger, no data buffers
-  // 2 = L1A-only, no matching TMB trigger, no buffer data
-  // 3 = TMB triggered, no L1A-window match, event has buffer data
-  int h2_l1a_type_    ;
-  //
-  //-----------
-  // header 3
-  //-----------
-  int h3_bxn_counter_   ;
-  //
-  // record type: 
-  //   0 = rawhits no   , header full
-  //   1 = rawhits full , header full
-  //   2 = rawhits local, header full
-  //   3 = rawhits no   , header short (no buffer was available at pretrigger)
-  int h3_record_type_   ;
-  int h3_scope_in_data_ ;
-  //
-  //-----------
-  // header 4
-  //-----------
-  int h4_nheader_words_   ;
-  int h4_nCFEBs_read_     ;
-  int h4_has_buffer_data_ ;
-  int h4_fifo_pretrig_    ;
-  //
-  //-----------
-  // header 5
-  //-----------
-  int h5_l1a_at_pretrig_                   ;
-  int h5_trigger_source_vector_            ;
-  int h5_trigger_source_halfstrip_distrip_ ;
-  //
-  //-----------
-  // header 6
-  //-----------
-  int h6_aff_to_dmb_  ;
-  int h6_cfeb_exists_ ;
-  int h6_run_info_    ;
-  //
-  //-----------
-  // header 7
-  //-----------
-  int h7_bxn_at_clct_pretrig_ ;
-  int h7_sync_err_            ;
-  //
-  //-----------
-  // header 8
-  //-----------
-  int h8_clct0_lsbs_ ;
-  //
-  //-----------
-  // header 9
-  //-----------
-  int h9_clct1_lsbs_ ;
-  //
-  //-----------
-  // header 10
-  //-----------
-  int h10_clct0_msbs_            ;
-  int h10_clct1_msbs_            ;
-  int h10_clct0_invalid_pattern_ ;
-  //
-  //-----------
-  // header 11
-  //-----------
-  int h11_alct_clct_match_           ;
-  int h11_alct_trig_only_            ;
-  int h11_clct_trig_only_            ;
-  int h11_clct0_alct_bxn_diff_       ;
-  int h11_clct1_alct_bxn_diff_       ;
-  int h11_alct_in_clct_match_window_ ;
-  int h11_triad_persistence_         ;
-  //
-  //-----------
-  // header 12
-  //-----------
-  int h12_mpc0_frame0_lsbs_ ;
-  //
-  //-----------
-  // header 13
-  //-----------
-  int h13_mpc0_frame1_lsbs_ ;
-  //
-  //-----------
-  // header 14
-  //-----------
-  int h14_mpc1_frame0_lsbs_ ;
-  //
-  //-----------
-  // header 15
-  //-----------
-  int h15_mpc1_frame1_lsbs_ ;
-  //
-  //-----------
-  // header 16
-  //-----------
-  int h16_mpc0_frame0_msbs_              ;
-  int h16_mpc0_frame1_msbs_              ;
-  int h16_mpc1_frame0_msbs_              ;
-  int h16_mpc1_frame1_msbs_              ;
-  int h16_mpc_accept_                    ;
-  int h16_clct_halfstrip_pretrig_thresh_ ;
-  int h16_clct_distrip_pretrig_thresh_   ;
-  //
-  //-----------
-  // header 17
-  //-----------
-  int h17_write_buffer_ready_     ;
-  int h17_pretrig_tbin_           ;
-  int h17_write_buffer_address_   ;
-  int h17_pretrig_no_free_buffer_ ;
-  int h17_buffer_full_            ;
-  int h17_buffer_almost_full_     ;
-  int h17_buffer_half_full_       ;
-  int h17_buffer_empty_           ;
-  //
-  //-----------
-  // header 18
-  //-----------
-  int h18_nbuf_busy_          ;
-  int h18_buf_busy_           ;
-  int h18_l1a_stack_overflow_ ;
-  //
-  //-----------
-  // header 19
-  //-----------
-  int h19_tmb_trig_pulse_         ;
-  int h19_tmb_alct_only_          ;
-  int h19_tmb_clct_only_          ;
-  int h19_tmb_match_              ;
-  int h19_write_buffer_ready_     ;
-  int h19_write_buffer_available_ ;
-  int h19_write_tbin_address_     ;
-  int h19_write_buffer_address_   ;
-  //
-  //-----------
-  // header 20
-  //-----------
-  int h20_discard_no_write_buf_available_ ;
-  int h20_discard_invalid_pattern_        ;
-  int h20_discard_tmb_reject_             ;
-  int h20_timeout_no_tmb_trig_pulse_      ;
-  int h20_timeout_no_mpc_frame_           ;
-  int h20_timeout_no_mpc_response_        ;
-  //
-  //-----------
-  // header 21
-  //-----------
-  int h21_match_trig_alct_delay_   ;
-  int h21_match_trig_window_width_ ;
-  int h21_mpc_tx_delay_            ;
-  //
-  //-----------
-  // header 22
-  //-----------
-  int h22_rpc_exist_       ;
-  int h22_rpc_list_        ;
-  int h22_nrpc_            ;
-  int h22_rpc_read_enable_ ;
-  int h22_nlayers_hit_     ;
-  int h22_l1a_in_window_   ;
-  //
-  //-----------
-  // header 23
-  //-----------
-  int h23_board_status_ ;
-  //
-  //-----------
-  // header 24
-  //-----------
-  int h24_time_since_hard_reset_ ;
-  //
-  //-----------
-  // header 25
-  //-----------
-  int h25_firmware_version_date_code_ ;
-  //
+  //number following h is the number of the header. for example, h1=header 01
+
+  int h0_beginning_of_cathode_;
+  int h1_r_l1a_bxn_win_;
+  int h2_r_l1a_cnt_win_;
+  int h3_readout_counter_;
+  int h4_board_id_;
+  int h4_csc_id_;
+  int h4_run_id_;
+  int h4_buf_q_ovf_err_;
+  int h4_sync_err_hdr_;
+  int h5_r_nheaders_;
+  int h5_fifo_mode_;
+  int h5_readout_type_;
+  int h5_l1a_type_;
+  int h5_r_has_buf_;
+  int h5_buf_stalled_hdr_;
+  int h6_bd_status_;
+  int h7_revcode_;
+  int h8_r_bxn_counter_;
+  int h8_r_tmb_clct0_discard_;
+  int h8_r_tmb_clct1_discard_;
+  int h8_clock_lock_lost_err_;
+  int h9_r_pretrig_counter_lsbs_;
+  int h10_r_pretrig_counter_msbs_;
+  int h11_r_clct_counter_lsbs_;
+  int h12_r_clct_counter_msbs_;
+  int h13_r_trig_counter_lsbs_;
+  int h14_r_trig_counter_msbs_;
+  int h15_r_alct_counter_lsbs_;
+  int h16_r_alct_counter_msbs_;
+  int h17_r_orbit_counter_lsbs_;
+  int h18_r_orbit_counter_msbs_;
+  int h19_r_ncfebs_;
+  int h19_r_fifo_tbins_cfeb_;
+  int h19_fifo_pretrig_cfeb_;
+  int h19_scp_auto_;
+  int h19_mini_read_enable_;
+  int h20_hit_thresh_pretrig_;
+  int h20_pid_thresh_pretrig_;
+  int h20_hit_thresh_postdrift_;
+  int h20_pid_thresh_postdrift_;
+  int h20_stagger_hs_csc_;
+  int h21_triad_persist_;
+  int h21_dmb_thresh_pretrig_;
+  int h21_alct_delay_;
+  int h21_clct_window_;
+  int h22_r_trig_source_vec_lsbs_;
+  int h22_r_layers_hit_;
+  int h23_active_feb_mux_lsbs_;
+  int h23_r_cfebs_read_lsbs_;
+  int h23_r_l1a_match_win_;
+  int h23_active_feb_src_;
+  int h24_r_tmb_match_;
+  int h24_r_tmb_alct_only_;
+  int h24_r_tmb_clct_only_;
+  int h24_r_tmb_match_win_;
+  int h24_r_tmb_no_alct_;
+  int h24_r_tmb_one_alct_;
+  int h24_r_tmb_one_clct_;
+  int h24_r_tmb_two_alct_;
+  int h24_r_tmb_two_clct_;
+  int h24_r_tmb_dupe_alct_;
+  int h24_r_tmb_dupe_clct_;
+  int h24_r_tmb_rank_err_;
+  int h25_r_clct0_xtmb_lsbs_;
+  int h26_r_clct1_xtmb_lsbs_;
+  int h27_r_clct0_xtmb_msbs_;
+  int h27_r_clct1_xtmb_msbs_;
+  int h27_r_clctc_xtmb_;
+  int h27_r_clct0_invp_;
+  int h27_r_clct1_invp_;
+  int h27_r_clct1_busy_;
+  int h27_perr_cfeb_ff_lsbs_;
+  int h27_perr_gem_or_rpc_or_mini_ff_;
+  int h27_perr_ff_;
+  int h28_r_alct0_valid_;
+  int h28_r_alct0_quality_;
+  int h28_r_alct0_amu_;
+  int h28_r_alct0_key_;
+  int h28_r_alct_preClct_win_;
+  int h29_r_alct1_valid_;
+  int h29_r_alct1_quality_;
+  int h29_r_alct1_amu_;
+  int h29_r_alct1_key_;
+  int h29_drift_delay_;
+  int h29_bcb_read_enable_;
+  int h29_hs_layer_trig_;
+  int h30_r_alct_bxn_;
+  int h30_r_alct_ecc_err_;
+  int h30_cfeb_badbits_found_lsbs_;
+  int h30_cfeb_badbits_blocked_;
+  int h30_alct_cfg_done_;
+  int h30_bx0_match_;
+  int h31_r_mpc0_frame0_ff_lsbs_;
+  int h32_r_mpc0_frame1_ff_lsbs_;
+  int h33_r_mpc1_frame0_ff_lsbs_;
+  int h34_r_mpc1_frame1_ff_lsbs_;
+  int h35_r_mpc0_frame0_ff_msbs_;
+  int h35_r_mpc0_frame1_ff_msbs_;
+  int h35_r_mpc1_frame0_ff_msbs_;
+  int h35_r_mpc1_frame1_ff_msbs_;
+  int h35_mpc_tx_delay_;
+  int h35_r_mpc_accept_;
+  int h35_cfeb_en_lsbs_;
+  int h36_rd_list_rpc_;
+  int h36_r_nrpcs_read_;
+  int h36_rpc_read_enable_;
+  int h36_fifo_tbins_rpc_;
+  int h36_fifo_pretrig_rpc_;
+  int h36_gem_zero_suppress_;
+  int h36_gem_read_enable_;
+  int h36_fifo_tbins_gem_;
+  int h36_fifo_pretrig_gem_;
+  int h37_r_wr_buf_adr_;
+  int h37_r_wr_buf_ready_;
+  int h37_wr_buf_ready_;
+  int h37_buf_q_full_;
+  int h37_buf_q_empty_;
+  int h38_r_buf_fence_dist_;
+  int h38_buf_q_ovf_err_;
+  int h38_buf_q_udf_err_;
+  int h38_buf_q_adr_err_;
+  int h38_buf_stalled_once_;
+  int h39_buf_fence_cnt_;
+  int h39_reverse_hs_csc_;
+  int h39_reverse_hs_me1a_;
+  int h39_reverse_hs_me1b_;
+  int h40_active_feb_mux_msbs_;
+  int h40_r_cfebs_read_msbs_;
+  int h40_perr_cfeb_ff_msbs_;
+  int h40_cfeb_badbits_found_msbs_;
+  int h40_cfeb_en_msbs_;
+  int h40_buf_fence_cnt_is_peak_;
+  int h40_chamber_is_me11_;
+  int h40_r_trig_source_vec_msbs_;
+  int h40_r_tmb_trig_pulse_;
+  int h41_tmb_allow_alct_;
+  int h41_tmb_allow_clct_;
+  int h41_tmb_allow_match_;
+  int h41_tmb_allow_alct_ro_;
+  int h41_tmb_allow_clct_ro_;
+  int h41_tmb_allow_match_ro_;
+  int h41_r_tmb_alct_only_ro_;
+  int h41_r_tmb_clct_only_ro_;
+  int h41_r_tmb_match_ro_;
+  int h41_r_tmb_trig_keep_;
+  int h41_r_tmb_non_trig_keep_;
+  int h41_lyr_thresh_pretrig_;
+  int h41_layer_trig_en_;
+
   int hardware_version_;
-};
+  int gem_enabled_;
+  }; // class TMB
 
   } // namespace emu::pc
 } // namespace emu
 
 #endif
 
- 
+

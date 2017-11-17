@@ -119,7 +119,7 @@ typedef std::map<std::string, CFEBSCAData> cscCFEBSCAData;
 
 #define DAC_STEPS 20
 #define TIME_STEPS 10
-#define NSAMPLES 9
+#define NSAMPLES 8
 
 // == CFEB SCA cell sample pair (value, count)
 typedef struct test_step
@@ -178,7 +178,7 @@ typedef struct GainData
   int Nlayers;
 //	dac_step content[2][2][2][2];
 //        pulse_fit fit[2][2][2];
-  dac_step content[DAC_STEPS][NLAYERS][MAX_STRIPS][NSAMPLES];
+  dac_step content[DAC_STEPS][NLAYERS][MAX_STRIPS][NSAMPLES+1];
   pulse_fit fit[DAC_STEPS][NLAYERS][MAX_STRIPS];
 } GainData;
 
@@ -308,7 +308,7 @@ public:
 
 protected:
   std::string getCSCFromMap(int crate, int slot, int& csctype, int& cscposition);
-  std::string getCSCTypeLabel(int endcap, int station, int ring );
+//  std::string getCSCTypeLabel(int endcap, int station, int ring );
   // int getNumStrips(std::string cscID);
   void saveCSCList();
   void doBinCheck();
@@ -328,8 +328,8 @@ protected:
   // virtual void bookTestCanvases(std::string cscID);
   virtual void analyzeCSC(const CSCEventData& data) = 0;
   virtual void finishCSC(std::string cscID) = 0;
-  virtual int checkChannel(TestData& cscdata, std::vector<std::string>& tests, int layer, int strip);
-  virtual double checkChannelConstant(std::string test, double value, double threshold);
+  virtual int checkChannel(TestData& cscdata, std::vector<std::string>& tests, int layer, int strip, std::string cscID = "");
+  virtual double checkChannelConstant(std::string test, double value, double threshold, std::string cscID = "");
 
 
   unsigned long binCheckMask;
@@ -370,6 +370,7 @@ protected:
   std::map<std::string, TH2F*> hFormatErrors;
   std::map<std::string, int> tmap; // Map of CSC types for Format Errors histogram
   std::map<std::string, test_limits> tlimits;
+  std::map<std::string, std::map<std::string, test_limits> > csc_tlimits;
   CSCtoHWmap cscmap;
   CSCCrateMap* cratemap;
 //  	cscmap1 *map;

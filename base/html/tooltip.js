@@ -44,8 +44,8 @@ function tooltip(e, o) {
     
         if(o.offsetWidth) {
             ew = o.offsetWidth;
-        } else if(o.clip.width) {
-            ew = o.clip.width;
+        } else if(o.width) {
+            ew = o.width;
         }
     
         y = mouseY(e) + 16;

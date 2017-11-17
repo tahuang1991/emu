@@ -58,7 +58,7 @@ EventDisplay::EventDisplay() {
   histos[2]->GetYaxis()->SetLabelSize(0.0);
   histos[2]->GetYaxis()->SetTickLength(0.0);
   histos[2]->SetBinContent(1, 1, 0.0);
-  histos[2]->SetBinContent(1, 2, 1000.0);
+  histos[2]->SetBinContent(1, 2, 1400.0);
   histos[2]->SetStats(kFALSE);
 
   bBlank = new TBox(-1.0, -1.0, HISTO_WIDTH + 4, 7);
@@ -70,7 +70,7 @@ EventDisplay::EventDisplay() {
 
   for (int h = 0; h < 3; h++) {
     for (int l = 0; l < 6; l++) {
-      for (int x = 0; x < 160; x++) {
+      for (int x = 0; x < 224; x++) {
         bBox[h][l][x] = 0;
         bKey[h][x] = 0;
         tKey[h][x] = 0;
@@ -170,7 +170,7 @@ void EventDisplay::drawSingleChamber(TH2*& data) {
 
       drawEventDisplayGrid(1, data, 12, 10, 11,
                           (countStrips(station, ring) + countStripsNose(station, ring)) * 2, (countStripsNose(station, ring) > 0 ? 0.0f : 1.0f), -5.0f, 5.0f, 
-                          (countStripsNose(station, ring) > 0 ? countStrips(station, ring) * 2 : 0), 155, -7, 
+                          (countStripsNose(station, ring) > 0 ? countStrips(station, ring) * 2 : 0), 170, -7, 
                           "half-strip #", false);
     }
 
@@ -186,7 +186,7 @@ void EventDisplay::drawSingleChamber(TH2*& data) {
       gPad->SetBottomMargin(0.12);
 
       drawEventDisplayGrid(2, data, 18, -1, -1,
-                          (countStrips(station, ring) + countStripsNose(station, ring)), (countStripsNose(station, ring) > 0 ? 0.0f : 0.5f), 0.0f, 1000.0f, 
+                          (countStrips(station, ring) + countStripsNose(station, ring)), (countStripsNose(station, ring) > 0 ? 0.0f : 0.5f), 0.0f, 1400.0f, 
                           (countStripsNose(station, ring) > 0 ? countStrips(station, ring) : 0), 0, 0, 
                           "strip #", true);
     }
@@ -216,7 +216,7 @@ void EventDisplay::drawEventDisplayGrid(int hnum, TH2* data, int data_first_col,
                                         int count_x, float shift_x, float min_z, float max_z, int split_after_x, int time_corr, int d_corr,
                                         const char* title_x, bool greyscale) {
 
-  TObject *post_draw[160 * 2];
+  TObject *post_draw[224 * 2];
   int p_post_draw = 0;
 
   histos[hnum]->Draw("colz");
@@ -263,7 +263,7 @@ void EventDisplay::drawEventDisplayGrid(int hnum, TH2* data, int data_first_col,
         if (d > max_z) d = (int) max_z;
         if (d < min_z) d = (int) min_z;
 
-        float df = (float) d / (float) (max_z - min_z);
+        float df = (float) (d-min_z) / (float) (max_z - min_z);
 
         if (greyscale) {
           color = TColor::GetColor(df, df, df);
@@ -288,7 +288,7 @@ void EventDisplay::drawEventDisplayGrid(int hnum, TH2* data, int data_first_col,
         if (time > max_z) time = (int) max_z;
         if (time < min_z) time = (int) min_z;
 
-        color = 51 + (int) (((float) time / (float) (max_z - min_z)) * 49.0);
+        color = 51 + (int) (((float) (time-min_z) / (float) (max_z - min_z)) * 49.0);
 
         if (bKey[hnum][xg] != 0) {
           delete bKey[hnum][xg];

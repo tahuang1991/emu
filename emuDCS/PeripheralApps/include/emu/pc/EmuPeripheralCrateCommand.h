@@ -327,7 +327,6 @@ private:
   void disableAction(toolbox::Event::Reference e) throw (toolbox::fsm::exception::Exception); 
   void haltAction(toolbox::Event::Reference e) throw (toolbox::fsm::exception::Exception); 
   void stateChanged(toolbox::fsm::FiniteStateMachine &fsm) throw (toolbox::fsm::exception::Exception);
-  void MyHeader(xgi::Input * in, xgi::Output * out, std::string title ) throw (xgi::exception::Exception); 
 
   void CheckCrates(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void CheckCratesConfiguration(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
@@ -345,7 +344,7 @@ private:
   int VerifyCCBs();
 
   // alct calibration Madorsky
-  int read_test_config(char* xmlFile, test_config_struct * tcs);
+  int read_test_config(const char* xmlFile, test_config_struct * tcs);
   std::string& trim(std::string &str);
   test_config_struct tcs;
   int calsetup;

@@ -361,6 +361,7 @@
 // XML <ALCT alct_pattern_file="">. (FG)
 //
 //-----------------------------------------------------------------------
+#include <string.h>
 #include <iostream>
 #include <sstream>
 #include <iomanip>
@@ -669,6 +670,7 @@ void ALCTController::configure(int c) {
   //  ReadConfigurationReg();
   //  PrintConfigurationReg();
   //
+  ConvertHotChannelMask();
   WriteHotChannelMask();
   //  ReadHotChannelMask();
   //  PrintHotChannelMask();
@@ -1075,7 +1077,7 @@ void ALCTController::ReadSlowControlId() {
   tmb_->setup_jtag(ChainAlctSlowMezz);
   //
   tmb_->ShfIR_ShfDR(ChipLocationAlctSlowMezzProm,
-		    PROMidCode,
+		    0x7FE,
 		    RegSizeAlctSlowMezzFpga_PROMidCode);
   //
   alct_slow_prom_idcode_ = tmb_->bits_to_int(tmb_->GetDRtdo(),tmb_->GetRegLength(),0);
@@ -1099,6 +1101,10 @@ void ALCTController::PrintSlowControlId() {
   return;
 }
 //
+int ALCTController::GetSlowControlPROMID() {
+  return (alct_slow_prom_idcode_);
+}
+//
 int ALCTController::GetSlowControlChipId() { 
   return (read_slowcontrol_id_[0] & 0xf); 
 }
@@ -1108,7 +1114,7 @@ int ALCTController::GetSlowControlVersionId() {
 }
 //
 int ALCTController::GetSlowControlYear() { 
-  return ((read_slowcontrol_id_[2]<<8) | read_slowcontrol_id_[1]&0xff); 
+  return ((read_slowcontrol_id_[2]<<8) | (read_slowcontrol_id_[1]&0xff)); 
 }
 //
 int ALCTController::GetSlowControlDay() { 
@@ -1474,7 +1480,7 @@ void ALCTController::WriteAfebThresholds() {
     // ..... and the DAC channel through TDI, again using the correct AFEB indexing 
     // (N.B. the Get..DAC() method already will access the correct threshold)
     int data_to_send = 
-      ( (afeb_dac_channel[UserIndexToHardwareIndex_(afebChannel)]<<8) & 0xf00 ) | GetAfebThresholdDAC(afebChannel) & 0xff;
+      ( (afeb_dac_channel[UserIndexToHardwareIndex_(afebChannel)]<<8) & 0xf00 ) | (GetAfebThresholdDAC(afebChannel) & 0xff);
     if (debug_)
       (*MyOutput_) << "User AFEB" << std::dec << afebChannel 
 		   << " writes to hardware AFEB " << UserIndexToHardwareIndex_(afebChannel)
@@ -1834,7 +1840,7 @@ void ALCTController::ReadStandbyRegister_() {
 void ALCTController::PrintStandbyRegister_() {
   //
   const int buffersize = RegSizeAlctSlowFpga_RD_STANDBY_REG/8;
-  char tempBuffer[buffersize] = {};
+  char tempBuffer[buffersize+1] = {}; //SK: minimize line changes; code below already assumes it's 42-bit input
   tmb_->packCharBuffer(read_standby_register_,
 		       RegSizeAlctSlowFpga_RD_STANDBY_REG,
 		       tempBuffer);
@@ -2164,6 +2170,10 @@ void ALCTController::SetExpectedFastControlMonth(int firmware_month) {
 //
 void ALCTController::ReadFastControlMezzIDCodes() {
   //
+  // Liu 2017-05-05:
+  // for new Spartan-6 FPGA, skip the following to avoid sending junk bits to the JTAG chain.
+  //
+  if(hardware_version_ <=1 ) {
   tmb_->setup_jtag(ChainAlctFastMezz);
   //
   tmb_->ShfIR_ShfDR(ChipLocationAlctFastMezzFpga,
@@ -2183,6 +2193,8 @@ void ALCTController::ReadFastControlMezzIDCodes() {
 		    RegSizeAlctFastMezzFpga_PROMidCode);  
   //
   alct_prom1_idcode_ = (tmb_->bits_to_int(tmb_->GetDRtdo(),tmb_->GetRegLength(),0) ) & 0xfffffff;
+  }
+  else alct_fpga_idcode_ = ID_288384;  // fake id to pass the fpga_id check, not necessary but...
   //
   return;
 }
@@ -3631,6 +3643,7 @@ void ALCTController::PrintHotChannelMask() {
 		       hot_channel_mask);
   //
   int char_counter = RegSizeAlctFastFpga_RD_HOTCHAN_MASK_/8 - 1;
+  int char_counter2 = char_counter;
   //
   (*MyOutput_) << "ALCT: Hot Channel Mask for ALCT" << std::dec << GetNumberOfChannelsInAlct() 
 	       << " (from right to left):" << std::endl;
@@ -3644,7 +3657,14 @@ void ALCTController::PrintHotChannelMask() {
 		   << (hot_channel_mask[char_counter] & 0xf) << " ";
       char_counter--;
     }
-      (*MyOutput_) << std::endl;
+    (*MyOutput_) << " reverse ";
+    for (int layer_counter=GetNumberOfChannelsPerLayer()/8; layer_counter>0; layer_counter--) {
+      (*MyOutput_) << std::hex
+		   << ((~hot_channel_mask[char_counter2] >> 4) & 0xf) 
+		   << (~hot_channel_mask[char_counter2] & 0xf);
+      char_counter2--;
+    }
+    (*MyOutput_) << std::dec << std::endl;
   }
   return;
 }
@@ -3695,6 +3715,37 @@ int ALCTController::GetHotChannelMask(int layer,
   int index = layer * GetNumberOfChannelsPerLayer() + channel;
   //
   return read_hot_channel_mask_[index];
+}
+//
+// convert ALCT Hot Channel Mask
+//   input:   std::string ALCTHotChannelMaskArray_[] ( coming from configuration source )
+//   output:  int write_hot_channel_mask_[];  ( to be used by WriteHotChannelMask() )
+void ALCTController::ConvertHotChannelMask()
+{
+   int m=0, alen=0;
+   for(int layer=0; layer <6; layer++)
+   {
+       if(ALCTHotChannelMaskArray_[layer].size())
+       {
+           const char *ahcmask=ALCTHotChannelMaskArray_[layer].c_str();
+           alen=strlen(ahcmask);
+           for(int z=0; z<alen; z++)
+           {
+               int r=sscanf(ahcmask+alen-z-1, "%1X", &m);
+               if(r<=0) 
+               {  // bad character in input string
+                  std::cout << "ERROR: ALCT Hot Channel Mask bad input in layer " << layer << " at position: " << z << std::endl; 
+                  break;
+               }
+               for(int i=0; i<4; i++)
+               {
+                  SetHotChannelMask(layer, z*4+i, 1-(m&1));
+                  // std::cout << "ALCT Hot Channel Mask: layer " << layer << ", chan " << z*4+i << ", mask= " << (m&1) << std::endl; 
+                  m >>= 1;
+               }
+           }
+       }
+   }   
 }
 //
 void ALCTController::SetPowerUpHotChannelMask() {
@@ -4380,11 +4431,14 @@ int ALCTController::CheckFirmwareConfiguration() {
   int read_fpga_id = GetFastControlMezzFPGAID();
   //
   // Has the user eschewed the database check?
-  if ( xml_crateLabel   == "test_crate"   && 
-       xml_chamberLabel == "test_chamber" ) {
+  const std::string exemptCrate( "test_crate" ); // Crates whose label starts with this string are exempt from sanity check.
+  if ( xml_crateLabel.substr( 0, exemptCrate.length() ) == exemptCrate ){
+    std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n"
+	      << "!!! WARNING: 'test_crate*' is exempt from automatic firmware sanity check. Do check it yourself. !!!\n"
+	      << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;    
     return -1;
-  }
-  //
+  } 
+ //
   int return_value = 0;
   //
   for (unsigned int config_index=0; config_index<number_of_allowed_firmware_configurations; config_index++) {
@@ -4459,6 +4513,17 @@ int ALCTController::CheckFirmwareConfiguration() {
   //
   return return_value;
   //
+}
+
+void ALCTController::DisableTestPulse()
+{
+    for (int layer=0; layer<MAX_NUM_LAYERS; layer++) 
+         SetTestpulseStripMask_(layer,OFF);
+    WriteTestpulseStripMask_();
+
+    SetTestpulsePowerSwitchReg_(OFF);
+    WriteTestpulsePowerSwitchReg_();
+    return;
 }
 
   } // namespace emu::pc

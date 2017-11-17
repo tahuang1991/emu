@@ -1,6 +1,7 @@
 #include "emu/pc/EmuPeripheralCrateConfig.h"
 #include "emu/utils/System.h"
 #include "emu/utils/String.h"
+#include "emu/utils/Chamber.h"
 
 #include <string>
 #include <vector>
@@ -12,6 +13,8 @@
 #include <iomanip>
 #include <time.h>
 #include <stdlib.h>
+
+#include "xgi/framework/Method.h"
 
 namespace emu {
   namespace pc {
@@ -30,7 +33,9 @@ const std::string       DMBVME_FIRMWARE_FILENAME = "dmb/dmb6vme_pro.svf";
 const std::string       DMBVME_VERIFY_FILENAME   = "dmb/dmb_vprom_verify.svf";
 const std::string       DMBVME_COMPARE_FILENAME  = "dmb/eprom_dmb_vprom.cmp";
 
-const std::string	ALCT_SLOW_FIRMWARE_FILENAME = "alct/slow/slow_control3_verify_noabstime.svf";
+const std::string	ALCT_SLOW_FIRMWARE_FILENAME_XC18V04 = "alct/slow/slow_control_xc18v04.svf";
+const std::string	ALCT_SLOW_FIRMWARE_FILENAME_XC18V01 = "alct/slow/slow_control_xc18v01.svf";
+
  //
 //In order to load firmware automatically from the firmware values in the xml files, 
 //the firmware needs to reside in directories in the form:
@@ -41,17 +46,17 @@ const std::string	ALCT_SLOW_FIRMWARE_FILENAME = "alct/slow/slow_control3_verify_
 // In other words:  9 April 2007 firmware should reside in YEARMONTHDAY=20070409
 //
 // The XXX in the ALCT firmware specification corresponds to the following structure:
-const std::string ALCT_FIRMWARE_FILENAME_ME11 = "alct288/alct288";
-const std::string ALCT_READBACK_FILENAME_ME11 = "alct288/alct288_verify";
+const std::string ALCT_FIRMWARE_FILENAME_ME11 = "alct_s6_288/alct_s6_288";
+const std::string ALCT_READBACK_FILENAME_ME11 = "alct_s6_288/alct_s6_288_verify";
 //
-const std::string ALCT_FIRMWARE_FILENAME_ME11_BACKWARD_NEGATIVE = "alct288bn/alct288bn";
-const std::string ALCT_READBACK_FILENAME_ME11_BACKWARD_NEGATIVE = "alct288bn/alct288bn_verify";
+const std::string ALCT_FIRMWARE_FILENAME_ME11_BACKWARD_NEGATIVE = "alct_s6_288bn/alct_s6_288bn";
+const std::string ALCT_READBACK_FILENAME_ME11_BACKWARD_NEGATIVE = "alct_s6_288bn/alct_s6_288bn_verify";
 //
-const std::string ALCT_FIRMWARE_FILENAME_ME11_BACKWARD_POSITIVE = "alct288bp/alct288bp";
-const std::string ALCT_READBACK_FILENAME_ME11_BACKWARD_POSITIVE = "alct288bp/alct288bp_verify";
+const std::string ALCT_FIRMWARE_FILENAME_ME11_BACKWARD_POSITIVE = "alct_s6_288bp/alct_s6_288bp";
+const std::string ALCT_READBACK_FILENAME_ME11_BACKWARD_POSITIVE = "alct_s6_288bp/alct_s6_288bp_verify";
 //
-const std::string ALCT_FIRMWARE_FILENAME_ME11_FORWARD_POSITIVE  = "alct288fp/alct288fp";
-const std::string ALCT_READBACK_FILENAME_ME11_FORWARD_POSITIVE  = "alct288fp/alct288fp_verify";
+const std::string ALCT_FIRMWARE_FILENAME_ME11_FORWARD_POSITIVE  = "alct_s6_288fp/alct_s6_288fp";
+const std::string ALCT_READBACK_FILENAME_ME11_FORWARD_POSITIVE  = "alct_s6_288fp/alct_s6_288fp_verify";
 //
 const std::string ALCT_FIRMWARE_FILENAME_ME12 = "alct384/alct384"; 
 const std::string ALCT_READBACK_FILENAME_ME12 = "alct384/alct384_verify";
@@ -74,8 +79,8 @@ const std::string ALCT_READBACK_FILENAME_ME32 = "alct384mirror/alct384mirror_ver
 const std::string ALCT_FIRMWARE_FILENAME_ME41 = "alct576mirror/alct576mirror";
 const std::string ALCT_READBACK_FILENAME_ME41 = "alct576mirror/alct576mirror_verify";
 //
-const std::string ALCT_FIRMWARE_FILENAME_ME42 = "alct384mirror/alct384mirror";
-const std::string ALCT_READBACK_FILENAME_ME42 = "alct384mirror/alct384mirror_verify";
+const std::string ALCT_FIRMWARE_FILENAME_ME42 = "alct_s6_384mirror/alct_s6_384mirror";
+const std::string ALCT_READBACK_FILENAME_ME42 = "alct_s6_384mirror/alct_s6_384mirror_verify";
 //
 // Old svf files (to be deprecated once it is verified that the xsvf firmware is working...
 //const std::string ALCT_FIRMWARE_FILENAME_ME11 = "alct288/alct288.svf"; //
@@ -131,6 +136,7 @@ EmuPeripheralCrateConfig::EmuPeripheralCrateConfig(xdaq::ApplicationStub * s): E
   //
   DisplayRatio_ = false;
   AutoRefresh_  = true;
+  write_dcfeb_prom_allowed_ = true;
   //thisTMB = 0;
   //thisDMB = 0;
   thisCCB = 0;
@@ -190,7 +196,7 @@ EmuPeripheralCrateConfig::EmuPeripheralCrateConfig(xdaq::ApplicationStub * s): E
   number_of_hard_resets_ = number_of_checks_ - 1;
   //
   xgi::bind(this,&EmuPeripheralCrateConfig::Default, "Default");
-  xgi::bind(this,&EmuPeripheralCrateConfig::MainPage, "MainPage");
+  xgi::framework::deferredbind(this,this,&EmuPeripheralCrateConfig::MainPage, "MainPage");
   xgi::bind(this,&EmuPeripheralCrateConfig::setConfFile, "setConfFile");
   //
   xgi::bind(this,&EmuPeripheralCrateConfig::ConfigOneCrate, "ConfigOneCrate");
@@ -239,6 +245,9 @@ EmuPeripheralCrateConfig::EmuPeripheralCrateConfig(xdaq::ApplicationStub * s): E
   xgi::bind(this,&EmuPeripheralCrateConfig::ExpertToolsPage,"ExpertToolsPage");
   xgi::bind(this,&EmuPeripheralCrateConfig::StartPRBS, "StartPRBS");
   xgi::bind(this,&EmuPeripheralCrateConfig::StopPRBS, "StopPRBS");
+  xgi::bind(this,&EmuPeripheralCrateConfig::StartNewPRBS, "StartNewPRBS");
+  xgi::bind(this,&EmuPeripheralCrateConfig::StopNewPRBS, "StopNewPRBS");
+  xgi::bind(this,&EmuPeripheralCrateConfig::DumpDCFEBLinkStatus, "DumpDCFEBLinkStatus");
   xgi::bind(this,&EmuPeripheralCrateConfig::SetRadioactivityTrigger, "SetRadioactivityTrigger");
   xgi::bind(this,&EmuPeripheralCrateConfig::SetRadioactivityTriggerALCTOnly, "SetRadioactivityTriggerALCTOnly");
   xgi::bind(this,&EmuPeripheralCrateConfig::SetTTCDelays, "SetTTCDelays");
@@ -285,6 +294,7 @@ EmuPeripheralCrateConfig::EmuPeripheralCrateConfig(xdaq::ApplicationStub * s): E
   xgi::bind(this,&EmuPeripheralCrateConfig::MeasureALCTTMBRxTxForCrate,"MeasureALCTTMBRxTxForCrate");
   xgi::bind(this,&EmuPeripheralCrateConfig::SetTwoLayerTriggerForCrate, "SetTwoLayerTriggerForCrate");
   xgi::bind(this,&EmuPeripheralCrateConfig::ProgramOdmbEpromsForCrate, "ProgramOdmbEpromsForCrate");
+  xgi::bind(this,&EmuPeripheralCrateConfig::TestDcfebEpromsForCrate, "TestDcfebEpromsForCrate");
   xgi::bind(this,&EmuPeripheralCrateConfig::QuickScanForChamber,"QuickScanForChamber");
   xgi::bind(this,&EmuPeripheralCrateConfig::QuickScanForCrate,"QuickScanForCrate");
   xgi::bind(this,&EmuPeripheralCrateConfig::MeasureODMBDelaysForCrate,"MeasureODMBDelaysForCrate");
@@ -301,8 +311,10 @@ EmuPeripheralCrateConfig::EmuPeripheralCrateConfig(xdaq::ApplicationStub * s): E
   xgi::bind(this,&EmuPeripheralCrateConfig::ReadMPCRegister, "ReadMPCRegister");
   xgi::bind(this,&EmuPeripheralCrateConfig::WriteMPCRegister, "WriteMPCRegister");
   xgi::bind(this,&EmuPeripheralCrateConfig::MPCLoadFirmware, "MPCLoadFirmware");
+  xgi::bind(this,&EmuPeripheralCrateConfig::MPCLoadFirmwareMCS, "MPCLoadFirmwareMCS");
   xgi::bind(this,&EmuPeripheralCrateConfig::ReadTTCRegister, "ReadTTCRegister");
   xgi::bind(this,&EmuPeripheralCrateConfig::HardReset, "HardReset");
+  xgi::bind(this,&EmuPeripheralCrateConfig::CCBFPGAReset, "CCBFPGAReset");
   xgi::bind(this,&EmuPeripheralCrateConfig::CCBLoadFirmware, "CCBLoadFirmware");
   xgi::bind(this,&EmuPeripheralCrateConfig::PrepareForTriggering, "PrepareForTriggering");
   xgi::bind(this,&EmuPeripheralCrateConfig::CCBConfig, "CCBConfig");
@@ -316,7 +328,14 @@ EmuPeripheralCrateConfig::EmuPeripheralCrateConfig(xdaq::ApplicationStub * s): E
   xgi::bind(this,&EmuPeripheralCrateConfig::MPCnewPRBS, "MPCnewPRBS");
   xgi::bind(this,&EmuPeripheralCrateConfig::MPCPRBSError, "MPCPRBSError");
   xgi::bind(this,&EmuPeripheralCrateConfig::MPCGTPReset, "MPCGTPReset");
- 
+  xgi::bind(this,&EmuPeripheralCrateConfig::CCBCheckConfig, "CCBCheckConfig");
+  xgi::bind(this,&EmuPeripheralCrateConfig::MPCCheckConfig, "MPCCheckConfig"); 
+  xgi::bind(this,&EmuPeripheralCrateConfig::GEMreadFPGAid, "GEMreadFPGAid"); 
+  xgi::bind(this,&EmuPeripheralCrateConfig::GEMreadFPGAsysmon, "GEMreadFPGAsysmon"); 
+  xgi::bind(this,&EmuPeripheralCrateConfig::GEMProgramFPGA, "GEMProgramFPGA"); 
+  xgi::bind(this,&EmuPeripheralCrateConfig::GEMProgramEPROM, "GEMProgramEPROM"); 
+  xgi::bind(this,&EmuPeripheralCrateConfig::GEMHardreset, "GEMHardreset"); 
+  xgi::bind(this,&EmuPeripheralCrateConfig::GEMSetMUX, "GEMSetMUX"); 
   //
   //-----------------------------------------------
   // VME Controller routines
@@ -394,12 +413,20 @@ EmuPeripheralCrateConfig::EmuPeripheralCrateConfig(xdaq::ApplicationStub * s): E
   xgi::bind(this,&EmuPeripheralCrateConfig::CFEBUtils, "CFEBUtils");
   xgi::bind(this,&EmuPeripheralCrateConfig::CFEBFunction, "CFEBFunction");
   xgi::bind(this,&EmuPeripheralCrateConfig::DCFEBReadFirmware, "DCFEBReadFirmware");
+  xgi::bind(this,&EmuPeripheralCrateConfig::DCFEBPromTest, "DCFEBPromTest");
+  xgi::bind(this,&EmuPeripheralCrateConfig::DCFEBPromTestFast, "DCFEBPromTestFast");
+  xgi::bind(this,&EmuPeripheralCrateConfig::AllDCFEBsPromTestFast, "AllDCFEBsPromTestFast");
+  xgi::bind(this,&EmuPeripheralCrateConfig::DCFEBParaPrint, "DCFEBParaPrint");
+  xgi::bind(this,&EmuPeripheralCrateConfig::DCFEBParaErase, "DCFEBParaErase");
   xgi::bind(this,&EmuPeripheralCrateConfig::DCFEBProgramFpga, "DCFEBProgramFpga");
   xgi::bind(this,&EmuPeripheralCrateConfig::DCFEBProgramFpgaAll, "DCFEBProgramFpgaAll");
   xgi::bind(this,&EmuPeripheralCrateConfig::DCFEBProgramEprom, "DCFEBProgramEprom");
+  xgi::bind(this,&EmuPeripheralCrateConfig::DCFEBProgramEpromOffset, "DCFEBProgramEpromOffset");
   xgi::bind(this,&EmuPeripheralCrateConfig::DCFEBProgramEpromSVF, "DCFEBProgramEpromSVF");
+  xgi::bind(this,&EmuPeripheralCrateConfig::DCFEBProgramEpromXilinx, "DCFEBProgramEpromXilinx");
   xgi::bind(this,&EmuPeripheralCrateConfig::DCFEBProgramEpromAll, "DCFEBProgramEpromAll");
   xgi::bind(this,&EmuPeripheralCrateConfig::LVMBStatus, "LVMBStatus");
+  xgi::bind(this,&EmuPeripheralCrateConfig::ODMBCounters, "ODMBCounters");
   xgi::bind(this,&EmuPeripheralCrateConfig::ODMBLoadFirmwarePoll, "ODMBLoadFirmwarePoll");
   xgi::bind(this,&EmuPeripheralCrateConfig::RestoreCfebJtagIdle, "RestoreCfebJtagIdle");
   xgi::bind(this,&EmuPeripheralCrateConfig::ReadDcfebVirtex6Reg, "ReadDcfebVirtex6Reg");
@@ -449,13 +476,33 @@ EmuPeripheralCrateConfig::EmuPeripheralCrateConfig(xdaq::ApplicationStub * s): E
   xgi::bind(this,&EmuPeripheralCrateConfig::TMBResetSyncError, "TMBResetSyncError");
   xgi::bind(this,&EmuPeripheralCrateConfig::TMBRawHits, "TMBRawHits");
   xgi::bind(this,&EmuPeripheralCrateConfig::ALCTRawHits, "ALCTRawHits");
+  xgi::bind(this,&EmuPeripheralCrateConfig::GEMRawHits, "GEMRawHits");
+  xgi::bind(this,&EmuPeripheralCrateConfig::DisableALCTTestPulse, "DisableALCTTestPulse");
+  xgi::bind(this,&EmuPeripheralCrateConfig::OTMBLoadFirmware, "OTMBLoadFirmware");
   xgi::bind(this,&EmuPeripheralCrateConfig::TMBReadFirmware, "TMBReadFirmware");
+  xgi::bind(this,&EmuPeripheralCrateConfig::TMBBPIReset, "TMBBPIReset");
+  xgi::bind(this,&EmuPeripheralCrateConfig::TMBBPIDisable, "TMBBPIDisable");
+  xgi::bind(this,&EmuPeripheralCrateConfig::TMBBPIEnable, "TMBBPIEnable");
+  xgi::bind(this,&EmuPeripheralCrateConfig::TMBBPIWrite, "TMBBPIWrite");
+  xgi::bind(this,&EmuPeripheralCrateConfig::TMBBPIRead, "TMBBPIRead");
+  xgi::bind(this,&EmuPeripheralCrateConfig::TMBBPIReadN, "TMBBPIReadN");
+  xgi::bind(this,&EmuPeripheralCrateConfig::TMBBPIStatus, "TMBBPIStatus");
+  xgi::bind(this,&EmuPeripheralCrateConfig::TMBBPITimerRead, "TMBBPITimerRead");
+  xgi::bind(this,&EmuPeripheralCrateConfig::TMBBPIPromTimerReset, "TMBBPIPromTimerReset");
+  xgi::bind(this,&EmuPeripheralCrateConfig::TMBBPIPromTimerStop, "TMBBPIPromTimerStop");
+  xgi::bind(this,&EmuPeripheralCrateConfig::TMBBPIPromTimerStart, "TMBBPIPromTimerStart");
+  xgi::bind(this,&EmuPeripheralCrateConfig::TMBBPIPromClearStatus, "TMBBPIPromClearStatus");
+  xgi::bind(this,&EmuPeripheralCrateConfig::TMBBPIPromLoadAddress, "TMBBPIPromLoadAddress");
+  xgi::bind(this,&EmuPeripheralCrateConfig::TMBBPIPromBlockUnlock, "TMBBPIPromBlockUnlock");
+  xgi::bind(this,&EmuPeripheralCrateConfig::TMBBPIPromBlockErase, "TMBBPIPromBlockErase");
+  xgi::bind(this,&EmuPeripheralCrateConfig::TMBBPIPromBlockLock, "TMBBPIPromBlockLock");
   xgi::bind(this,&EmuPeripheralCrateConfig::ALCTReadFirmware, "ALCTReadFirmware");
   xgi::bind(this,&EmuPeripheralCrateConfig::LoadALCTSlowFirmware, "LoadALCTSlowFirmware");
   xgi::bind(this,&EmuPeripheralCrateConfig::LoadSpartan6ALCTFirmware, "LoadSpartan6ALCTFirmware");
   xgi::bind(this,&EmuPeripheralCrateConfig::LoadVirtex6TMBFirmware, "LoadVirtex6TMBFirmware");
   xgi::bind(this,&EmuPeripheralCrateConfig::LoadVirtex6TMBFPGA, "LoadVirtex6TMBFPGA");
   xgi::bind(this,&EmuPeripheralCrateConfig::ReadOTMBVirtex6Reg, "ReadOTMBVirtex6Reg");
+  xgi::bind(this,&EmuPeripheralCrateConfig::SerialLoadCrateTMBFirmware, "SerialLoadCrateTMBFirmware");
 
   //
   //----------------------------
@@ -486,7 +533,11 @@ EmuPeripheralCrateConfig::EmuPeripheralCrateConfig(xdaq::ApplicationStub * s): E
   xgi::bind(this,&EmuPeripheralCrateConfig::TMB_to_ALCT_walking_ones, "TMB_to_ALCT_walking_ones");
   xgi::bind(this,&EmuPeripheralCrateConfig::CFEBTimingSimpleScan, "CFEBTimingSimpleScan");
   xgi::bind(this,&EmuPeripheralCrateConfig::RatTmbTiming, "RatTmbTiming");
+  xgi::bind(this,&EmuPeripheralCrateConfig::ScanOTMBFiberDelays, "ScanOTMBFiberDelays");
   xgi::bind(this,&EmuPeripheralCrateConfig::RpcRatTiming, "RpcRatTiming");
+  xgi::bind(this,&EmuPeripheralCrateConfig::SetGEMPhase, "SetGEMPhase");
+  xgi::bind(this,&EmuPeripheralCrateConfig::SetGEMPosneg, "SetGEMPosneg");
+  xgi::bind(this,&EmuPeripheralCrateConfig::SetGEMIntDelay, "SetGEMIntDelay");
   //
   //----------------------------------------------
   // Bind synchronization methods
@@ -526,6 +577,11 @@ EmuPeripheralCrateConfig::EmuPeripheralCrateConfig(xdaq::ApplicationStub * s): E
   // Bind monitoring methods
   //----------------------------
   xgi::bind(this,&EmuPeripheralCrateConfig::CrateDumpConfiguration, "CrateDumpConfiguration");
+  //
+  //----------------------------
+  // Allow Write to DCFEB's PROM
+  //----------------------------
+  xgi::bind(this,&EmuPeripheralCrateConfig::EnableWriteDCFEBPROM,"EnableWriteDCFEBPROM");
   //
   // SOAP call-back functions, which relays to *Action method.
   //-----------------------------------------------------------
@@ -619,6 +675,8 @@ EmuPeripheralCrateConfig::EmuPeripheralCrateConfig(xdaq::ApplicationStub * s): E
   total_crates_=0;
   this_crate_no_=0;
 
+  showBPITools_=false;
+
   prbs_test_ = false;
   brddb= new emu::db::BoardsDB();
 
@@ -636,7 +694,7 @@ void EmuPeripheralCrateConfig::MainPage(xgi::Input * in, xgi::Output * out )
   //
   LOG4CPLUS_INFO(getApplicationLogger(), "EmuPeripheralCrate ready");
   //
-  MyHeader(in,out,"EmuPeripheralCrateConfig");
+  EmuPeripheralCrateBase::MyHeader(in,out,"EmuPeripheralCrateConfig");
 
   if(!parsed) 
   {  
@@ -894,7 +952,7 @@ void EmuPeripheralCrateConfig::MainPage(xgi::Input * in, xgi::Output * out )
 	*out << "ALCT: " ;
 	for (unsigned chamber_index=0; chamber_index<(tmbVector.size()<9?tmbVector.size():9) ; chamber_index++) {
 	  if (alct_check_ok[current_crate_][chamber_index] > 0) {
-	    *out << thisCrate->GetChamber(tmbVector[chamber_index]->slot())->GetLabel().c_str() << ", ";
+	    *out << tmbVector[chamber_index]->GetLabel().c_str() << " ( " << alct_check_ok[current_crate_][chamber_index] << " ), ";
 	  }
 	}
 	*out << "... not OK" << cgicc::br() << std::endl ;
@@ -912,7 +970,7 @@ void EmuPeripheralCrateConfig::MainPage(xgi::Input * in, xgi::Output * out )
 	*out << "TMB: " ;
 	for (unsigned chamber_index=0; chamber_index<(tmbVector.size()<9?tmbVector.size():9) ; chamber_index++) {
 	  if (tmb_check_ok[current_crate_][chamber_index] > 0) {
-	    *out << thisCrate->GetChamber(tmbVector[chamber_index]->slot())->GetLabel().c_str() << ", ";
+	    *out << tmbVector[chamber_index]->GetLabel().c_str() << " ( " << tmb_check_ok[current_crate_][chamber_index] << " ), ";
 	  }
 	}
 	*out << "... not OK" << cgicc::br() << std::endl ;
@@ -930,7 +988,7 @@ void EmuPeripheralCrateConfig::MainPage(xgi::Input * in, xgi::Output * out )
 	*out << "DMB: " ;
 	for (unsigned chamber_index=0; chamber_index<(tmbVector.size()<9?tmbVector.size():9) ; chamber_index++) {
 	  if (dmb_check_ok[current_crate_][chamber_index] > 0) {
-	    *out << thisCrate->GetChamber(tmbVector[chamber_index]->slot())->GetLabel().c_str() << ", ";
+	    *out << tmbVector[chamber_index]->GetLabel().c_str() << " ( " << dmb_check_ok[current_crate_][chamber_index] << " ), ";
 	  }
 	}
 	*out << "... not OK" << cgicc::br() << std::endl ;
@@ -939,6 +997,8 @@ void EmuPeripheralCrateConfig::MainPage(xgi::Input * in, xgi::Output * out )
       }
       //
       *out << cgicc::span() << std::endl ;
+      if ( !(alct_ok && tmb_ok && dmb_ok) )
+      *out << cgicc::b("(problem-type): 1--unexpected; 2--expected; 3--marked as bad in database/xml.") << std::endl;
     }
     //
     *out << cgicc::br() << cgicc::hr() <<std::endl;
@@ -981,22 +1041,17 @@ void EmuPeripheralCrateConfig::MainPage(xgi::Input * in, xgi::Output * out )
   *out << cgicc::br();
   //
 }
+void EmuPeripheralCrateConfig::MyHeader(xgi::Input * in, xgi::Output * out, std::string title )
+  throw (xgi::exception::Exception) 
+{
+      EmuPeripheralCrateBase::MyHeader(in, out, title);
 
-// 
-void EmuPeripheralCrateConfig::MyHeader(xgi::Input * in, xgi::Output * out, std::string title ) 
-  throw (xgi::exception::Exception) {
-  //
-  *out << cgicc::HTMLDoctype(cgicc::HTMLDoctype::eStrict) << std::endl;
-  *out << cgicc::html().set("lang", "en").set("dir","ltr") << std::endl;
-  //
-  //*out << cgicc::title(title) << std::endl;
-  //*out << "<a href=\"/\"><img border=\"0\" src=\"/daq/xgi/images/XDAQLogo.gif\" title=\"XDAQ\" alt=\"\" style=\"width: 145px; height: 89px;\"></a>" << std::endl;
-  //
-  std::string myUrn = getApplicationDescriptor()->getURN().c_str();
-  xgi::Utils::getPageHeader(out,title,myUrn,"","");
-  //
-}
-//
+      std::string GoToMain =  toolbox::toString("/%s/Default",getApplicationDescriptor()->getURN().c_str());
+      *out << " <form action=\"" << GoToMain << "\" method=\"GET\">" << std::endl;
+      *out << " <input type=\"submit\" value=\"Back to Yellow Page\" name=\"gt_ypg\" style=\"background-color: #FFFF00;\">"  << std::endl;
+      *out << " </form> <br>" << std::endl; 
+}  
+
 void EmuPeripheralCrateConfig::Default(xgi::Input * in, xgi::Output * out ) 
   throw (xgi::exception::Exception) {
   *out << "<head> <meta HTTP-EQUIV=\"Refresh\" CONTENT=\"0; URL=/" <<getApplicationDescriptor()->getURN()<<"/"<<"MainPage"<<"\"> </head>" <<std::endl;
@@ -1191,15 +1246,15 @@ bool EmuPeripheralCrateConfig::ParsingXML(){
       SetCurrentCrate(crate_number);
       for(unsigned i=0; i<dmbVector.size();i++) {
 	OutputDMBTests[i][current_crate_] << "DMB-CFEB Tests " 
-					  << thisCrate->GetChamber(dmbVector[i]->slot())->GetLabel().c_str() 
+					  << dmbVector[i]->GetLabel().c_str() 
 					  << " output:" << std::endl;
       }
       for(unsigned i=0; i<tmbVector.size();i++) {
 	OutputTMBTests[i][current_crate_] << "TMB-RAT Tests " 
-					  << thisCrate->GetChamber(tmbVector[i]->slot())->GetLabel().c_str() 
+					  << tmbVector[i]->GetLabel().c_str() 
 					  << " output:" << std::endl;
 	ChamberTestsOutput[i][current_crate_] << "Chamber-Crate Phases " 
-					      << thisCrate->GetChamber(tmbVector[i]->slot())->GetLabel().c_str() 
+					      << tmbVector[i]->GetLabel().c_str() 
 					      << " output:" << std::endl;
       }
       OutputCCBTests[current_crate_] << "CCB Tests output: " << std::endl; 
@@ -1358,15 +1413,18 @@ bool EmuPeripheralCrateConfig::ParsingXML(){
 //////////////////////////////////////////////////////////////////////////
 void EmuPeripheralCrateConfig::CrateTests(xgi::Input * in, xgi::Output * out ) 
   throw (xgi::exception::Exception) {
+  if(!parsed)
+  {  this->Default(in,out);
+     return;
+  }
   //
-  if(!parsed) ParsingXML();  
   MyHeader(in,out,"CrateTests");
   //
   *out << cgicc::fieldset().set("style","font-size: 11pt; font-family: arial;");
   *out << cgicc::legend("Crate Tests").set("style","color:blue") ;
   //
   *out << cgicc::pre();
-  *out << "Use MPC_Utilities to mask out unwanted TMBs (Hard Reset will clear the masks)" << std::endl;
+  *out << "Use MPC_Utilities to mask out unwanted TMBs (Hard Reset will NOT clear the masks)" << std::endl;
   *out << cgicc::pre();
   //
   std::string TmbMPCTest = toolbox::toString("/%s/TmbMPCTest",getApplicationDescriptor()->getURN().c_str());
@@ -1678,7 +1736,7 @@ void EmuPeripheralCrateConfig::CrateConfiguration(xgi::Input * in, xgi::Output *
 	  if ( dmbslot == slot+1 ) {
 	    *out << cgicc::td();
 	    char Name[50];
-	    sprintf(Name,"Chamber Tests: %s",(thisCrate->GetChamber(slot)->GetLabel()).c_str());
+	    sprintf(Name,"Chamber Tests: %s",(tmbVector[i]->GetLabel()).c_str());
 	    std::string ChamberTests = toolbox::toString("/%s/ChamberTests?tmb=%d&dmb=%d",getApplicationDescriptor()->getURN().c_str(),i,iii);
 	    *out << cgicc::a(Name).set("href",ChamberTests) << std::endl;
 	    *out << cgicc::td();
@@ -1793,6 +1851,9 @@ void EmuPeripheralCrateConfig::CrateConfiguration(xgi::Input * in, xgi::Output *
   *out << cgicc::form() << std::endl ;
   *out << cgicc::td();
   //
+  *out << cgicc::td();
+  *out << cgicc::td();
+  //
   *out << cgicc::tr();
   //
   *out << cgicc::td();
@@ -1819,10 +1880,13 @@ void EmuPeripheralCrateConfig::CrateConfiguration(xgi::Input * in, xgi::Output *
   std::string PipelineDepthScanForCrate = toolbox::toString("/%s/PipelineDepthScanForCrate",getApplicationDescriptor()->getURN().c_str());
   *out << cgicc::form().set("method","GET").set("action",PipelineDepthScanForCrate) << std::endl ;
   *out << cgicc::input().set("type","submit").set("value","Crate-wide pipeline depth scan").set("title","Scan pipeline depth for all DCFEBs of the selected crate, and analyze them with the unpacker.")
-       << " from " << cgicc::input().set("type","text").set("size","3").set("value","55").set("name","from")
+       << cgicc::br() << " from " << cgicc::input().set("type","text").set("size","3").set("value","55").set("name","from")
        << " to "   << cgicc::input().set("type","text").set("size","3").set("value","75").set("name","to"  ) << std::endl ;
   *out << pipelineDepthScanResults_ << std::endl;
   *out << cgicc::form() << std::endl ;
+  *out << cgicc::td();
+  //
+  *out << cgicc::td();
   *out << cgicc::td();
   //
   *out << cgicc::tr();
@@ -1843,6 +1907,22 @@ void EmuPeripheralCrateConfig::CrateConfiguration(xgi::Input * in, xgi::Output *
   std::string ProgramOdmbEpromsForCrate = toolbox::toString("/%s/ProgramOdmbEpromsForCrate",getApplicationDescriptor()->getURN().c_str());
   *out << cgicc::form().set("method","GET").set("action",ProgramOdmbEpromsForCrate) << std::endl ;
   *out << cgicc::input().set("type","submit").set("value","Program all ODMB EPROMs in this crate") << std::endl ;
+  *out << cgicc::form() << std::endl ;
+  *out << cgicc::td();
+  //
+  //
+  *out << cgicc::td();
+  std::string TestDcfebEpromsForCrate = toolbox::toString("/%s/TestDcfebEpromsForCrate",getApplicationDescriptor()->getURN().c_str());
+  *out << cgicc::form().set("method","GET").set("action",TestDcfebEpromsForCrate) << std::endl ;
+  *out << cgicc::input().set("type","submit").set("value","Test all DCFEB's EEPROMs in this crate") << std::endl ;
+  *out << cgicc::form() << std::endl ;
+  *out << cgicc::td();
+  //
+  //
+  *out << cgicc::td();
+  std::string SerialLoadTMBs = toolbox::toString("/%s/SerialLoadCrateTMBFirmware",getApplicationDescriptor()->getURN().c_str());
+  *out << cgicc::form().set("method","GET").set("action",SerialLoadTMBs) << std::endl ;
+  *out << cgicc::input().set("type","submit").set("value","Serially Program all TMB EPROMs in this crate") << std::endl ;
   *out << cgicc::form() << std::endl ;
   *out << cgicc::td();
   //
@@ -1982,6 +2062,10 @@ void EmuPeripheralCrateConfig::CrateDumpConfiguration(xgi::Input * in, xgi::Outp
 ////////////////////////////////////////////////////////////////////////////////////
 void EmuPeripheralCrateConfig::CheckConfigurationPage(xgi::Input * in, xgi::Output * out ) 
   throw (xgi::exception::Exception) {
+  if(!parsed)
+  {  this->Default(in,out);
+     return;
+  }
   //
   char Name[100];
   sprintf(Name,"CSC Configuration Status");
@@ -2577,7 +2661,7 @@ void EmuPeripheralCrateConfig::CheckPeripheralCrateConfiguration(int full_check)
   }
   //
   // in the following loop, change check_ok values to match the TYPE of configuration error...
-  // = 0 = read configuration not OK
+  // = 0 = read configuration OK
   // = 1 = read configuration not OK
   // = 2 = read configuration not OK (or FPGA not programmed), and this has been masked in the problem_mask as such
   // = 3 = read configuration OK, but this has been masked in the problem_mask as a problem
@@ -2646,7 +2730,9 @@ void EmuPeripheralCrateConfig::CheckPeripheralCrateConfiguration(int full_check)
 	 thisChamber->GetExpectedConfigProblemCFEB2()  ||
 	 thisChamber->GetExpectedConfigProblemCFEB3()  ||
 	 thisChamber->GetExpectedConfigProblemCFEB4()  ||
-	 thisChamber->GetExpectedConfigProblemCFEB5()  ) 
+	 thisChamber->GetExpectedConfigProblemCFEB5()  ||
+	 thisChamber->GetExpectedConfigProblemCFEB6()  ||
+	 thisChamber->GetExpectedConfigProblemCFEB7()  ) 
 	  dmb_check_ok[current_crate_][chamber_index] = 2;
 
 	//
@@ -2655,7 +2741,9 @@ void EmuPeripheralCrateConfig::CheckPeripheralCrateConfiguration(int full_check)
 		thisChamber->GetExpectedConfigProblemCFEB2()  ||
 		thisChamber->GetExpectedConfigProblemCFEB3()  ||
 		thisChamber->GetExpectedConfigProblemCFEB4()  ||
-		thisChamber->GetExpectedConfigProblemCFEB5()) ) {
+		thisChamber->GetExpectedConfigProblemCFEB5()  ||
+		thisChamber->GetExpectedConfigProblemCFEB6()  ||
+		thisChamber->GetExpectedConfigProblemCFEB7()) ) {
       dmb_check_ok[current_crate_][chamber_index] = 3;
     } else {
       dmb_check_ok[current_crate_][chamber_index] = 0;
@@ -2804,7 +2892,7 @@ void EmuPeripheralCrateConfig::CheckFirmware(xgi::Input * in, xgi::Output * out 
 	  //
 	  thisDMB->checkDAQMBXMLValues();   //this has the CFEB check implicit in it
           //
-          if(thisDMB->GetHardwareVersion()>1) continue;
+          if(thisDMB->GetHardwareVersion()>1)  continue;
           // The following part is valid for old DMB/CFEB/ALCT only. Skip for ODMB/DCFEB...
 	  //
 	  // greg, put in cfeb firmware version check in CFEB config check
@@ -2821,6 +2909,8 @@ void EmuPeripheralCrateConfig::CheckFirmware(xgi::Input * in, xgi::Output * out 
 	    //	    std::cout << "smoking gun CFEB " << calling_index << " = " << cfeb_config_ok[current_crate_][chamber_index][cfeb_index];
 	  }
 	  //
+          if(thisALCT->GetHardwareVersion()<=1)   // only valid for first generation ALCTs
+          {
 	  // check if the currents drawn by the FPGA are within bounds or without
 	  // ALCT current reading from LVMB
           float alct_lvmb_current = thisDMB->lowv_adc(3,0)/1000.;
@@ -2836,6 +2926,7 @@ void EmuPeripheralCrateConfig::CheckFirmware(xgi::Input * in, xgi::Output * out 
             alct_adc_current_ok[current_crate_][chamber_index]++;
 	  else if (alct_adc_current < alct_minimum_current_value)
             alct_adc_current_ok[current_crate_][chamber_index] += 2; //the FPGA is drawing less current than an unloaded FPGA:  blown fuse!
+          }
 	  //
 	  // get the CFEB currents from LVMB.  Note, the ME1/1 have the cabling in a non-standard order on the LVMB
 	  for(unsigned int cfeb_index=0;cfeb_index<thisCFEBs.size();cfeb_index++){
@@ -2939,14 +3030,16 @@ void EmuPeripheralCrateConfig::CheckFirmware(xgi::Input * in, xgi::Output * out 
       int dslot = thisDMB->slot();
       //
       TMB * thisTMB   = tmbVector[chamber_index];
+      ALCTController * thisALCT   = thisTMB->alctController();
       int tslot = thisTMB->slot();
       //
-      if (
+      if(thisALCT->GetHardwareVersion()<=1)   // only valid for first generation ALCTs
+      {
 	  //	  alctcfg_ok[crate_index][chamber_index]           != number_of_checks_ ||
 	  //	  alct_adc_current_ok[crate_index][chamber_index]  != number_of_checks_ || 
 	  //	  alct_firmware_ok[crate_index][chamber_index]     != number_of_checks_ ||
-	  alct_lvmb_current_ok[crate_index][chamber_index] != number_of_checks_ 
-	  ) {
+       if (alct_lvmb_current_ok[crate_index][chamber_index] != number_of_checks_ ) 
+       {
 	crate_to_reload.push_back(crate_index);
 	slot_to_reload.push_back(tslot);
 	component_to_reload.push_back(ALCT_LABEL);
@@ -2979,6 +3072,7 @@ void EmuPeripheralCrateConfig::CheckFirmware(xgi::Input * in, xgi::Output * out 
       	//
 	reason_for_reload.push_back(reason.str());
 	loaded_ok.push_back(-1);
+       }
       }
       //
       if (
@@ -3026,11 +3120,12 @@ void EmuPeripheralCrateConfig::CheckFirmware(xgi::Input * in, xgi::Output * out 
 	reason_for_reload.push_back(reason.str());
 	loaded_ok.push_back(-1);
       }
-      //  
-      if (
+      //
+      if(thisDMB->GetHardwareVersion()<=1)  // only valid for DMB/CFEB
+      {  
 	  //dmb_control_firmware_ok[crate_index][chamber_index] < number_of_checks_ ||
-	  dmb_config_ok[crate_index][chamber_index]   < number_of_checks_ 
-	  ) {
+       if (dmb_config_ok[crate_index][chamber_index]   < number_of_checks_ ) 
+       {
 	crate_to_reload.push_back(crate_index);
 	slot_to_reload.push_back(dslot);
 	component_to_reload.push_back(DMB_CONTROL_LABEL);
@@ -3052,9 +3147,9 @@ void EmuPeripheralCrateConfig::CheckFirmware(xgi::Input * in, xgi::Output * out 
 	//
 	reason_for_reload.push_back(reason.str());
 	loaded_ok.push_back(-1);
-      }
-      //
-      for(unsigned int cfeb_index=0;cfeb_index<thisCFEBs.size();cfeb_index++){
+       }
+       //
+       for(unsigned int cfeb_index=0;cfeb_index<thisCFEBs.size();cfeb_index++){
 	if (
 	    //	    cfeb_firmware_ok[crate_index][chamber_index][cfeb_index] < number_of_checks_ ||
 	    cfeb_config_ok[crate_index][chamber_index][cfeb_index]   < number_of_checks_ ||
@@ -3092,7 +3187,8 @@ void EmuPeripheralCrateConfig::CheckFirmware(xgi::Input * in, xgi::Output * out 
 	  reason_for_reload.push_back(reason.str());
 	  loaded_ok.push_back(-1);
 	}
-      } 
+       } 
+      }
       //
     }    //loop over chambers 
   }      //loop over crates
@@ -3180,15 +3276,14 @@ void EmuPeripheralCrateConfig::CheckFirmware(xgi::Input * in, xgi::Output * out 
 //
 void EmuPeripheralCrateConfig::PowerOnFixCFEB(xgi::Input * in, xgi::Output * out )
   throw (xgi::exception::Exception) {
+  if(!parsed)
+  {  this->Default(in,out);
+     return;
+  }
   //
   MyHeader(in,out,"CSC DOC daily checklist");
   //
   int initial_crate = current_crate_;
-  //
-  std::string GoToMainPage = toolbox::toString("/%s/MainPage",getApplicationDescriptor()->getURN().c_str());
-  *out << cgicc::form().set("method","GET").set("action",GoToMainPage) << std::endl ;
-  *out << cgicc::input().set("type","submit").set("value","Go back to Yellow Page").set("style","color:black") << std::endl ;
-  *out << cgicc::form() << std::endl ;
   //
   char buf[200];
   //
@@ -3634,7 +3729,7 @@ void EmuPeripheralCrateConfig::FixCFEB(xgi::Input * in, xgi::Output * out )
       //
       // to read the ALCT's PROM content and save as a .mcs file
 
-      std::string chambername= thisCrate->GetChamber(thisTMB)->GetLabel();
+      std::string chambername= thisTMB->GetLabel();
       unsigned t = chambername.find('/');
       unsigned s = chambername.size();
       while(t<=s )
@@ -3997,6 +4092,10 @@ void EmuPeripheralCrateConfig::CheckPeripheralCrateFirmware() {
 ////////////////////////////////////////////////////////////////////////////////////
 void EmuPeripheralCrateConfig::ExpertToolsPage(xgi::Input * in, xgi::Output * out ) 
   throw (xgi::exception::Exception) {
+  if(!parsed)
+  {  this->Default(in,out);
+     return;
+  }
   //
   int initial_crate = current_crate_;
   //
@@ -4147,17 +4246,59 @@ void EmuPeripheralCrateConfig::ExpertToolsPage(xgi::Input * in, xgi::Output * ou
   *out << cgicc::fieldset().set("style","font-size: 11pt; font-family: arial;") << std::endl;
   *out << cgicc::legend("Test MPC to SP links").set("style","color:blue") << std::endl ;
   //
-  if(prbs_test_) {
-    std::string StopPRBS = toolbox::toString("/%s/StopPRBS",getApplicationDescriptor()->getURN().c_str());
-    *out << cgicc::form().set("method","GET").set("action",StopPRBS) << std::endl ;
-    *out << cgicc::input().set("type","submit").set("value","Stop PRBS test").set("style","color:red") << std::endl ;
-    *out << cgicc::form() << std::endl ;;
-  } else {
+    *out << cgicc::table().set("border","0");
+  //
+    *out << cgicc::td();
     std::string StartPRBS = toolbox::toString("/%s/StartPRBS",getApplicationDescriptor()->getURN().c_str());
     *out << cgicc::form().set("method","GET").set("action",StartPRBS) << std::endl ;
-    *out << cgicc::input().set("type","submit").set("value","Start PRBS test").set("style","color:blue") << std::endl ;
+    *out << cgicc::input().set("type","submit").set("value","Start PRBS test (old links)").set("style","color:blue") << std::endl ;
     *out << cgicc::form()<< std::endl ;;
-  }
+    *out << cgicc::td();
+
+    *out << cgicc::td();
+    std::string StopPRBS = toolbox::toString("/%s/StopPRBS",getApplicationDescriptor()->getURN().c_str());
+    *out << cgicc::form().set("method","GET").set("action",StopPRBS) << std::endl ;
+    *out << cgicc::input().set("type","submit").set("value","Stop PRBS test (old links)").set("style","color:blue") << std::endl ;
+    *out << cgicc::form() << std::endl ;;
+    *out << cgicc::td();
+
+    *out << cgicc::td();
+    std::string StartNewPRBS = toolbox::toString("/%s/StartNewPRBS",getApplicationDescriptor()->getURN().c_str());
+    *out << cgicc::form().set("method","GET").set("action",StartNewPRBS) << std::endl ;
+    *out << cgicc::input().set("type","submit").set("value","Start PRBS test (new links)").set("style","color:blue") << std::endl ;
+    *out << cgicc::form()<< std::endl ;;
+    *out << cgicc::td();
+
+    *out << cgicc::td();
+    std::string StopNewPRBS = toolbox::toString("/%s/StopNewPRBS",getApplicationDescriptor()->getURN().c_str());
+    *out << cgicc::form().set("method","GET").set("action",StopNewPRBS) << std::endl ;
+    *out << cgicc::input().set("type","submit").set("value","Stop PRBS test (new links)").set("style","color:blue") << std::endl ;
+    *out << cgicc::form() << std::endl ;;
+  //
+    *out << cgicc::td();
+  //
+    *out << cgicc::table() << std::endl ;
+  //
+  *out << cgicc::fieldset();
+  //
+  *out << cgicc::br();
+  //
+  //  ///////////////////////
+  *out << cgicc::fieldset().set("style","font-size: 11pt; font-family: arial;") << std::endl;
+  *out << cgicc::legend("Check optical links from DCFEB to DMB and TMB").set("style","color:blue") << std::endl ;
+  //
+    *out << cgicc::table().set("border","0");
+  //
+    *out << cgicc::td();
+    std::string action = toolbox::toString("/%s/DumpDCFEBLinkStatus",getApplicationDescriptor()->getURN().c_str());
+    *out << cgicc::form().set("method","GET").set("action",action) << std::endl ;
+    *out << cgicc::input().set("type","submit").set("value","Dump link status to file").set("style","color:blue")
+      .set("title","For all DCFEBs, write optical links' status into an XML file /tmp/DCFEBLinkStatus_YY-MM-DD_hh-mm-ss.xml")<< std::endl ;
+    *out << cgicc::form()<< std::endl ;;
+    *out << cgicc::td();
+
+  //
+    *out << cgicc::table() << std::endl ;
   //
   *out << cgicc::fieldset();
   //
@@ -4301,7 +4442,7 @@ void EmuPeripheralCrateConfig::UpdateInFlashKey(xgi::Input * in, xgi::Output * o
 void EmuPeripheralCrateConfig::StartPRBS(xgi::Input * in, xgi::Output * out )
   throw (xgi::exception::Exception) {
   //  
-  std::cout << "Button: Start PRBS Test" << std::endl;
+  std::cout << getLocalDateTime() << " Button: Start PRBS Test" << std::endl;
   //
   if(total_crates_>0)
   {
@@ -4316,7 +4457,7 @@ void EmuPeripheralCrateConfig::StartPRBS(xgi::Input * in, xgi::Output * out )
 void EmuPeripheralCrateConfig::StopPRBS(xgi::Input * in, xgi::Output * out )
   throw (xgi::exception::Exception) {
   //  
-  std::cout << "Button: Start PRBS Test" << std::endl;
+  std::cout << getLocalDateTime() << " Button: Stop PRBS Test" << std::endl;
   //
   if(total_crates_>0)
   {
@@ -4325,6 +4466,94 @@ void EmuPeripheralCrateConfig::StopPRBS(xgi::Input * in, xgi::Output * out )
      }
      prbs_test_=false;
   }
+  this->ExpertToolsPage(in, out);
+}
+//
+void EmuPeripheralCrateConfig::StartNewPRBS(xgi::Input * in, xgi::Output * out )
+  throw (xgi::exception::Exception) {
+  //  
+  std::cout << getLocalDateTime() << " Button: Start New PRBS Test" << std::endl;
+  //
+  if(total_crates_>0)
+  {
+     for(unsigned i=0; i< crateVector.size(); i++) {
+        if ( crateVector[i]->IsAlive() ) crateVector[i]->mpc()->newPRBS(1);
+     }
+     prbs_test_=true;
+  }
+  this->ExpertToolsPage(in, out);
+}
+
+void EmuPeripheralCrateConfig::StopNewPRBS(xgi::Input * in, xgi::Output * out )
+  throw (xgi::exception::Exception) {
+  //  
+  std::cout << getLocalDateTime() << " Button: Stop New PRBS Test" << std::endl;
+  //
+  if(total_crates_>0)
+  {
+     for(unsigned i=0; i< crateVector.size(); i++) {
+        if ( crateVector[i]->IsAlive() ) crateVector[i]->mpc()->newPRBS(0);
+     }
+     prbs_test_=false;
+  }
+  this->ExpertToolsPage(in, out);
+}
+//
+void EmuPeripheralCrateConfig::DumpDCFEBLinkStatus(xgi::Input * in, xgi::Output * out )
+  throw (xgi::exception::Exception) {
+  //  
+  std::cout << getLocalDateTime() << " Button: Dump DCFEB optical links' status to file" << std::endl;
+  //
+  ostringstream XML;
+  string dateTime( emu::utils::getDateTime( true ) );
+  XML << "<?xml version='1.0' encoding='UTF-8' standalone='no'?>\n<OpticalLinks dateTime='" << emu::utils::getDateTime() << "'>";
+  if(total_crates_>0)
+  {
+     for(unsigned int c=0; c<crateVector.size(); c++){
+       if ( crateVector[c]->IsAlive() ){
+	 std::vector<TMB*> tmbs = crateVector.at(c)->tmbs();
+	 std::vector<DAQMB*> dmbs = crateVector.at(c)->daqmbs();
+	 bool hasDCFEBs = false;
+	 for (unsigned int d=0; d<dmbs.size(); d++){
+	   std::vector<CFEB> cfebs = dmbs.at(d)->cfebs();
+	   for (unsigned int f=0; f<cfebs.size(); f++) hasDCFEBs |= ( cfebs.at(f).GetHardwareVersion() >= 2 );
+	 }
+	 if ( hasDCFEBs ){
+	   XML << "\n  <Crate id='" << crateVector[c]->CrateID() << "' label='" << crateVector[c]->GetLabel() << "'>";
+	   for (unsigned int t=0; t<tmbs.size(); t++){
+	     DAQMB* dmb = tmbs[t]->getChamber()->GetDMB();
+	     int nDCFEBs = dmb->cfebs().size();
+	     // TMB
+	     string chamberName = emu::utils::Chamber( tmbs[t]->getChamber()->GetLabel() ).name();
+	     XML << "\n    <TMB slot='" << tmbs[t]->slot() << "' chamber='" << chamberName << "'>";
+	     tmbs[t]->ReadDcfebGtxRxRegisters();
+	     for (int f=0; f<nDCFEBs; f++){
+	       XML << "\n      <DCFEB n='" << f+1 
+		   << "' isGood='"     << tmbs[t]->GetReadGtxRxLinkGood(f)
+		   << "' hadErrors='"  << tmbs[t]->GetReadGtxRxLinkHadError(f)
+		   << "' isUnstable='" << tmbs[t]->GetReadGtxRxLinkBad(f)
+		   << "' errors='"     << tmbs[t]->GetReadGtxRxErrorCount(f) 
+		   << "'/>";
+	     }
+	     XML << "\n    </TMB>";
+	     // DMB
+	     XML << "\n    <DMB slot='" << dmb->slot() << "' chamber='" << chamberName << "'>";
+	     dmb->GetCounters();
+	     const int FIBER_ERROR_START = 54; // see DAQMB::GetCounters()
+	     for (int f=0; f<nDCFEBs; f++){
+	       XML << "\n      <DCFEB n='" << f+1 << "' errors='"     << dmb->GetCounter( FIBER_ERROR_START + f ) << "'/>";
+	     }
+	     XML << "\n    </DMB>";
+	   }
+	   XML << "\n  </Crate>";
+	 }
+       }
+     }
+  }
+  XML << "\n</OpticalLinks>";
+  string fileName( "/tmp/DCFEBLinkStatus_" + dateTime + ".xml" );
+  emu::utils::writeFile( fileName, XML.str() );
+  std::cout << getLocalDateTime() << " DCFEB optical links' status written to " << fileName << std::endl;
   this->ExpertToolsPage(in, out);
 }
 //
@@ -4821,6 +5050,74 @@ void EmuPeripheralCrateConfig::ProgramAllOdmbEproms(xgi::Input * in, xgi::Output
   this->ExpertToolsPage(in,out);
 }
 //
+void EmuPeripheralCrateConfig::TestDcfebEpromsForCrate(xgi::Input * in, xgi::Output * out )
+  throw (xgi::exception::Exception) {
+  //  
+  std::cout << "Button: Test EEPROMs of all DCFEBs in one crate sequentially" << std::endl;
+
+  if ( crateVector[current_crate_]->IsAlive() ) {
+    //
+    for (unsigned int dmb=0; dmb < dmbVector.size() ; dmb++) {
+      //
+      DAQMB * thisDMB = dmbVector[dmb];
+      if (thisDMB->GetHardwareVersion() == 2) {
+
+        std::vector<CFEB> cfebs = thisDMB->cfebs() ;
+        typedef std::vector<CFEB>::iterator CFEBItr;
+        for(CFEBItr cfebItr = cfebs.begin(); cfebItr != cfebs.end(); ++cfebItr) {
+          int hversion = cfebItr->GetHardwareVersion();
+          int cfeb_index = (*cfebItr).number() + 1;
+          char cfeb_index_str[1];
+          sprintf(cfeb_index_str, "%d", cfeb_index);
+
+          if(hversion != 2) {
+            std::cout << "DMB " << dmb << " CFEB" + cfeb_index << " hardware version is not 2 (it's not a DCFEB).. Skipping.." << std::endl;
+            continue;
+          }
+
+          std::string chambername= thisDMB->GetLabel();
+          unsigned t = chambername.find('/');
+          unsigned s = chambername.size();
+          while(t<=s )
+          { 
+            chambername.replace(t,1,"_");
+            t = chambername.find('/');        
+          } 
+          std::string logfile = "/tmp/DCFEB_prom_test_fast_" + chambername + "_DCFEB" + cfeb_index_str + ".log";
+          std::string dumpfile = "/tmp/DCFEB_prom_test_fast_" + chambername + "_DCFEB" + cfeb_index_str + "_bad_blocks.dump";
+
+          std::cout << getLocalDateTime() << " DCFEB fast EEPROM test on DMB " << dmb << " CFEB " << cfeb_index << std::endl;
+
+          int ret = thisDMB->dcfeb_prom_test2(*cfebItr, logfile.c_str(), dumpfile.c_str(), true);
+          if (ret < 0) continue;
+    
+          // do a CCB hard reset and check if the DCFEB is still alive
+          std::cout << "Hard reset..." << std::endl;
+          thisCCB->hardReset();
+          int donebits = thisDMB->read_cfeb_done();
+          int isConfigured = (donebits >> (cfeb_index - 1)) & 1;
+          if (!isConfigured)
+          {
+            std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
+            std::cout << "!!!!!!!!!!!!!!!!!! ERROR !!!!!!!!!!!!!!!!!!" << std::endl;
+            std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl << std::endl;
+            std::cout << "DMB " << dmb << " CFEB" + cfeb_index << " FPGA is not configured after the test!" << std::endl;
+            std::cout << "Terminating the test" << std::endl;
+            this->CFEBUtils(in,out);
+            return;
+          } else {
+            std::cout << "DMB " << dmb << " CFEB" + cfeb_index << " FPGA is still fine after the test" << std::endl;
+          }
+ 
+        } // close loop through CFEBs
+      } // close if hw version 2
+    } // close loop through DMBs
+    std::cout << getLocalDateTime() << " DCFEB fast EEPROM test finished." << std::endl;
+  } // close crate alive
+  //
+  this->CrateConfiguration(in,out);
+}
+//
 void EmuPeripheralCrateConfig::ProgramOdmbEpromsForCrate(xgi::Input * in, xgi::Output * out )
   throw (xgi::exception::Exception) {
   //  
@@ -4904,14 +5201,12 @@ throw (xgi::exception::Exception) {
               crateHasOtmbs = true;
               std::string label = thisChamber->GetLabel();
               
-              thisTMB->ReadRegister(v6_gtx_rx0_adr);
-              thisTMB->ReadRegister(v6_gtx_rx1_adr);
-              thisTMB->ReadRegister(v6_gtx_rx2_adr);
-              thisTMB->ReadRegister(v6_gtx_rx3_adr);
-              thisTMB->ReadRegister(v6_gtx_rx4_adr);
-              thisTMB->ReadRegister(v6_gtx_rx5_adr);
-              thisTMB->ReadRegister(v6_gtx_rx6_adr);
-              
+	      thisTMB->ReadDcfebGtxRxRegisters();
+	      
+              if (thisTMB->GetGemEnabled()) {
+		thisTMB->ReadGemGtxRxRegisters();
+	      }
+	      
               //initialize the map
               if (result.find(label) == result.end()) {
                 std::vector< std::vector<int> > dcfebs;
@@ -5014,7 +5309,12 @@ void EmuPeripheralCrateConfig::TmbMPCTest(xgi::Input * in, xgi::Output * out )
   //
   myCrateTest.RedirectOutput(&CrateTestsOutput);
   int number_of_loops = 1000;
-  myCrateTest.MpcTMBTest(number_of_loops);
+  CrateTestsOutput << "Test All TMBs" << std::endl << "========>";
+  int rs1=myCrateTest.MpcTMBTest(number_of_loops);
+  if(!rs1)
+  {  int rs2=myCrateTest.MpcTMBLoopTest(number_of_loops);
+     std::cout << "Loop Test found " << rs2 << " bad TMB(s)." << std::endl;
+  }
   myCrateTest.RedirectOutput(&std::cout);
   //
   this->CrateTests(in,out);
@@ -5031,7 +5331,7 @@ void EmuPeripheralCrateConfig::MPCSafeWindowScan(xgi::Input * in, xgi::Output * 
   myCrateTest.SetCrate(thisCrate);
   //
   myCrateTest.RedirectOutput(&CrateTestsOutput);
-  int number_of_loops = 10;
+  int number_of_loops = 20;
   int min_value       = 15;
   int max_value       = 75;
   myCrateTest.MpcTMBTest(number_of_loops,min_value,max_value);
@@ -5145,7 +5445,7 @@ void EmuPeripheralCrateConfig::ChamberTests(xgi::Input * in, xgi::Output * out )
   *out << cgicc::td().set("ALIGN", "left") << std::endl;
   *out << cgicc::select().set("name", "cfeb_num") << std::endl;
   *out << cgicc::option().set("value", toolbox::toString("%d", -1)) << "Scan" << cgicc::option() << std::endl;
-  for(int i=0; i<thisDMB->cfebs_.size(); ++i) *out << cgicc::option().set("value", toolbox::toString("%d", i)) << i << cgicc::option() << std::endl;
+  for(int i=0, ncfebs=thisDMB->cfebs_.size(); i<ncfebs; ++i) *out << cgicc::option().set("value", toolbox::toString("%d", i)) << i << cgicc::option() << std::endl;
   *out << cgicc::select() << std::endl;
   *out << cgicc::td();
   *out << cgicc::td().set("ALIGN", "left") << std::endl;
@@ -5208,6 +5508,85 @@ void EmuPeripheralCrateConfig::ChamberTests(xgi::Input * in, xgi::Output * out )
   *out << cgicc::br();
   //
   //*out << cgicc::table() << std::endl;
+
+
+  if (thisTMB->GetHardwareVersion() >= 2 && thisTMB->GetGemEnabled() ) {
+  *out << cgicc::br();
+  std::string ScanOTMBFiberDelays = toolbox::toString("/%s/ScanOTMBFiberDelays",getApplicationDescriptor()->getURN().c_str());
+  *out << cgicc::form().set("method","GET").set("action",ScanOTMBFiberDelays) << std::endl ;
+  *out << "OTMB Link Phaser Scan:" << std::endl;
+  *out << cgicc::br();
+  sprintf(buf,"%d",10); // default value
+  *out << cgicc::input().set("type","text").set("value",buf).set("name","sleep_time")<<std::endl;
+  sprintf(buf,"%d",100); // default value
+  *out << "microseconds/bin"<<std::endl;
+  *out << cgicc::input().set("type","text").set("value",buf).set("name","step_time")<<std::endl;
+  *out << "picoseconds/step"<<std::endl;
+  *out << cgicc::br();
+  *out << cgicc::input().set("type","submit").set("value","Scan OTMB Link Phasers") << std::endl ;
+  sprintf(buf,"%d",tmb);
+  *out << cgicc::input().set("type","hidden").set("value",buf).set("name","tmb");
+  sprintf(buf,"%d",dmb);
+  *out << cgicc::input().set("type","hidden").set("value",buf).set("name","dmb");
+  *out << cgicc::form() << std::endl ;
+
+  thisTMB->ReadRegister(phaser_gem_rxd_adr);
+  thisTMB->ReadRegister(phaser_cfeb456_rxd_adr);
+  thisTMB->ReadRegister(phaser_cfeb0123_rxd_adr);
+
+  for(int i=0;i<2;i++) {
+    *out << "gem" << i
+         << "delay = " << MyTest[tmb][current_crate_].GetGEMrxPhaseResult(i)
+         << " ("  << thisTMB->GetReadGemRxClockDelay() << ") "
+         <<"    posneg = " << MyTest[tmb][current_crate_].GetGEMrxPosnegResult(i)
+         << " ("  << thisTMB->GetReadGemRxPosNeg() << ") " <<std::endl;
+    *out << cgicc::br();
+  }
+
+  for(int i=0;i<7;i++) {
+    *out << "cfeb" << i
+         << "delay = " << MyTest[tmb][current_crate_].GetCFEBrxPhaseResult(i)
+         << " ("  <<MyTest[tmb][current_crate_].GetCfebRxClockDelay(i) << ") "
+         <<"    posneg = " << MyTest[tmb][current_crate_].GetCFEBrxPosnegResult(i)
+         << " ("  << MyTest[tmb][current_crate_].GetCfebRxPosNeg(i) << ") " <<std::endl;
+    *out << cgicc::br();
+  }
+
+
+  *out << cgicc::br();
+  std::string SetGEMPhase = toolbox::toString("/%s/SetGEMPhase",getApplicationDescriptor()->getURN().c_str());
+  *out << cgicc::form().set("method","GET").set("action",SetGEMPhase) << std::endl ;
+  *out << "GEM delay: " << std::endl;
+  thisTMB->ReadRegister(phaser_gem_rxd_adr);
+  thisTMB->SetGemRxPosNeg(thisTMB->GetReadGemRxPosNeg());
+  sprintf(buf,"%d",thisTMB->GetReadGemRxClockDelay());
+  *out << cgicc::input().set("type","text").set("value",buf).set("name","GEM_delay")<<std::endl;
+  *out << cgicc::input().set("type","submit").set("value","Set GEM delay value") << std::endl ;
+  *out << cgicc::form() << std::endl ;
+
+  std::string SetGEMPosneg = toolbox::toString("/%s/SetGEMPosneg",getApplicationDescriptor()->getURN().c_str());
+  *out << cgicc::form().set("method","GET").set("action",SetGEMPosneg) << std::endl ;
+  *out << "GEM posneg: " << std::endl;
+  thisTMB->ReadRegister(phaser_gem_rxd_adr);
+  thisTMB->SetGemRxClockDelay(thisTMB->GetReadGemRxClockDelay());
+  sprintf(buf,"%d",thisTMB->GetReadGemRxPosNeg());
+  *out << cgicc::input().set("type","text").set("value",buf).set("name","GEM_posneg")<<std::endl;
+  *out << cgicc::input().set("type","submit").set("value","Set GEM posneg value") << std::endl ;
+  *out << cgicc::form() << std::endl ;
+
+  std::string SetGEMIntDelay = toolbox::toString("/%s/SetGEMIntDelay",getApplicationDescriptor()->getURN().c_str());
+  *out << cgicc::form().set("method","GET").set("action",SetGEMIntDelay) << std::endl ;
+  *out << "GEM rxd  int delay: " << std::endl;
+  thisTMB->ReadRegister(gem_cfg_adr);
+  sprintf(buf,"%d",thisTMB->GetReadGemRxdIntDelay ());
+  *out << cgicc::input().set("type","text").set("value",buf).set("name","GEM_rxd_delay")<<std::endl;
+  *out << cgicc::input().set("type","submit").set("value","Set GEM rxd int delay value") << std::endl ;
+  *out << cgicc::form() << std::endl ;
+  } // end if GEM
+  ////////////////////////////////////////
+
+
+
   *out << cgicc::fieldset();
   //
   //
@@ -5387,6 +5766,9 @@ void EmuPeripheralCrateConfig::ChamberTests(xgi::Input * in, xgi::Output * out )
   *out << "Pause at each setting (sec)" << std::endl;
   sprintf(buf,"%d",MyTest[tmb][current_crate_].getPauseAtEachSetting());
   *out << cgicc::input().set("type","text").set("value",buf).set("name","time_to_pause") << std::endl ;
+  *out << "Increment L1A delay by" << std::endl;
+  sprintf(buf,"%d",MyTest[tmb][current_crate_].getL1aDelayIncrement());
+  *out << cgicc::input().set("type","text").set("value",buf).set("name","l1a_delay_increment") << std::endl ;
   sprintf(buf,"%d",tmb);
   *out << cgicc::input().set("type","hidden").set("value",buf).set("name","tmb");
   sprintf(buf,"%d",dmb);
@@ -5824,7 +6206,10 @@ void EmuPeripheralCrateConfig::CFEBTimingSimpleScan(xgi::Input * in, xgi::Output
   std::cout << "cfeb_phase: " << cfeb_phase << std::endl;
   //
   MyTest[tmb][current_crate_].RedirectOutput(&ChamberTestsOutput[tmb][current_crate_]);
-  MyTest[tmb][current_crate_].CFEBTiming_with_Posnegs_simple_routine(time_delay, cfeb_num, layers, pattern, halfstrip, print_data, cfeb_phase);
+  if(thisCrate->GetTMB(tmbVector[tmb]->slot())->GetHardwareVersion() != 2) 
+      MyTest[tmb][current_crate_].CFEBTiming();   
+  else
+      MyTest[tmb][current_crate_].CFEBTiming_with_Posnegs_simple_routine(time_delay, cfeb_num, layers, pattern, halfstrip, print_data, cfeb_phase);
   MyTest[tmb][current_crate_].RedirectOutput(&std::cout);
   //
   this->ChamberTests(in,out);
@@ -6016,7 +6401,7 @@ void EmuPeripheralCrateConfig::CFEBTimingSimpleScanSystem_me11(xgi::Input * in, 
 	web_backup.open(("/tmp/webout_backup_fullcrate_"+web_out_DateTime_scan+".txt").c_str(), std::ios::app);
 	//
 	std::cout << "crate = " << current_crate_ << ", TMB " << tmb << std::endl;
-	web_backup << "Chamber-Crate Phases "<< thisCrate->GetChamber(tmbVector[tmb]->slot())->GetLabel().c_str() << " output:" << std::endl << std::endl;
+	web_backup << "Chamber-Crate Phases "<< tmbVector[tmb]->GetLabel().c_str() << " output:" << std::endl << std::endl;
 	//
 	web_backup.close();
 	//
@@ -6126,12 +6511,12 @@ void EmuPeripheralCrateConfig::CFEBTimingSimpleScanSystem_non_me11(xgi::Input * 
 	web_backup.open(("/tmp/webout_backup_fullcrate_"+web_out_DateTime_scan+".txt").c_str(), std::ios::app);
 	//
 	std::cout << "crate = " << current_crate_ << ", TMB " << tmb << std::endl;
-	web_backup << "Chamber-Crate Phases "<< thisCrate->GetChamber(tmbVector[tmb]->slot())->GetLabel().c_str() << " output:" << std::endl << std::endl;
+	web_backup << "Chamber-Crate Phases "<< tmbVector[tmb]->GetLabel().c_str() << " output:" << std::endl << std::endl;
 	//
 	web_backup.close();
 	//
 	MyTest[tmb][current_crate_].RedirectOutput(&ChamberTestsOutput[tmb][current_crate_]);
-	MyTest[tmb][current_crate_].CFEBTiming_with_Posnegs_simple_routine(time_delay, cfeb_num, layers, pattern, halfstrip, print_data, cfeb_phase);
+        MyTest[tmb][current_crate_].CFEBTiming();  
 	MyTest[tmb][current_crate_].RedirectOutput(&std::cout);
 	//
 	web_backup.open(("/tmp/webout_backup_fullcrate_"+web_out_DateTime_scan+".txt").c_str(), std::ios::app);
@@ -6660,7 +7045,7 @@ std::string EmuPeripheralCrateConfig::dmbsToString( std::set<DAQMB*>& dmbs ){
     oss << ( dmb == dmbs.begin() ? "" : " " )
 	<< "(crate=" << (*dmb)->getCrate()->CrateID()
 	<< ",dmb="  << (*dmb)->slot()
-	<< ","      << (*dmb)->getCrate()->GetChamber( *dmb )->GetLabel()
+	<< ","      << (*dmb)->GetLabel()
 	<< ")";
   }
   return oss.str();
@@ -6789,7 +7174,7 @@ void EmuPeripheralCrateConfig::PipelineDepthScan( xgi::Input * in, xgi::Output *
 		      words[iWord%loneWordLength] = (*dmb)->odmb_read_tx_word();
 		      if ( (iWord%loneWordLength) + 1 == loneWordLength ){
 			bool isLoneWord = true;
-			for ( int i=0; i<loneWordLength; ++i ) isLoneWord &= ( words[i] & 0xf000 == 0x8000 );
+			for ( int i=0; i<loneWordLength; ++i ) isLoneWord &= ( (words[i] & 0xf000) == 0x8000 );
 			if ( !isLoneWord ){
 			  for ( int i=0; i<loneWordLength; ++i ) file.write( (char*)( words+i ), sizeof( unsigned short int ) );
 			}
@@ -6856,12 +7241,14 @@ void EmuPeripheralCrateConfig::setTMBCounterReadValues(xgi::Input * in, xgi::Out
   cgicc::form_iterator name4 = cgi.getElement("alct_l1a_delay_min");
   cgicc::form_iterator name5 = cgi.getElement("alct_l1a_delay_max");
   cgicc::form_iterator name6 = cgi.getElement("time_to_pause");
+  cgicc::form_iterator name7 = cgi.getElement("l1a_delay_increment");
   //
   int tmb_l1a_delay_min  = 100;
   int tmb_l1a_delay_max  = 101;
   int alct_l1a_delay_min = 102;
   int alct_l1a_delay_max = 103;
   int time_to_pause      = 11;
+  int l1a_delay_increment = 1;
   //
   if(name2 != cgi.getElements().end()) 
     tmb_l1a_delay_min = strtol(cgi["tmb_l1a_delay_min"]->getValue().c_str(),NULL,10);
@@ -6873,6 +7260,8 @@ void EmuPeripheralCrateConfig::setTMBCounterReadValues(xgi::Input * in, xgi::Out
     alct_l1a_delay_max = strtol(cgi["alct_l1a_delay_max"]->getValue().c_str(),NULL,10);
   if(name6 != cgi.getElements().end()) 
     time_to_pause = strtol(cgi["time_to_pause"]->getValue().c_str(),NULL,10);
+  if(name7 != cgi.getElements().end()) 
+    l1a_delay_increment = strtol(cgi["l1a_delay_increment"]->getValue().c_str(),NULL,10);
   //
   if(name != cgi.getElements().end()) {
     tmb = cgi["tmb"]->getIntegerValue();
@@ -6900,6 +7289,7 @@ void EmuPeripheralCrateConfig::setTMBCounterReadValues(xgi::Input * in, xgi::Out
   MyTest[tmb][current_crate_].setMinTmbL1aDelayValue(tmb_l1a_delay_min);
   MyTest[tmb][current_crate_].setMaxTmbL1aDelayValue(tmb_l1a_delay_max);
   MyTest[tmb][current_crate_].setPauseAtEachSetting(time_to_pause);
+  MyTest[tmb][current_crate_].setL1aDelayIncrement(l1a_delay_increment);
   //
   this->ChamberTests(in,out);
   //
@@ -7447,6 +7837,218 @@ void EmuPeripheralCrateConfig::RatTmbTiming(xgi::Input * in, xgi::Output * out )
   this->ChamberTests(in,out);
   //
 }
+
+void EmuPeripheralCrateConfig::ScanOTMBFiberDelays(xgi::Input * in, xgi::Output * out )
+throw (xgi::exception::Exception) {
+
+    //for the following three: first dimension: 0=gem;1=me1A;2=me1B. second dimension for posneg
+    int errorcount[3][2][25];
+
+    int center [3][2];
+    int size   [3][2];
+    int coarse_delay;
+    int fine_delay;
+    int posneg;
+    cgicc::Cgicc cgi(in);
+
+    int tmb=0;
+    TMB * thisTMB = tmbVector[tmb];
+    cgicc::form_iterator name2 = cgi.getElement("sleep_time");
+    int sleeptime=-1;
+    if(name2 != cgi.getElements().end())
+    {
+        sleeptime=strtol(cgi["sleep_time"]->getValue().c_str(),NULL,10);
+    }
+
+    cgicc::form_iterator name3 = cgi.getElement("step_time");
+    int steptime=-1;
+    if(name3 != cgi.getElements().end())
+    {
+        steptime=strtol(cgi["step_time"]->getValue().c_str(),NULL,10);
+    }
+
+    if (steptime>1000||steptime<100) {
+        std::cout<<"steptime out of range";
+        return;
+    }
+
+    int fine_delayloops=1000/steptime;
+
+    //get the initial cfeb,gem delay/posneg value progress so we can reset them after testing
+
+    thisTMB->ReadRegister(phaser_cfeb456_rxd_adr);
+    thisTMB->ReadRegister(phaser_cfeb0123_rxd_adr);
+    thisTMB->ReadRegister(phaser_gem_rxd_adr);
+    int initial_cfeb0123_phase  = thisTMB->GetReadCfeb0123RxClockDelay();
+    int initial_cfeb456_phase   = thisTMB->GetReadCfeb456RxClockDelay();
+    int initial_cfeb0123_posneg = thisTMB->GetReadCfeb0123RxPosNeg();
+    int initial_cfeb456_posneg  = thisTMB->GetReadCfeb456RxPosNeg();
+
+    int initial_gem_phase       = thisTMB->GetReadGemRxClockDelay();
+    int initial_gem_posneg      = thisTMB->GetReadGemRxPosNeg();
+
+    for (posneg=0; posneg<2; posneg++) {
+
+        for (coarse_delay=0; coarse_delay<25; coarse_delay++) {
+
+            // reset error count
+            for (int i=0;i<3;i++)
+                errorcount[i][posneg][coarse_delay]=0;
+
+            int cfeb0123_errors_vec[4];
+            int cfeb456_errors_vec[3];
+
+            for (fine_delay=0; fine_delay<fine_delayloops; fine_delay+=1) {
+
+                int cfeb0123_errors = 0;
+                int cfeb456_errors = 0;
+
+                thisTMB->SetGemRxPosNeg     ( posneg);
+                thisTMB->SetGemRxClockDelay ( coarse_delay);
+                thisTMB->SetGemRxFineDelay  ( fine_delay);
+
+                thisTMB->FillTMBRegister ( phaser_gem_rxd_adr);
+                thisTMB->WriteRegister   ( phaser_gem_rxd_adr);
+                thisTMB->FirePhaser      ( phaser_gem_rxd_adr);
+
+
+                bool cfeb=true;
+                if (cfeb) {
+
+                    thisTMB->SetCfeb0123RxPosNeg     ( posneg);
+                    thisTMB->SetCfeb0123RxClockDelay ( coarse_delay);
+                    thisTMB->SetCfeb0123RxFineDelay  ( fine_delay);
+
+                    thisTMB->FillTMBRegister ( phaser_cfeb0123_rxd_adr);
+                    thisTMB->WriteRegister   ( phaser_cfeb0123_rxd_adr);
+                    thisTMB->FirePhaser      ( phaser_cfeb0123_rxd_adr);
+
+                    thisTMB->SetCfeb456RxPosNeg     ( posneg);
+                    thisTMB->SetCfeb456RxClockDelay ( coarse_delay);
+                    thisTMB->SetCfeb456RxFineDelay  ( fine_delay);
+
+                    thisTMB->FillTMBRegister ( phaser_cfeb456_rxd_adr);
+                    thisTMB->WriteRegister   ( phaser_cfeb456_rxd_adr);
+                    thisTMB->FirePhaser      ( phaser_cfeb456_rxd_adr);
+
+                    // Send a resync to clear CFEB counters;
+                    // redirect the CCB output to shut it up from clogging cout
+                    streambuf *old = cout.rdbuf(); // save
+                    stringstream ss;
+                    cout.rdbuf (ss.rdbuf());       // redirect cout to outer space
+
+                    thisCCB->setCCBMode(CCB::VMEFPGA);
+                    thisCCB->syncReset();
+                    thisCCB->setCCBMode(CCB::DLOG);
+                    //thisCCB->bc0(); // Start triggering
+                    cout.rdbuf (old);              // restore cout
+                }
+
+                thisTMB->ResetCounters();
+                //std::cout<<std::endl<<"sleeping, fine delay = "<<fine_delay<<" coarse delay is "<<coarse_delay<<std::endl;
+                usleep(sleeptime);
+
+                thisTMB->GetCounters();
+
+                if (cfeb) {
+                    thisTMB->ReadDcfebGtxRxRegisters();
+                    for (int i=0; i<4; i++) {
+                        cfeb0123_errors_vec[i] = thisTMB->GetReadGtxRxErrorCount(i);
+                        cfeb0123_errors += cfeb0123_errors_vec[i];
+                    }
+                    for (int i=0; i<3; i++) {
+                        cfeb456_errors_vec[i] = thisTMB->GetReadGtxRxErrorCount(i+4);
+                        cfeb456_errors += cfeb456_errors_vec[i];
+                    }
+                }
+
+                errorcount[0][posneg][coarse_delay]+= (thisTMB->GetGemCounter(0)+thisTMB->GetGemCounter(1));
+                errorcount[1][posneg][coarse_delay]+= cfeb456_errors;
+                errorcount[2][posneg][coarse_delay]+= cfeb0123_errors;
+
+                char *output;
+
+                asprintf(&output,
+                        "posneg=%1d, delay=%4.1f, gemA=%7d, gemB=%7d, me1A=%7d (%4d + %4d + %4d), me1B=%7d (%4d + %4d + %4d + %4d)\n",
+                        posneg,
+                        float(coarse_delay) + float(fine_delay)/fine_delayloops,
+                        thisTMB->GetGemCounter(0),
+                        thisTMB->GetGemCounter(1),
+                        cfeb456_errors,
+                        cfeb456_errors_vec[0],
+                        cfeb456_errors_vec[1],
+                        cfeb456_errors_vec[2],
+                        cfeb0123_errors,
+                        cfeb0123_errors_vec[0],
+                        cfeb0123_errors_vec[1],
+                        cfeb0123_errors_vec[2],
+                        cfeb0123_errors_vec[3]
+                );
+
+                std::cout << output;
+                ChamberTestsOutput[tmb][current_crate_] << output; // copy to on-screen web printout
+
+            }
+
+        }
+        for (int i=0; i<3; i++) {
+            center[i][posneg] = MyTest[tmb][current_crate_].me11_wraparound_best_center(                   errorcount[i][posneg]);
+            size  [i][posneg] = MyTest[tmb][current_crate_].me11_window_width          (center[i][posneg], errorcount[i][posneg]);
+        }
+        std::cout<<std::dec<<std::endl<<"for posneg "<<posneg
+                <<" best center for gem = " << center[0][posneg] << " width=" << size[0][posneg]<< std::endl
+                <<" best center for me1a= " << center[1][posneg] << " width=" << size[1][posneg]<< std::endl
+                <<" best center for me1b= " << center[2][posneg] << " width=" << size[2][posneg]<< std::endl;
+
+    }
+
+    int best_posneg[3];
+
+    for (int i=0;i<3;i++) {
+        best_posneg[i] = size[i][0] > size[i][1] ? 0 : 1;
+    }
+
+    std::cout<<std::endl<<"best posneg for gem= " << best_posneg[0] <<" center= " << center[0][best_posneg[0]]
+                                                                    <<" width=" << size[0][best_posneg[0]] << std::endl
+                        <<"best posneg for me1a= " << best_posneg[1] <<" center= " << center[1][best_posneg[1]]
+                                                                     << " width=" << size[1][best_posneg[1]] << std::endl
+                        <<"best posneg for me1b= " << best_posneg[2] <<" center= " << center[2][best_posneg[2]]
+                                                                     << " width=" << size[2][best_posneg[2]] << std::endl;
+
+    for (int i=0; i<2; i++) { // 2 GEMs
+         MyTest[tmb][current_crate_].SetGEMrxPhaseResult(i,center[0][best_posneg[0]]);
+         MyTest[tmb][current_crate_].SetGEMrxPosnegResult(i,best_posneg[0]);
+    }
+
+    for (int i=0; i<3; i++) { // 3 CFEBs in ME1a
+         MyTest[tmb][current_crate_].SetCFEBrxPhaseResult(i+4,center[1][best_posneg[1]]);
+         MyTest[tmb][current_crate_].SetCFEBrxPosnegResult(i+4,best_posneg[1]);
+    }
+
+    for (int i=0; i<4; i++) { // 4 CFEBs in ME1b
+         MyTest[tmb][current_crate_].SetCFEBrxPhaseResult(i,center[2][best_posneg[2]]);
+         MyTest[tmb][current_crate_].SetCFEBrxPosnegResult(i,best_posneg[2]);
+    }
+
+    //Reverting back to original cfeb/gem delay values
+    thisTMB->SetCfeb456RxClockDelay(initial_cfeb456_phase);
+    thisTMB->SetCfeb456RxPosNeg(initial_cfeb456_posneg);
+    thisTMB->WriteRegister(phaser_cfeb456_rxd_adr);
+    thisTMB->FirePhaser(phaser_cfeb456_rxd_adr);
+    //
+    thisTMB->SetCfeb0123RxClockDelay(initial_cfeb0123_phase);
+    thisTMB->SetCfeb0123RxPosNeg(initial_cfeb0123_posneg);
+    thisTMB->WriteRegister(phaser_cfeb0123_rxd_adr);
+    thisTMB->FirePhaser(phaser_cfeb0123_rxd_adr);
+    //
+    thisTMB->SetGemRxPosNeg     ( initial_gem_posneg);
+    thisTMB->SetGemRxClockDelay ( initial_gem_phase);
+    thisTMB->FillTMBRegister ( phaser_gem_rxd_adr);
+    thisTMB->WriteRegister   ( phaser_gem_rxd_adr);
+    thisTMB->FirePhaser      ( phaser_gem_rxd_adr);
+
+    this->ChamberTests(in,out);
+}
 //
 void EmuPeripheralCrateConfig::RpcRatTiming(xgi::Input * in, xgi::Output * out ) 
   throw (xgi::exception::Exception) {
@@ -7497,6 +8099,7 @@ void EmuPeripheralCrateConfig::TMBPrintCounters(xgi::Input * in, xgi::Output * o
   thisTMB->RedirectOutput(&OutputStringTMBStatus[tmb]);
   thisTMB->GetCounters();
   thisTMB->PrintCounters();
+  thisTMB->PrintGemCounters();
   thisTMB->RedirectOutput(&std::cout);
   LOG4CPLUS_INFO(getApplicationLogger(), "Done PrintCounters");
   //
@@ -7553,6 +8156,7 @@ void EmuPeripheralCrateConfig::TMBCounterForFixedTime(xgi::Input * in, xgi::Outp
   thisTMB->RedirectOutput(&OutputStringTMBStatus[tmb]);
   thisTMB->GetCounters();
   thisTMB->PrintCounters();
+  thisTMB->PrintGemCounters();
   thisTMB->RedirectOutput(&std::cout);
   //
   this->TMBUtils(in,out);
@@ -7728,11 +8332,13 @@ void EmuPeripheralCrateConfig::TMBFiberReset(xgi::Input * in, xgi::Output * out)
   }
   //
   bool is_all = false;
-  int fiber_num;
+  int fiber_num = 0;
+  int gem_num=0;
   if (fiber == "all") {
     is_all = true;
   } else {
     fiber_num = atoi(fiber.c_str());
+    gem_num = fiber_num - (int)TMB_MAX_DCFEB_FIBERS;
   }
   if (mode == "toggle") {
     if (tmb_fiber_status_read_) {
@@ -7740,11 +8346,14 @@ void EmuPeripheralCrateConfig::TMBFiberReset(xgi::Input * in, xgi::Output * out)
       int to_write;
       unsigned long int adr;
       if (is_all) {
-        adr = v6_gtx_rx_all_adr;
+        adr = dcfeb_gtx_rx_all_adr;
         to_write = thisTMB->GetReadGtxRxAllEnable();
-      } else {
-        adr = v6_gtx_rx0_adr + (unsigned long int) (2 * fiber_num);
+      } else if(fiber_num < (int)TMB_MAX_DCFEB_FIBERS){
+        adr = dcfeb_gtx_rx0_adr + (unsigned long int) (2 * fiber_num);
         to_write = thisTMB->GetReadGtxRxEnable(fiber_num);
+      } else {
+        adr = gem_gtx_rx0_adr + (unsigned long int) (2 * gem_num);
+        to_write = thisTMB->GetReadGemGtxRxEnable(gem_num);
       }
 
       std::cout << "Enable before: " << to_write << std::endl;
@@ -7752,8 +8361,10 @@ void EmuPeripheralCrateConfig::TMBFiberReset(xgi::Input * in, xgi::Output * out)
 
       if (is_all)
         thisTMB->SetGtxRxAllEnable(to_write);
-      else
+      else if(fiber_num < (int)TMB_MAX_DCFEB_FIBERS)
         thisTMB->SetGtxRxEnable(fiber_num, to_write);
+      else
+        thisTMB->SetGemGtxRxEnable(gem_num, to_write);
       std::cout << "Enable after: " << to_write << std::endl;
       thisTMB->WriteRegister(adr);
       thisTMB->ReadRegister(adr);
@@ -7761,22 +8372,26 @@ void EmuPeripheralCrateConfig::TMBFiberReset(xgi::Input * in, xgi::Output * out)
   } else if (mode == "reset") {
     if (is_all) {
       thisTMB->SetGtxRxAllReset(1);
-      thisTMB->WriteRegister(v6_gtx_rx_all_adr);
+      thisTMB->WriteRegister(dcfeb_gtx_rx_all_adr);
       thisTMB->SetGtxRxAllReset(0);
-      thisTMB->WriteRegister(v6_gtx_rx_all_adr);
-    } else {
+      thisTMB->WriteRegister(dcfeb_gtx_rx_all_adr);
+    } else if(fiber_num < (int)TMB_MAX_DCFEB_FIBERS){
       thisTMB->SetGtxRxReset(fiber_num, 1);
-      thisTMB->WriteRegister(v6_gtx_rx0_adr + (unsigned long int) (2 * fiber_num));
+      thisTMB->WriteRegister(dcfeb_gtx_rx0_adr + (unsigned long int) (2 * fiber_num));
       thisTMB->SetGtxRxReset(fiber_num, 0);
-      thisTMB->WriteRegister(v6_gtx_rx0_adr + (unsigned long int) (2 * fiber_num));
+      thisTMB->WriteRegister(dcfeb_gtx_rx0_adr + (unsigned long int) (2 * fiber_num));
+    } else {
+      thisTMB->SetGemGtxRxReset(gem_num, 1);
+      thisTMB->WriteRegister(gem_gtx_rx0_adr + (unsigned long int) (2 * gem_num));
+      thisTMB->SetGemGtxRxReset(gem_num, 0);
+      thisTMB->WriteRegister(gem_gtx_rx0_adr + (unsigned long int) (2 * gem_num));
     }
   }
 
-  thisTMB->ReadRegister(v6_gtx_rx_all_adr);
-  for (int i = 0; i < TMB_N_FIBERS; ++i) {
-    unsigned long int adr = v6_gtx_rx0_adr + (unsigned long int) (2 * i);
-    thisTMB->ReadRegister(adr);
-  }
+  thisTMB->ReadRegister(dcfeb_gtx_rx_all_adr);
+  thisTMB->ReadDcfebGtxRxRegisters();
+  thisTMB->ReadGemGtxRxRegisters();
+
   tmb_fiber_status_read_ = true;
   //
   thisTMB->RedirectOutput(&OutputStringTMBStatus[tmb]);
@@ -7868,6 +8483,10 @@ void EmuPeripheralCrateConfig::TMBReadConfiguration(xgi::Input * in, xgi::Output
 void EmuPeripheralCrateConfig::TMBCheckConfiguration(xgi::Input * in, xgi::Output * out ) 
   throw (xgi::exception::Exception) {
   //
+  if(!parsed)
+  {  this->Default(in,out);
+     return;
+  }
   cgicc::Cgicc cgi(in);
   //
   cgicc::form_iterator name = cgi.getElement("tmb");
@@ -7977,6 +8596,30 @@ void EmuPeripheralCrateConfig::TMBRawHits(xgi::Input * in, xgi::Output * out )
   //
 }
 //
+void EmuPeripheralCrateConfig::GEMRawHits(xgi::Input * in, xgi::Output * out )
+  throw (xgi::exception::Exception) {
+  //
+  cgicc::Cgicc cgi(in);
+  //
+  cgicc::form_iterator name = cgi.getElement("tmb");
+  //
+  int tmb=0;
+  if(name != cgi.getElements().end()) {
+    tmb = cgi["tmb"]->getIntegerValue();
+    std::cout << "GEMRawHits:  TMB " << tmb << std::endl;
+    TMB_ = tmb;
+  }
+  //
+  TMB * thisTMB = tmbVector[tmb];
+  //
+  thisTMB->RedirectOutput(&OutputStringTMBStatus[tmb]);
+  thisTMB-> GEMRawhits();
+  thisTMB->RedirectOutput(&std::cout);
+  //
+  this->TMBUtils(in,out);
+  //
+}
+//
 void EmuPeripheralCrateConfig::ALCTRawHits(xgi::Input * in, xgi::Output * out ) 
   throw (xgi::exception::Exception) {
   //
@@ -7997,6 +8640,32 @@ void EmuPeripheralCrateConfig::ALCTRawHits(xgi::Input * in, xgi::Output * out )
   thisTMB->ALCTRawhits();
   thisTMB->RedirectOutput(&std::cout);
   //
+  this->TMBUtils(in,out);
+  //
+}
+//
+void EmuPeripheralCrateConfig::DisableALCTTestPulse(xgi::Input * in, xgi::Output * out ) 
+  throw (xgi::exception::Exception) {
+  //
+  cgicc::Cgicc cgi(in);
+  //
+  cgicc::form_iterator name = cgi.getElement("tmb");
+  //
+  int tmb=0;
+  if(name != cgi.getElements().end()) {
+    tmb = cgi["tmb"]->getIntegerValue();
+    std::cout << "DisableALCTTestPulse:  TMB " << tmb << std::endl;
+    TMB_ = tmb;
+  }
+  //
+  TMB * thisTMB = tmbVector[tmb];
+  if(thisTMB)
+  {
+     ALCTController * thisALCT = thisTMB->alctController();
+     //
+     if(thisALCT) thisALCT->DisableTestPulse();
+     //
+  }
   this->TMBUtils(in,out);
   //
 }
@@ -8332,6 +9001,10 @@ void EmuPeripheralCrateConfig::RATStatus(xgi::Input * in, xgi::Output * out )
 //////////////////////////////////////////////////////////////////////////////
 void EmuPeripheralCrateConfig::TMBTests(xgi::Input * in, xgi::Output * out ) 
   throw (xgi::exception::Exception) {
+  if(!parsed)
+  {  this->Default(in,out);
+     return;
+  }
   //
   cgicc::Cgicc cgi(in);
   //
@@ -8345,6 +9018,11 @@ void EmuPeripheralCrateConfig::TMBTests(xgi::Input * in, xgi::Output * out )
   } else {
     std::cout << "TMBTests: No tmb" << std::endl ;
     tmb = TMB_;
+  }
+  //
+  if(tmb<0 || tmb>=tmbVector.size())
+  {  this->Default(in,out);
+     return;
   }
   //
   TMB * thisTMB = tmbVector[tmb];
@@ -8871,12 +9549,21 @@ void EmuPeripheralCrateConfig::TMBStatus(xgi::Input * in, xgi::Output * out )
     std::cout << "TMBStatus: No TMB" << std::endl ;
     tmb = TMB_;
   }
+  if(tmb<0 || tmb>=tmbVector.size())
+  {  this->Default(in,out);
+     return;
+  }
   //
   TMB * thisTMB = tmbVector[tmb];
   //
   int hversion= thisTMB->GetHardwareVersion();
   alct = thisTMB->alctController();
   rat  = thisTMB->getRAT();
+  //
+  char Name[100];
+  sprintf(Name,"%s TMB status, crate=%s, slot=%d", thisTMB->GetLabel().c_str(),ThisCrateID_.c_str(),thisTMB->slot());
+  //
+  MyHeader(in,out,Name);
   //
   if (alct) {
     std::string ALCTStatus =
@@ -8893,17 +9580,6 @@ void EmuPeripheralCrateConfig::TMBStatus(xgi::Input * in, xgi::Output * out )
     *out << cgicc::a("RAT Status").set("href",RATStatus) << std::endl;
     //
   }
-  //
-  Chamber * thisChamber = chamberVector[tmb];
-  //
-  char Name[100];
-  sprintf(Name,"%s TMB status, crate=%s, slot=%d",
-	  (thisChamber->GetLabel()).c_str(), ThisCrateID_.c_str(),thisTMB->slot());
-  //
-  MyHeader(in,out,Name);
-  //
-  //*out << cgicc::h1(Name);
-  //*out << cgicc::br();
   //
   char buf[200] ;
   //
@@ -9011,6 +9687,18 @@ void EmuPeripheralCrateConfig::TMBStatus(xgi::Input * in, xgi::Output * out )
     *out << cgicc::span().set("style","color:red");
   }
   sprintf(buf,"Power Comparator          : %02x ",power_status);       
+  *out << buf ;
+  *out << cgicc::br();
+  //
+  //
+  int uptime = thisTMB->ReadRegister(uptime_adr);
+  uptime = uptime*1.46;
+
+  int hours   = (int) (  uptime / 3600);
+  int minutes = (int) (( uptime % 3600) / 60);
+  int seconds = (int) (((uptime % 3600) % 60));
+
+  sprintf(buf,"Uptime                    : %02d:%02d:%02d ", hours,minutes,seconds);
   *out << buf ;
   *out << cgicc::span();
   //
@@ -9211,20 +9899,171 @@ void EmuPeripheralCrateConfig::TMBStatus(xgi::Input * in, xgi::Output * out )
   // Clocking Status
   if (thisTMB->GetHardwareVersion() >= 2) {
   *out << cgicc::fieldset();
-    *out << cgicc::legend("Clocking Status").set("style","color:blue") << std::endl ;
-    thisTMB->ReadRegister(alct_startup_status_adr);
-    thisTMB->ReadRegister(v6_snap12_qpll_adr);
-    thisTMB->ReadRegister(vme_dddsm_adr);
-    *out << cgicc::pre() << std::endl;
-    *out << "MMCM lock status       = " << thisTMB->GetReadDDDStateMachineClock0Lock() << std::endl;
-    *out << "MMCM lost lock history = " << thisTMB->GetReadMMCMLostLock() << std::endl;
-    *out << "MMCM lost lock count   = " << thisTMB->GetReadMMCMLostLockCount() << std::endl;
-    *out << "QPLL lock status       = " << thisTMB->GetReadQPLLLock() << std::endl;
-    *out << "QPLL lost lock history = " << thisTMB->GetReadQPLLLostLock() << std::endl;
-    *out << "QPLL lost lock count   = " << thisTMB->GetReadQPLLLostLockCount() << std::endl;
-    *out << cgicc::pre() << std::endl;
-    *out << cgicc::fieldset();
+  *out << cgicc::legend("Clocking Status").set("style","color:blue") << std::endl ;
+  thisTMB->ReadRegister(alct_startup_status_adr);
+  thisTMB->ReadRegister(v6_snap12_qpll_adr);
+  thisTMB->ReadRegister(vme_dddsm_adr);
+  int temp_lock_var;
+  *out << cgicc::pre() << std::endl;
+  *out << "MMCM lock status       = ";
+  temp_lock_var = thisTMB->GetReadDDDStateMachineClock0Lock();
+  if (temp_lock_var == 1)
+    *out<< cgicc::span().set("style","color:green");
+  else
+    *out<< cgicc::span().set("style","color:red");
+  *out << temp_lock_var << std::endl;
+  *out << cgicc::span();
+  *out << "MMCM lost lock history = ";
+  temp_lock_var = thisTMB->GetReadMMCMLostLock();
+  if (temp_lock_var == 0)
+    *out<< cgicc::span().set("style","color:green");
+  else
+    *out<< cgicc::span().set("style","color:red");
+  *out << temp_lock_var << std::endl;
+  *out << cgicc::span();
+  *out << "MMCM lost lock count   = ";
+  temp_lock_var = thisTMB->GetReadMMCMLostLockCount();
+  if (temp_lock_var == 0)
+    *out<< cgicc::span().set("style","color:green");
+  else
+    *out<< cgicc::span().set("style","color:red");
+  *out << temp_lock_var << std::endl;
+  *out << cgicc::span(); 
+  *out << "QPLL lock status       = ";
+  temp_lock_var = thisTMB->GetReadQPLLLock();
+  if (temp_lock_var == 1)
+    *out<< cgicc::span().set("style","color:green");
+  else
+    *out<< cgicc::span().set("style","color:red");
+  *out << temp_lock_var << std::endl;
+  *out << cgicc::span();
+  *out << "QPLL lost lock history = ";
+  temp_lock_var = thisTMB->GetReadQPLLLostLock();
+  if (temp_lock_var == 0)
+    *out<< cgicc::span().set("style","color:green");
+  else
+    *out<< cgicc::span().set("style","color:red");
+  *out << temp_lock_var << std::endl;
+  *out << cgicc::span();
+  *out << "QPLL lost lock count   = ";
+  temp_lock_var = thisTMB->GetReadQPLLLostLockCount();
+  if (temp_lock_var == 0)
+    *out<< cgicc::span().set("style","color:green");
+  else
+    *out<< cgicc::span().set("style","color:red");
+  *out << temp_lock_var << std::endl;
+  *out << cgicc::span();
+  *out << cgicc::pre() << std::endl;
+  *out << cgicc::fieldset();
   }
+  //
+  if (thisTMB->GetHardwareVersion() >= 2) {
+    *out << cgicc::fieldset();
+    *out << cgicc::legend("Optical input status").set("style","color:blue") << std::endl ;
+    *out << cgicc::pre();
+    thisTMB->RedirectOutput(out);
+    thisTMB->ReadDcfebGtxRxRegisters();
+    *out << " ->CFEB GTX optical input control and monitoring:" << std::endl;
+    *out << "    Input enable [DCFEBs 0-6]: \t\t[ ";
+    for (int i=0; i < 7; i++) { *out << thisTMB->GetReadGtxRxEnable(i) << " "; }
+    *out << "]" << std::endl;
+    *out << "    Input reset [DCFEBs 0-6]: \t\t[ ";
+    for (int i=0; i < 7; i++) { *out << thisTMB->GetReadGtxRxReset(i) << " "; }
+    *out << "]" << std::endl;
+    *out << "    PRBS test enable [DCFEBs 0-6]: \t[ ";
+    for (int i=0; i < 7; i++) { *out << thisTMB->GetReadGtxRxPrbsTestEnable(i) << " "; }
+    *out << "]" << std::endl;
+    *out << "    Input ready [DCFEBs 0-6]: \t\t[ ";
+    for (int i=0; i < 7; i++) { *out << thisTMB->GetReadGtxRxReady(i) << " "; }
+    *out << "]" << std::endl;
+    *out << "    Link good [DCFEBs 0-6]: \t\t[ ";
+    for (int i=0; i < 7; i++)
+    {
+      int read_gtx_rx_link_good_temp = thisTMB->GetReadGtxRxLinkGood(i);
+      if (read_gtx_rx_link_good_temp == 1)
+        *out<< cgicc::span().set("style","color:green");
+      else
+        *out<< cgicc::span().set("style","color:red");
+      *out << read_gtx_rx_link_good_temp << " ";
+      *out << cgicc::span();
+    }
+    *out << "]" << std::endl;
+    *out << "    Link had errors [DCFEBs 0-6]: \t[ ";
+    for (int i=0; i < 7; i++) { *out << thisTMB->GetReadGtxRxLinkHadError(i) << " "; }
+    *out << "]" << std::endl;
+    *out << "    Link unstable [DCFEBs 0-6]: \t[ ";
+    for (int i=0; i < 7; i++)
+      {
+      int read_gtx_rx_link_bad_temp = thisTMB->GetReadGtxRxLinkBad(i);
+      if (read_gtx_rx_link_bad_temp == 1)
+        *out<< cgicc::span().set("style","color:red");
+      else
+        *out<< cgicc::span().set("style","color:green");
+      *out << read_gtx_rx_link_bad_temp << " ";
+      *out << cgicc::span();
+      }
+    *out << "]" << std::endl;
+    *out << "    Link error count [DCFEBs 0-6]: \t[ ";
+    for (int i=0; i < 7; i++) { *out << thisTMB->GetReadGtxRxErrorCount(i) << " "; }
+    *out << "]" << std::endl;
+//  thisTMB->PrintTMBRegister(dcfeb_gtx_rx0_adr);
+//  the above line of code is an alternative output without the colors
+    //
+
+    if (thisTMB->GetGemEnabled()) {
+      thisTMB->ReadGemGtxRxRegisters();
+
+      int number_of_gems = thisTMB->GetNGemEnabledLinks();
+      *out << std::endl;
+      *out << std::endl;
+      *out << " ->GEM GTX optical input control and monitoring: " << std::endl;
+      *out << "    Input enable [GEMs 0-3]:      [ ";
+      for (int i=0; i < number_of_gems; ++i){ *out << thisTMB->GetReadGemGtxRxEnable(i) << " "; }
+      *out << "]" << std::endl;
+      *out << "    Input reset [GEMs 0-3]:       [ ";
+      for (int i=0; i < number_of_gems; ++i) { *out << thisTMB->GetReadGemGtxRxReset(i) << " "; }
+      *out << "]" << std::endl;
+      *out << "    PRBS test enable [GEMs 0-3]:  [ ";
+      for (int i=0; i < number_of_gems; ++i){ *out << thisTMB->GetReadGemGtxRxPrbsTestEnable(i) << " "; }
+      *out << "]" << std::endl;
+      *out << "    Input ready [GEMs 0-3]:       [ ";
+      for (int i=0; i < number_of_gems; ++i){ *out << thisTMB->GetReadGemGtxRxReady(i) << " "; }
+      *out << "]" << std::endl;
+      *out << "    Link good [GEMs 0-3]:         [ ";
+      for (int i=0; i < number_of_gems; ++i) {
+        int read_gtx_rx_link_good_temp = thisTMB->GetReadGemGtxRxLinkGood(i);
+        if (read_gtx_rx_link_good_temp == 1)
+          *out<< cgicc::span().set("style","color:green");
+        else
+          *out<< cgicc::span().set("style","color:red");
+        *out << read_gtx_rx_link_good_temp << " ";
+        *out << cgicc::span();
+      }
+      *out << "]" << std::endl;
+      *out << "    Link had errors [GEMs 0-3]:   [ ";
+      for (int i=0; i < number_of_gems; ++i){ *out << thisTMB->GetReadGemGtxRxLinkHadError(i) << " "; }
+      *out << "]" << std::endl;
+      *out << "    Link unstable [GEMs 0-3]:     [ ";
+      for (int i=0; i < number_of_gems; ++i) {
+        int read_gtx_rx_link_good_temp = thisTMB->GetReadGemGtxRxLinkBad(i);
+        if (read_gtx_rx_link_good_temp == 1){
+          *out<< cgicc::span().set("style","color:red");
+        } else {
+          *out<< cgicc::span().set("style","color:green");
+	}
+        *out << read_gtx_rx_link_good_temp << " ";
+        *out << cgicc::span();
+      }
+      *out << "]" << std::endl;
+      *out << "    Link error count [GEMs 0-3]:  [ ";
+      for (int i=0; i < number_of_gems; ++i){ *out << thisTMB->GetReadGemGtxRxErrorCount(i) << " "; }
+      *out << "]" << std::endl;
+    }//if (thisTMB->GetGemEnabled())
+
+    thisTMB->RedirectOutput(&std::cout);
+    *out << cgicc::pre();
+    *out << cgicc::fieldset();
+  } //thisTMB->GetHardwareVersion() >= 2
   //
   // Clocking Status
   if (thisTMB->GetHardwareVersion() >= 2) {
@@ -9238,13 +10077,62 @@ void EmuPeripheralCrateConfig::TMBStatus(xgi::Input * in, xgi::Output * out )
     thisTMB->ReadRegister(gtx_phaser_lock_time_adr);
     thisTMB->ReadRegister(gtx_sync_done_time_adr);
     *out << cgicc::pre() << std::endl;
-    *out << "FPGA Mez JTAG Chain Access Count              = " << thisTMB->GetReadMezFpgaJtagCount() << std::endl;
-    *out << "TMB Power Up Time                             = " << thisTMB->GetReadTMBPowerUpTime() << std::endl;
-    *out << "TMB Load Cfg Time                             = " << thisTMB->GetReadTMBLoadCfgTime() << std::endl;
-    *out << "ALCT Phaser Lock Time                         = " << thisTMB->GetReadALCTPhaserLockTime() << std::endl;
-    *out << "ALCT Load Cfg Time (after ALCT startup delay) = " << thisTMB->GetReadALCTLoadCfgTime() << std::endl;
-    *out << "Comparator Fiber Phaser Lock Time             = " << thisTMB->GetReadGtxPhaserLockTime() << std::endl;
-    *out << "Gtx Sync Done Time                            = " << thisTMB->GetReadGtxSyncDoneTime() << std::endl;
+    *out << "FPGA Mez JTAG Chain Access Count              = ";
+    int temp_time_var = thisTMB->GetReadMezFpgaJtagCount();
+    if (temp_time_var >= 60000){
+      *out<< cgicc::span().set("style","color:red");
+      *out << temp_time_var << std::endl;
+      *out << cgicc::span();
+    }
+    else *out << temp_time_var << std::endl;
+    *out << "TMB Power Up Time                             = ";
+    temp_time_var = thisTMB->GetReadTMBPowerUpTime();
+    if (temp_time_var >= 60000){
+      *out<< cgicc::span().set("style","color:red");
+      *out << temp_time_var << std::endl;
+      *out << cgicc::span();
+    }
+    else *out << temp_time_var << std::endl;
+    *out << "TMB Load Cfg Time                             = ";
+    temp_time_var = thisTMB->GetReadTMBLoadCfgTime();
+    if (temp_time_var >= 60000){
+      *out<< cgicc::span().set("style","color:red");
+      *out << temp_time_var << std::endl;
+      *out << cgicc::span();
+    }
+    else *out << temp_time_var << std::endl;
+    *out << "ALCT Phaser Lock Time                         = ";
+    temp_time_var = thisTMB->GetReadALCTPhaserLockTime();
+    if (temp_time_var >= 60000){
+      *out<< cgicc::span().set("style","color:red");
+      *out << temp_time_var << std::endl;
+      *out << cgicc::span();
+    }
+    else *out << temp_time_var << std::endl;
+    *out << "ALCT Load Cfg Time (after ALCT startup delay) = ";
+    temp_time_var = thisTMB->GetReadALCTLoadCfgTime();
+    if (temp_time_var >= 60000){
+      *out<< cgicc::span().set("style","color:red");
+      *out << temp_time_var << std::endl;
+      *out << cgicc::span();
+    }
+    else *out << temp_time_var << std::endl;
+    *out << "Comparator Fiber Phaser Lock Time             = ";
+    temp_time_var = thisTMB->GetReadGtxPhaserLockTime();
+    if (temp_time_var >= 60000){
+      *out<< cgicc::span().set("style","color:red");
+      *out << temp_time_var << std::endl;
+      *out << cgicc::span();
+    }
+    else *out << temp_time_var << std::endl;
+    *out << "Gtx Sync Done Time                            = ";
+    temp_time_var = thisTMB->GetReadGtxSyncDoneTime();
+    if (temp_time_var >= 60000){
+      *out<< cgicc::span().set("style","color:red");
+      *out << temp_time_var << std::endl;
+      *out << cgicc::span();
+    }
+    else *out << temp_time_var << std::endl;
     *out << cgicc::pre() << std::endl;
     *out << cgicc::fieldset();
   }
@@ -9264,24 +10152,6 @@ void EmuPeripheralCrateConfig::TMBStatus(xgi::Input * in, xgi::Output * out )
   *out << cgicc::pre();
   *out << cgicc::fieldset();
   //
-  if (thisTMB->GetHardwareVersion() >= 2) {
-    *out << cgicc::fieldset();
-    *out << cgicc::legend("Optical input status").set("style","color:blue") << std::endl ;
-    *out << cgicc::pre();
-    thisTMB->RedirectOutput(out);
-    thisTMB->ReadRegister(v6_gtx_rx0_adr);
-    thisTMB->ReadRegister(v6_gtx_rx1_adr);
-    thisTMB->ReadRegister(v6_gtx_rx2_adr);
-    thisTMB->ReadRegister(v6_gtx_rx3_adr);
-    thisTMB->ReadRegister(v6_gtx_rx4_adr);
-    thisTMB->ReadRegister(v6_gtx_rx5_adr);
-    thisTMB->ReadRegister(v6_gtx_rx6_adr);
-    thisTMB->PrintTMBRegister(v6_gtx_rx0_adr);
-    thisTMB->RedirectOutput(&std::cout);
-    *out << cgicc::pre();
-    *out << cgicc::fieldset();
-  }
-  //
   *out << cgicc::fieldset();
   *out << cgicc::legend("Sync Error status").set("style","color:blue") << std::endl ;
   *out << cgicc::pre();
@@ -9292,6 +10162,10 @@ void EmuPeripheralCrateConfig::TMBStatus(xgi::Input * in, xgi::Output * out )
   *out << cgicc::pre();
   *out << cgicc::fieldset();
   //
+  if (alct){
+    *out << cgicc::table().set("border", "0");
+    *out << cgicc::td().set("valign", "top");
+  }
   *out << cgicc::fieldset();
   *out << cgicc::legend("CLCT Info").set("style","color:blue") << std::endl ;
   *out << cgicc::pre();
@@ -9301,14 +10175,55 @@ void EmuPeripheralCrateConfig::TMBStatus(xgi::Input * in, xgi::Output * out )
   thisTMB->RedirectOutput(&std::cout);
   *out << cgicc::pre();
   *out << cgicc::fieldset();
+  if (alct) { 
+    *out << cgicc::td(); 
+  }
   //
   if (alct) {
+    *out << cgicc::td().set("valign", "top");
     *out << cgicc::fieldset();
     *out << cgicc::legend("ALCT Info").set("style","color:blue") << std::endl ;
     *out << cgicc::pre();
     thisTMB->RedirectOutput(out);
     thisTMB->DecodeALCT();
     thisTMB->PrintALCT();
+    thisTMB->RedirectOutput(&std::cout);
+    *out << cgicc::pre();
+    *out << cgicc::fieldset();
+    *out << cgicc::td(); 
+    *out << cgicc::table();
+  }
+  //
+  if(thisTMB->GetHardwareVersion() >= 2) {
+    *out << cgicc::fieldset();
+    *out
+      << cgicc::legend("LCT Info: Frames Sent to MPC").set("style", "color:blue")
+      << std::endl;
+    bool boxChecked = cgi.queryCheckbox("ShowMPCFIFOs");
+    *out << cgicc::form().set("method", "GET").set("action", "");
+    if (boxChecked ){
+      *out << cgicc::input().set("type", "checkbox").set("name", "ShowMPCFIFOs");
+    }
+    else {
+      *out << cgicc::input().set("type", "checkbox").set("checked","").set("name", "ShowMPCFIFOs");
+    }
+    *out << "Show MPC FIFOs";
+    *out << cgicc::input().set("type", "submit").set("value", "Select");
+    sprintf(buf,"%d",tmb);
+    *out << cgicc::input().set("type","hidden").set("value",buf).set("name","tmb");
+    *out << cgicc::form() << std::endl;
+    *out << cgicc::pre();
+    thisTMB->RedirectOutput(out);
+    // thisTMB->DecodeMPCFrames(); // Decode MPC frames for LAST trigger. VME registers: 0x88, 0x8a, 0x8c, 0x8e
+    // thisTMB->PrintMPCFrames();  // Print  MPC frames for LAST trigger. VME registers: 0x88, 0x8a, 0x8c, 0x8e
+    //
+    // thisTMB->DecodeMPCFramesFromFIFO(); // Decode MPC frames for ONE trigger from FIFO. VME registers: 0x17C, 0x17E, 0x180, 0x182
+    // thisTMB->PrintMPCFramesFromFIFO();  // Print  MPC frames for ONE trigger from FIFO. VME registers: 0x17C, 0x17E, 0x180, 0x182
+    //
+    int nEvt = cgi.queryCheckbox("ShowMPCFIFOs") ? 10 : 0;
+    thisTMB->DecodeAndPrintMPCFrames(nEvt); // Decode and print MPC frames for both cases:
+                      //   1. LAST trigger. VME registers: 0x88, 0x8a, 0x8c, 0x8e
+                      //   2. ONE trigger from FIFO. VME registers: 0x17C, 0x17E, 0x180, 0x182
     thisTMB->RedirectOutput(&std::cout);
     *out << cgicc::pre();
     *out << cgicc::fieldset();
@@ -9335,6 +10250,11 @@ void EmuPeripheralCrateConfig::TMBUtils(xgi::Input * in, xgi::Output * out )
   } else {
     std::cout << "TMBUtils:  No TMB" << std::endl ;
     tmb = TMB_;
+  }
+  //
+  if(tmb<0 || tmb>=tmbVector.size())
+  {  this->Default(in,out);
+     return;
   }
   //
   TMB * thisTMB = tmbVector[tmb];
@@ -9373,6 +10293,11 @@ void EmuPeripheralCrateConfig::TMBUtils(xgi::Input * in, xgi::Output * out )
   //
   *out << cgicc::br();
   //
+  bool print_it=false;
+  std::string CCBHardResetFromTMBPage = toolbox::toString("/%s/CCBHardResetFromTMBPage",getApplicationDescriptor()->getURN().c_str());
+
+  if (thisTMB->GetHardwareVersion()<=1)
+  {
   *out << "TMB: " << cgicc::br() << std::endl;
   *out << "firmware version = " << TMBFirmware_[tmb].toString() << ".xsvf" << cgicc::br() << std::endl;
   //
@@ -9422,7 +10347,7 @@ void EmuPeripheralCrateConfig::TMBUtils(xgi::Input * in, xgi::Output * out )
   //
   *out << cgicc::table();
   //
-  bool print_it = false;
+  print_it = false;
   for (int j=0;j<9;j++) 
     if (number_of_tmb_firmware_errors[j] >= 0) 
       print_it = true;
@@ -9441,7 +10366,6 @@ void EmuPeripheralCrateConfig::TMBUtils(xgi::Input * in, xgi::Output * out )
     }
   }
   //
-  std::string CCBHardResetFromTMBPage = toolbox::toString("/%s/CCBHardResetFromTMBPage",getApplicationDescriptor()->getURN().c_str());
   *out << cgicc::form().set("method","GET").set("action",CCBHardResetFromTMBPage) << std::endl ;
   *out << cgicc::input().set("type","submit").set("value","Step 4) CCB hard reset") << std::endl ;
   *out << cgicc::form() << std::endl ;
@@ -9467,29 +10391,78 @@ void EmuPeripheralCrateConfig::TMBUtils(xgi::Input * in, xgi::Output * out )
   *out << cgicc::form().set("method","GET").set("action",ClearTMBBootReg) << std::endl ;
   *out << cgicc::input().set("type","submit").set("value","Step 6) Enable VME Access to TMB FPGA") << std::endl ;
   *out << cgicc::form() << std::endl ;
+  }  // end of TMB
+  else
+  {  // start OTMB
+    *out << "OTMB: " << cgicc::br() << std::endl;
+    std::string mcsfile=TMBFirmware_[tmb].toString()+".mcs";
+    *out << "firmware = " << mcsfile << cgicc::br() << std::endl;
+    //
+    *out << "Step 1)  Disable DCS monitoring to crates, and TURN OFF ALCTs" << cgicc::br() << std::endl;
+    //
+    std::string LoadVirtex6TMBFirmware = toolbox::toString("/%s/LoadVirtex6TMBFirmware",getApplicationDescriptor()->getURN().c_str());
+    *out << cgicc::form().set("method","GET").set("action",LoadVirtex6TMBFirmware) << std::endl ;
+    sprintf(buf,"Step 2)  Load OTMB Firmware to EPROM in slot %d",tmbVector[tmb]->slot());
+    *out << cgicc::input().set("type","submit").set("value",buf) << std::endl ;
+    sprintf(buf,"%d",tmb);
+    *out << cgicc::input().set("type","hidden").set("value",buf).set("name","tmb");
+    *out << cgicc::form() << std::endl ;
+    //
+    *out << cgicc::form().set("method","GET").set("action",CCBHardResetFromTMBPage) << std::endl ;
+    *out << cgicc::input().set("type","submit").set("value","Step 3) CCB hard reset") << std::endl ;
+    *out << cgicc::form() << std::endl ;
+    //
+    std::string CheckTMBFirmware = toolbox::toString("/%s/CheckTMBFirmware",getApplicationDescriptor()->getURN().c_str());
+    *out << cgicc::form().set("method","GET").set("action",CheckTMBFirmware) ;
+    if ( tmb_vme_ready == 1 ) {
+      //
+      *out << cgicc::input().set("type","submit").set("value","Step 4) Check TMB VME Ready").set("style","color:green");
+      //
+    } else if ( tmb_vme_ready == 0 ) {
+      //
+      *out << cgicc::input().set("type","submit").set("value","Step 4) Check TMB VME Ready").set("style","color:red");
+      //
+    } else {
+      //
+      *out << cgicc::input().set("type","submit").set("value","Step 4) Check TMB VME Ready").set("style","color:blue");
+      //
+    }
+    *out << cgicc::form() << std::endl ;
+    //
+    std::string ClearTMBBootReg = toolbox::toString("/%s/ClearTMBBootReg",getApplicationDescriptor()->getURN().c_str());
+    *out << cgicc::form().set("method","GET").set("action",ClearTMBBootReg) << std::endl ;
+    *out << cgicc::input().set("type","submit").set("value","Step 5) Enable VME Access to TMB FPGA") << std::endl ;
+    *out << cgicc::form() << std::endl ;
+
+    *out << cgicc::br() << std::endl;
+    *out << "OTMB FPGA: " << cgicc::br() << std::endl;
+    *out << "firmware = " << mcsfile << cgicc::br() << std::endl;
+
+    std::string LoadVirtex6TMBFpga = toolbox::toString("/%s/LoadVirtex6TMBFPGA",getApplicationDescriptor()->getURN().c_str());
+    *out << cgicc::form().set("method","GET").set("action",LoadVirtex6TMBFpga) << std::endl ;
+    sprintf(buf,"Program OTMB Virtex 6 FPGA in slot %d",tmbVector[tmb]->slot());
+    *out << cgicc::input().set("type","submit").set("value",buf) << std::endl ;
+    sprintf(buf,"%d",tmb);
+    *out << cgicc::input().set("type","hidden").set("value",buf).set("name","tmb");
+    *out << cgicc::form() << std::endl ;
+  }  // end of OTMB
+  //
   //
   *out << cgicc::br() << std::endl;
   *out << cgicc::br() << std::endl;
   //
   if (alct) {
     *out << "ALCT: " << cgicc::br() << std::endl;
-    *out << "firmware version = " << ALCTFirmware_[tmb].toString() << ".xsvf" << cgicc::br() << std::endl;
+  if (alct->GetHardwareVersion()<=1)
+  {
+     *out << "firmware version = " << ALCTFirmware_[tmb].toString() << ".xsvf" << cgicc::br() << std::endl;
     //
     *out << "Step 1)  Disable DCS monitoring to crates" << cgicc::br() << std::endl;
     //
     std::string CheckAbilityToLoadALCT = toolbox::toString("/%s/CheckAbilityToLoadALCT",getApplicationDescriptor()->getURN().c_str());
     *out << cgicc::form().set("method","GET").set("action",CheckAbilityToLoadALCT) << std::endl ;
     //
-    int track_checked = -1;
-    //
-    for (unsigned int i=0; i<(tmbVector.size()<9?tmbVector.size():9) ; i++)
-      if (able_to_load_alct[i] == 0) 
-	track_checked = 0;
-    //
-    for (unsigned int i=0; i<(tmbVector.size()<9?tmbVector.size():9) ; i++)
-      if (able_to_load_alct[i] > 0) 
-	track_checked++;
-    //
+    int track_checked = able_to_load_alct[tmb]; 
     //
     if ( track_checked < 0 ) {
       *out << cgicc::input().set("type","submit").set("value","Step 2) ALCT firmware loading check").set("style","color:blue");
@@ -9548,10 +10521,28 @@ void EmuPeripheralCrateConfig::TMBUtils(xgi::Input * in, xgi::Output * out )
     *out << cgicc::form().set("method","GET").set("action",CCBHardResetFromTMBPage) << std::endl ;
     *out << cgicc::input().set("type","submit").set("value","Step 4) CCB hard reset") << std::endl ;
     *out << cgicc::form() << std::endl ;
-  }
+  }  // end of old ALCT
+  else
+  {  // begin new ALCT
+    *out << "firmware version = " << ALCTFirmware_[tmb].toString() << ".svf" << cgicc::br() << std::endl;
+    *out << "Step 1)  Disable DCS monitoring to crates" << cgicc::br() << std::endl;
+    //
+    std::string LoadSpartan6ALCTFirmware = toolbox::toString("/%s/LoadSpartan6ALCTFirmware",getApplicationDescriptor()->getURN().c_str());
+    *out << cgicc::form().set("method","GET").set("action",LoadSpartan6ALCTFirmware) << std::endl ;
+    sprintf(buf,"Step 2) Load ALCT Spartan 6 Firmware in slot %d",tmbVector[tmb]->slot());
+    *out << cgicc::input().set("type","submit").set("value",buf) << std::endl ;
+    sprintf(buf,"%d",tmb);
+    *out << cgicc::input().set("type","hidden").set("value",buf).set("name","tmb");
+    *out << cgicc::form() << std::endl ;
+    //
+    *out << cgicc::form().set("method","GET").set("action",CCBHardResetFromTMBPage) << std::endl ;
+    *out << cgicc::input().set("type","submit").set("value","Step 3) CCB hard reset") << std::endl ;
+    *out << cgicc::form() << std::endl ;
+  }  // end of new ALCT
   //
   *out << cgicc::br() << std::endl;
   *out << cgicc::br() << std::endl;
+  }  // end of ALCT
   //
   if (rat) {
     *out << "RAT: " << cgicc::br() << std::endl;
@@ -9594,7 +10585,7 @@ void EmuPeripheralCrateConfig::TMBUtils(xgi::Input * in, xgi::Output * out )
   //
   if (alct) {
     *out << "ALCT Slow Control: " << cgicc::br() << std::endl;
-    *out << "firmware version = " << FirmwareDir_ + ALCT_SLOW_FIRMWARE_FILENAME << cgicc::br() << std::endl;
+    *out << "firmware version = " << FirmwareDir_ + ALCT_SLOW_FIRMWARE_FILENAME_XC18V01 << cgicc::br() << std::endl;
     //
     *out << "Step 1)  Disable DCS monitoring to crates" << cgicc::br() << std::endl;
     //
@@ -9608,47 +10599,6 @@ void EmuPeripheralCrateConfig::TMBUtils(xgi::Input * in, xgi::Output * out )
     *out << cgicc::form() << std::endl ;
     *out << cgicc::form().set("method","GET").set("action",CCBHardResetFromTMBPage) << std::endl ;
     *out << cgicc::input().set("type","submit").set("value","Step 3) CCB hard reset") << std::endl ;
-    *out << cgicc::form() << std::endl ;
-  }
-  //
-  if (thisTMB->GetHardwareVersion()==2) {
-    *out << cgicc::br() << std::endl;
-    *out << cgicc::br() << std::endl;
-    std::string svffile=TMBFirmware_[tmb].toString()+".svf";
-    *out << "new OTMB firmware = " << svffile << cgicc::br() << std::endl;
-
-    std::string LoadVirtex6TMBFirmware = toolbox::toString("/%s/LoadVirtex6TMBFirmware",getApplicationDescriptor()->getURN().c_str());
-    *out << cgicc::form().set("method","GET").set("action",LoadVirtex6TMBFirmware) << std::endl ;
-    sprintf(buf,"Load OTMB Virtex 6 Firmware in slot %d",tmbVector[tmb]->slot());
-    *out << cgicc::input().set("type","submit").set("value",buf) << std::endl ;
-    sprintf(buf,"%d",tmb);
-    *out << cgicc::input().set("type","hidden").set("value",buf).set("name","tmb");
-    *out << cgicc::form() << std::endl ;
-
-    *out << cgicc::br() << std::endl;
-    *out << cgicc::br() << std::endl;
-    std::string mcsfile=TMBFirmware_[tmb].toString()+".mcs";
-    *out << "new OTMB firmware = " << mcsfile << cgicc::br() << std::endl;
-
-    std::string LoadVirtex6TMBFpga = toolbox::toString("/%s/LoadVirtex6TMBFPGA",getApplicationDescriptor()->getURN().c_str());
-    *out << cgicc::form().set("method","GET").set("action",LoadVirtex6TMBFpga) << std::endl ;
-    sprintf(buf,"Program OTMB Virtex 6 FPGA in slot %d",tmbVector[tmb]->slot());
-    *out << cgicc::input().set("type","submit").set("value",buf) << std::endl ;
-    sprintf(buf,"%d",tmb);
-    *out << cgicc::input().set("type","hidden").set("value",buf).set("name","tmb");
-    *out << cgicc::form() << std::endl ;
-  }
-
-  if (alct->GetHardwareVersion()==2) {
-    *out << cgicc::br() << std::endl;
-    *out << cgicc::br() << std::endl;
-    *out << "new ALCT firmware version = " << FirmwareDir_ + "alct/alct_mez_spartan6.svf" << cgicc::br() << std::endl;
-    std::string LoadSpartan6ALCTFirmware = toolbox::toString("/%s/LoadSpartan6ALCTFirmware",getApplicationDescriptor()->getURN().c_str());
-    *out << cgicc::form().set("method","GET").set("action",LoadSpartan6ALCTFirmware) << std::endl ;
-    sprintf(buf,"Load ALCT Spartan 6 Firmware in slot %d",tmbVector[tmb]->slot());
-    *out << cgicc::input().set("type","submit").set("value",buf) << std::endl ;
-    sprintf(buf,"%d",tmb);
-    *out << cgicc::input().set("type","hidden").set("value",buf).set("name","tmb");
     *out << cgicc::form() << std::endl ;
   }
   //
@@ -9696,6 +10646,8 @@ void EmuPeripheralCrateConfig::TMBUtils(xgi::Input * in, xgi::Output * out )
   //
 
   if (thisTMB->GetHardwareVersion()==2) {
+    int number_of_gems = thisTMB->GetNGemEnabledLinks();
+
     std::string TMBFiberReset = toolbox::toString("/%s/TMBFiberReset",
 						  getApplicationDescriptor()->getURN().c_str());
     *out << cgicc::form().set("method", "GET").set("action", TMBFiberReset);
@@ -9731,10 +10683,17 @@ void EmuPeripheralCrateConfig::TMBUtils(xgi::Input * in, xgi::Output * out )
     std::string button_name = "Force Enable All";
     std::string status = "N/A";
     std::string reset_button = "Reset All";
-    for (int i = -1; i < ((int) TMB_N_FIBERS); ++i) {
+    std::string gem_button_name = "GEM ";
+    for (int i = -1; i < ((int) TMB_MAX_DCFEB_FIBERS + number_of_gems); ++i) {
+      int gem_num = i - (int)TMB_MAX_DCFEB_FIBERS;
       *out << cgicc::tr();
       *out << cgicc::td();
-      *out << button_name;
+      if (i < (int)TMB_MAX_DCFEB_FIBERS) {
+	*out << button_name;
+      }
+      else {
+	*out << gem_button_name << gem_num;
+      }
       *out << cgicc::td();
       *out << cgicc::td();
       //
@@ -9742,9 +10701,9 @@ void EmuPeripheralCrateConfig::TMBUtils(xgi::Input * in, xgi::Output * out )
         bool read_status = false;
         if (i < 0) {
           read_status = thisTMB->GetReadGtxRxAllEnable();
-        } else {
+        } else if (i < (int)TMB_MAX_DCFEB_FIBERS) {
           read_status = thisTMB->GetReadGtxRxEnable(i);
-        }
+        } else read_status = thisTMB->GetReadGemGtxRxEnable(gem_num);
         std::string color;
         std::string toggle_button;
         if (read_status) {
@@ -9797,7 +10756,7 @@ void EmuPeripheralCrateConfig::TMBUtils(xgi::Input * in, xgi::Output * out )
       ss << i + 1;
       bn << i + 1;
       fiber_num = ss.str();
-      button_name = ss.str();
+      button_name = bn.str();
       reset_button = "Reset";
     }
     *out << cgicc::table();
@@ -9807,57 +10766,59 @@ void EmuPeripheralCrateConfig::TMBUtils(xgi::Input * in, xgi::Output * out )
   *out << cgicc::fieldset() << cgicc::br() << std::endl;
   //
 
-  // --=== Virtex6 register read ===--
-  //
-  *out << cgicc::fieldset().set("style","font-size: 11pt; font-family: arial;") << std::endl;
-  *out << cgicc::legend("Virtex 6 Registers").set("style","color:blue") << std::endl ;
+  if (thisTMB->GetHardwareVersion()==2) {
+     // --=== Virtex6 register read ===--
+     //
+     *out << cgicc::fieldset().set("style","font-size: 11pt; font-family: arial;") << std::endl;
+     *out << cgicc::legend("Virtex 6 Registers").set("style","color:blue") << std::endl ;
 
-  std::string ReadOTMBVirtex6Reg = toolbox::toString("/%s/ReadOTMBVirtex6Reg",getApplicationDescriptor()->getURN().c_str());
-  *out << cgicc::form().set("method","GET").set("action",ReadOTMBVirtex6Reg) << std::endl ;
+     std::string ReadOTMBVirtex6Reg = toolbox::toString("/%s/ReadOTMBVirtex6Reg",getApplicationDescriptor()->getURN().c_str());
+     *out << cgicc::form().set("method","GET").set("action",ReadOTMBVirtex6Reg) << std::endl ;
   
-  // make a map of register index -> name
-  std::map<int, std::string> regNames;
-  regNames[VTX6_REG_CRC] = "CRC";
-  regNames[VTX6_REG_FAR] = "FAR";
-  regNames[VTX6_REG_FDRI] = "FDRI";
-  regNames[VTX6_REG_FDR0] = "FDR0";
-  regNames[VTX6_REG_CMS] = "CMS";
-  regNames[VTX6_REG_CTL0] = "CTL0";
-  regNames[VTX6_REG_MASK] = "MASK";
-  regNames[VTX6_REG_STAT] = "STATUS";
-  regNames[VTX6_REG_LOUT] = "LOUT";
-  regNames[VTX6_REG_COR0] = "COR0";
-  regNames[VTX6_REG_MFWR] = "MFWR";
-  regNames[VTX6_REG_CBC] = "CBC";
-  regNames[VTX6_REG_IDCODE] = "IDCODE";
-  regNames[VTX6_REG_AXSS] = "AXSS";
-  regNames[VTX6_REG_COR1] = "COR1";
-  regNames[VTX6_REG_CSOB] = "CSOB";
-  regNames[VTX6_REG_WBSTAR] = "WBSTAR";
-  regNames[VTX6_REG_TIMER] = "TIMER";
-  regNames[VTX6_REG_BOOTSTS] = "BOOTSTS";
-  regNames[VTX6_REG_CTL1] = "CTL1";
-  regNames[VTX6_REG_DWC] = "DWC";
+     // make a map of register index -> name
+     std::map<int, std::string> regNames;
+     regNames[VTX6_REG_CRC] = "CRC";
+     regNames[VTX6_REG_FAR] = "FAR";
+     //  regNames[VTX6_REG_FDRI] = "FDRI";
+     regNames[VTX6_REG_FDRO] = "FDRO";
+     regNames[VTX6_REG_CMD] = "CMD";
+     regNames[VTX6_REG_CTL0] = "CTL0";
+     regNames[VTX6_REG_MASK] = "MASK";
+     regNames[VTX6_REG_STAT] = "STATUS";
+     //  regNames[VTX6_REG_LOUT] = "LOUT";
+     regNames[VTX6_REG_COR0] = "COR0";
+     //  regNames[VTX6_REG_MFWR] = "MFWR";
+     //  regNames[VTX6_REG_CBC] = "CBC";
+     regNames[VTX6_REG_IDCODE] = "IDCODE";
+     regNames[VTX6_REG_AXSS] = "AXSS";
+     regNames[VTX6_REG_COR1] = "COR1";
+     //  regNames[VTX6_REG_CSOB] = "CSOB";
+     regNames[VTX6_REG_WBSTAR] = "WBSTAR";
+     regNames[VTX6_REG_TIMER] = "TIMER";
+     regNames[VTX6_REG_BOOTSTS] = "BOOTSTS";
+     regNames[VTX6_REG_CTL1] = "CTL1";
+     regNames[VTX6_REG_DWC] = "DWC";
   
-  // print the drop down list
-  char sbuf[200];
-  *out << cgicc::select().set("name", "reg") << std::endl;
-  std::map<int, std::string>::iterator it;
-  for (it = regNames.begin(); it != regNames.end(); ++it) {
-    sprintf(sbuf, "%d", it->first);
-    *out << cgicc::option().set("value", sbuf) << it->second << cgicc::option() << std::endl;
+     // print the drop down list
+     char sbuf[200];
+     *out << cgicc::select().set("name", "reg") << std::endl;
+     std::map<int, std::string>::iterator it;
+     for (it = regNames.begin(); it != regNames.end(); ++it) {
+        sprintf(sbuf, "%d", it->first);
+        *out << cgicc::option().set("value", sbuf) << it->second << cgicc::option() << std::endl;
+     }
+     *out << cgicc::select() << std::endl;
+     sprintf(buf, "%d", tmb);
+     *out << cgicc::input().set("type","hidden").set("name","tmb").set("value",buf) << std::endl;
+     *out << cgicc::input().set("type","submit").set("value","Read Virtex6 Register") << std::endl;
+  
+     *out << cgicc::br() << std::endl;
+     *out << "Read Back (hex): " << std::hex << OTMBVirtex6RegisterRead_ << std::dec << std::endl;
+  
+     *out << cgicc::form() << std::endl;  
+     *out << cgicc::fieldset() << cgicc::br() << std::endl;
+     // ================================================
   }
-  *out << cgicc::select() << std::endl;
-  sprintf(buf, "%d", tmb);
-  *out << cgicc::input().set("type","hidden").set("name","tmb").set("value",buf) << std::endl;
-  *out << cgicc::input().set("type","submit").set("value","Read Virtex6 Register") << std::endl;
-  
-  *out << cgicc::br() << std::endl;
-  *out << "Read Back (hex): " << std::hex << OTMBVirtex6RegisterRead_ << std::dec << std::endl;
-  
-  *out << cgicc::form() << std::endl;  
-  *out << cgicc::fieldset() << cgicc::br() << std::endl;
-  // ================================================
   //--------------------------------------------------------
   *out << cgicc::fieldset().set("style","font-size: 11pt; font-family: arial;") << std::endl;
   *out << cgicc::legend("Other TMB Utilities").set("style","color:blue") << std::endl ;
@@ -10143,6 +11104,26 @@ void EmuPeripheralCrateConfig::TMBUtils(xgi::Input * in, xgi::Output * out )
   *out << cgicc::form() << std::endl ;
   *out << cgicc::td();
   //
+  if (thisTMB->GetHardwareVersion() >= 2 && thisTMB->GetGemEnabled() ) {
+  *out << cgicc::td().set("ALIGN","left");
+  std::string GEMRawHits = toolbox::toString("/%s/GEMRawHits",getApplicationDescriptor()->getURN().c_str());
+  *out << cgicc::form().set("method","GET").set("action",GEMRawHits) ;
+  *out << cgicc::input().set("type","submit").set("value","Read GEM Raw Hits") ;
+  sprintf(buf,"%d",tmb);
+  *out << cgicc::input().set("type","hidden").set("value",buf).set("name","tmb");
+  *out << cgicc::form() << std::endl ;
+  *out << cgicc::td();
+  }
+  //
+  *out << cgicc::td().set("ALIGN","left");
+  std::string DisALCTTestPulse = toolbox::toString("/%s/DisableALCTTestPulse",getApplicationDescriptor()->getURN().c_str());
+  *out << cgicc::form().set("method","GET").set("action",DisALCTTestPulse) ;
+  *out << cgicc::input().set("type","submit").set("value","Disable ALCT Test Pulse") ;
+  sprintf(buf,"%d",tmb);
+  *out << cgicc::input().set("type","hidden").set("value",buf).set("name","tmb");
+  *out << cgicc::form() << std::endl ;
+  *out << cgicc::td();
+  //
   //////////////////////////////////////////////
   *out << cgicc::tr();
   //
@@ -10160,6 +11141,24 @@ void EmuPeripheralCrateConfig::TMBUtils(xgi::Input * in, xgi::Output * out )
   *out << cgicc::form() ;
   *out << cgicc::td();
   //
+  if (thisTMB->GetHardwareVersion()==2) 
+  {
+     //
+     *out << cgicc::td().set("ALIGN","left");
+     std::string OTMBLoadFirmware = toolbox::toString("/%s/OTMBLoadFirmware",getApplicationDescriptor()->getURN().c_str());
+     *out << cgicc::form().set("method","GET").set("action",OTMBLoadFirmware) << std::endl ;
+     *out << cgicc::input().set("type","submit").set("value","Load OTMB firmware to PROM (BPI)") << std::endl ;
+     sprintf(buf,"%d",tmb);
+     *out << cgicc::br();
+     *out << cgicc::input().set("type","hidden").set("value",buf).set("name","tmb");
+     *out << cgicc::form() << std::endl ;
+     *out << cgicc::td();
+     *out << cgicc::td();
+     *out << FirmwareDir_+"otmb/me11_otmb.mcs";
+     *out << cgicc::td();
+  }
+
+  //
   //////////////////////////////////////////////
   *out << cgicc::tr();
   //
@@ -10176,6 +11175,243 @@ void EmuPeripheralCrateConfig::TMBUtils(xgi::Input * in, xgi::Output * out )
   *out << cgicc::input().set("type","hidden").set("value",buf).set("name","tmb");
   *out << cgicc::form() ;
   *out << cgicc::td();
+  //
+  //////////////////////////////////////////////
+  //
+  *out << cgicc::tr();
+  //
+  *out << cgicc::td().set("ALIGN","left");
+  *out << cgicc::br();
+  *out << cgicc::td();
+  //
+  //////////////////////////////////////////////
+  //
+  *out << cgicc::tr();
+if (thisTMB->GetHardwareVersion()==2) 
+{
+
+  *out << cgicc::td().set("ALIGN","left");
+  if (showBPITools_ &&  cgi.queryCheckbox("HideBPITools")) showBPITools_ = false;
+  if (!cgi.queryCheckbox("HideBPITools") && cgi.queryCheckbox("ShowBPITools")) showBPITools_ = true;
+  *out << cgicc::form().set("method", "GET").set("action", "");
+  if (showBPITools_ ){
+    *out << cgicc::input().set("type", "checkbox").set("checked","").set("name", "HideBPITools");
+    *out << "Hide BPI Debug Tools";
+  }
+  else {
+    *out << cgicc::input().set("type", "checkbox").set("checked","").set("name", "ShowBPITools");
+    *out << "Show BPI Debug Tools";
+  }
+  sprintf(buf,"%d",tmb);
+  *out << cgicc::input().set("type","hidden").set("value",buf).set("name","tmb");
+  *out << cgicc::input().set("type", "submit").set("value", "Select");
+  *out << cgicc::form() << std::endl;
+  *out << cgicc::td();
+  *out << cgicc::tr();
+
+  if (showBPITools_){
+    //
+    *out << cgicc::td().set("ALIGN","left");
+    *out << "TMB BPI:";
+    *out << cgicc::td();
+    //
+    *out << cgicc::td().set("ALIGN","left");
+    *out << "Functions to access VME registers";
+    *out << cgicc::br();
+    *out << "defined for BPI:";
+    *out << cgicc::td();
+    //
+    *out << cgicc::td().set("ALIGN","left");
+    *out << "Sequence of commands to erase";
+    *out << cgicc::br();
+    *out << "first block in PROM:";
+    *out << cgicc::td();
+    //
+    *out << cgicc::tr();
+    //
+    *out << cgicc::td().set("ALIGN","left");
+    *out << cgicc::td();
+    //
+    *out << cgicc::td().set("ALIGN","left").set("VALIGN","top");
+    //
+    std::string TMBBPIReset = toolbox::toString("/%s/TMBBPIReset",getApplicationDescriptor()->getURN().c_str());
+    *out << cgicc::form().set("method","GET").set("action",TMBBPIReset) ;
+    *out << cgicc::input().set("type","submit").set("value","BPI Reset") ;
+    sprintf(buf,"%d",tmb);
+    *out << cgicc::input().set("type","hidden").set("value",buf).set("name","tmb");
+    *out << cgicc::form() ;
+    //
+    *out << cgicc::br();
+    //
+    std::string TMBBPIDisable = toolbox::toString("/%s/TMBBPIDisable",getApplicationDescriptor()->getURN().c_str());
+    *out << cgicc::form().set("method","GET").set("action",TMBBPIDisable) ;
+    *out << cgicc::input().set("type","submit").set("value","BPI Disable Comand FIFO") ;
+    sprintf(buf,"%d",tmb);
+    *out << cgicc::input().set("type","hidden").set("value",buf).set("name","tmb");
+    *out << cgicc::form() ;
+    //
+    *out << cgicc::br();
+    //
+    std::string TMBBPIEnable = toolbox::toString("/%s/TMBBPIEnable",getApplicationDescriptor()->getURN().c_str());
+    *out << cgicc::form().set("method","GET").set("action",TMBBPIEnable) ;
+    *out << cgicc::input().set("type","submit").set("value","BPI Enable Command FIFO") ;
+    sprintf(buf,"%d",tmb);
+    *out << cgicc::input().set("type","hidden").set("value",buf).set("name","tmb");
+    *out << cgicc::form() ;
+    //
+    *out << cgicc::br();
+    //
+    std::string TMBBPIWrite = toolbox::toString("/%s/TMBBPIWrite",getApplicationDescriptor()->getURN().c_str());
+    *out << cgicc::form().set("method","GET").set("action",TMBBPIWrite) ;
+    *out << cgicc::input().set("type","submit").set("value","BPI Write to Command FIFO");
+    *out << cgicc::br();
+    *out << "Word 16 bits:" << std::endl;
+    *out << cgicc::input().set("type","text").set("value","0x0000").set("name","bpi_word_to_write") << std::endl ;
+    sprintf(buf,"%d",tmb);
+    *out << cgicc::input().set("type","hidden").set("value",buf).set("name","tmb");
+    *out << cgicc::form() ;
+    //
+    *out << cgicc::br();
+    //
+    std::string TMBBPIRead = toolbox::toString("/%s/TMBBPIRead",getApplicationDescriptor()->getURN().c_str());
+    *out << cgicc::form().set("method","GET").set("action",TMBBPIRead) ;
+    *out << cgicc::input().set("type","submit").set("value","BPI Read (16 bits)") ;
+    sprintf(buf,"%d",tmb);
+    *out << cgicc::input().set("type","hidden").set("value",buf).set("name","tmb");
+    *out << cgicc::form() ;
+    //
+    *out << cgicc::br();
+    //
+    std::string TMBBPIReadN = toolbox::toString("/%s/TMBBPIReadN",getApplicationDescriptor()->getURN().c_str());
+    *out << cgicc::form().set("method","GET").set("action",TMBBPIReadN) ;
+    *out << cgicc::input().set("type","submit").set("value","BPI Read Number of Remaining Words") ;
+    sprintf(buf,"%d",tmb);
+    *out << cgicc::input().set("type","hidden").set("value",buf).set("name","tmb");
+    *out << cgicc::form() ;
+    //
+    *out << cgicc::br();
+    //
+    std::string TMBBPIStatus = toolbox::toString("/%s/TMBBPIStatus",getApplicationDescriptor()->getURN().c_str());
+    *out << cgicc::form().set("method","GET").set("action",TMBBPIStatus) ;
+    *out << cgicc::input().set("type","submit").set("value","BPI Status Read (16 bits)").set("style","color:red");
+    sprintf(buf,"%d",tmb);
+    *out << cgicc::input().set("type","hidden").set("value",buf).set("name","tmb");
+    *out << cgicc::form();
+    //
+    *out << cgicc::br();
+    //
+    std::string TMBBPITimerRead = toolbox::toString("/%s/TMBBPITimerRead",getApplicationDescriptor()->getURN().c_str());
+    *out << cgicc::form().set("method","GET").set("action",TMBBPITimerRead) ;
+    *out << cgicc::input().set("type","submit").set("value","BPI Timer Read (32 bits)");
+    sprintf(buf,"%d",tmb);
+    *out << cgicc::input().set("type","hidden").set("value",buf).set("name","tmb");
+    *out << cgicc::form();
+    //
+    *out << cgicc::td();
+    //
+    *out << cgicc::td().set("ALIGN","left").set("VALIGN","top");
+    //
+    //
+    // std::string TMBBPIReset = toolbox::toString("/%s/TMBBPIReset",getApplicationDescriptor()->getURN().c_str());
+    *out << cgicc::form().set("method","GET").set("action",TMBBPIReset) ;
+    *out << cgicc::input().set("type","submit").set("value","BPI Reset") ;
+    sprintf(buf,"%d",tmb);
+    *out << cgicc::input().set("type","hidden").set("value",buf).set("name","tmb");
+    *out << cgicc::form() ;
+    //
+    *out << cgicc::br();
+    //
+    // std::string TMBBPIEnable = toolbox::toString("/%s/TMBBPIEnable",getApplicationDescriptor()->getURN().c_str());
+    *out << cgicc::form().set("method","GET").set("action",TMBBPIEnable) ;
+    *out << cgicc::input().set("type","submit").set("value","BPI Enable Command FIFO") ;
+    sprintf(buf,"%d",tmb);
+    *out << cgicc::input().set("type","hidden").set("value",buf).set("name","tmb");
+    *out << cgicc::form() ;
+    //
+    *out << cgicc::br();
+    //
+    std::string TMBBPIPromTimerStop = toolbox::toString("/%s/TMBBPIPromTimerStop",getApplicationDescriptor()->getURN().c_str());
+    *out << cgicc::form().set("method","GET").set("action",TMBBPIPromTimerStop) ;
+    *out << cgicc::input().set("type","submit").set("value","BPI PROM Timer Stop");
+    sprintf(buf,"%d",tmb);
+    *out << cgicc::input().set("type","hidden").set("value",buf).set("name","tmb");
+    *out << cgicc::form();
+    //
+    *out << cgicc::br();
+    //
+    std::string TMBBPIPromTimerReset = toolbox::toString("/%s/TMBBPIPromTimerReset",getApplicationDescriptor()->getURN().c_str());
+    *out << cgicc::form().set("method","GET").set("action",TMBBPIPromTimerReset) ;
+    *out << cgicc::input().set("type","submit").set("value","BPI PROM Timer Reset");
+    sprintf(buf,"%d",tmb);
+    *out << cgicc::input().set("type","hidden").set("value",buf).set("name","tmb");
+    *out << cgicc::form();
+    //
+    *out << cgicc::br();
+    //
+    std::string TMBBPIPromTimerStart = toolbox::toString("/%s/TMBBPIPromTimerStart",getApplicationDescriptor()->getURN().c_str());
+    *out << cgicc::form().set("method","GET").set("action",TMBBPIPromTimerStart) ;
+    *out << cgicc::input().set("type","submit").set("value","BPI PROM Timer Start");
+    sprintf(buf,"%d",tmb);
+    *out << cgicc::input().set("type","hidden").set("value",buf).set("name","tmb");
+    *out << cgicc::form();
+    //
+    *out << cgicc::br();
+    //
+    std::string TMBBPIPromClearStatus = toolbox::toString("/%s/TMBBPIPromClearStatus",getApplicationDescriptor()->getURN().c_str());
+    *out << cgicc::form().set("method","GET").set("action",TMBBPIPromClearStatus) ;
+    *out << cgicc::input().set("type","submit").set("value","BPI PROM Clear Status");
+    sprintf(buf,"%d",tmb);
+    *out << cgicc::input().set("type","hidden").set("value",buf).set("name","tmb");
+    *out << cgicc::form();
+    //
+    *out << cgicc::br();
+    //
+    std::string TMBBPIPromLoadAddress = toolbox::toString("/%s/TMBBPIPromLoadAddress",getApplicationDescriptor()->getURN().c_str());
+    *out << cgicc::form().set("method","GET").set("action",TMBBPIPromLoadAddress) ;
+    *out << cgicc::input().set("type","submit").set("value","BPI PROM Load Address");
+    sprintf(buf,"%d",tmb);
+    *out << cgicc::input().set("type","hidden").set("value",buf).set("name","tmb");
+    *out << cgicc::form();
+    //
+    *out << cgicc::br();
+    //
+    std::string TMBBPIPromBlockUnlock = toolbox::toString("/%s/TMBBPIPromBlockUnlock",getApplicationDescriptor()->getURN().c_str());
+    *out << cgicc::form().set("method","GET").set("action",TMBBPIPromBlockUnlock) ;
+    *out << cgicc::input().set("type","submit").set("value","BPI PROM Block Unlock");
+    sprintf(buf,"%d",tmb);
+    *out << cgicc::input().set("type","hidden").set("value",buf).set("name","tmb");
+    *out << cgicc::form();
+    //
+    *out << cgicc::br();
+    //
+    std::string TMBBPIPromBlockErase = toolbox::toString("/%s/TMBBPIPromBlockErase",getApplicationDescriptor()->getURN().c_str());
+    *out << cgicc::form().set("method","GET").set("action",TMBBPIPromBlockErase) ;
+    *out << cgicc::input().set("type","submit").set("value","BPI PROM Block Erase");
+    sprintf(buf,"%d",tmb);
+    *out << cgicc::input().set("type","hidden").set("value",buf).set("name","tmb");
+    *out << cgicc::form();
+    //
+    *out << cgicc::br();
+    //
+    std::string TMBBPIPromBlockLock = toolbox::toString("/%s/TMBBPIPromBlockLock",getApplicationDescriptor()->getURN().c_str());
+    *out << cgicc::form().set("method","GET").set("action",TMBBPIPromBlockLock) ;
+    *out << cgicc::input().set("type","submit").set("value","BPI PROM Block Lock");
+    sprintf(buf,"%d",tmb);
+    *out << cgicc::input().set("type","hidden").set("value",buf).set("name","tmb");
+    *out << cgicc::form();
+    //
+    *out << cgicc::br();
+    //
+    // std::string TMBBPIDisable = toolbox::toString("/%s/TMBBPIDisable",getApplicationDescriptor()->getURN().c_str());
+    *out << cgicc::form().set("method","GET").set("action",TMBBPIDisable) ;
+    *out << cgicc::input().set("type","submit").set("value","BPI Disable Comand FIFO") ;
+    sprintf(buf,"%d",tmb);
+    *out << cgicc::input().set("type","hidden").set("value",buf).set("name","tmb");
+    *out << cgicc::form() ;
+    //
+    *out << cgicc::td();
+  }//showBPITools
+}     // hardware_version_==2 
   //
   //--------------------------------------------------------
   *out << cgicc::table();
@@ -10218,7 +11454,7 @@ void EmuPeripheralCrateConfig::TMBReadFirmware(xgi::Input * in, xgi::Output * ou
   if(tmb>=0 && (unsigned)tmb<tmbVector.size())  thisTMB = tmbVector[tmb];
   if(thisTMB)
   {
-    std::string chambername= thisCrate->GetChamber(thisTMB)->GetLabel();
+    std::string chambername= thisTMB->GetLabel();
     unsigned t = chambername.find('/');
     unsigned s = chambername.size();
     while(t<=s )
@@ -10251,6 +11487,36 @@ void EmuPeripheralCrateConfig::TMBReadFirmware(xgi::Input * in, xgi::Output * ou
   this->TMBUtils(in,out);
 }
 //
+void EmuPeripheralCrateConfig::OTMBLoadFirmware(xgi::Input * in, xgi::Output * out) throw (xgi::exception::Exception) {
+  //
+  cgicc::Cgicc cgi(in);
+  //
+  cgicc::form_iterator name2 = cgi.getElement("tmb");
+  //
+  int tmb;
+  if (name2 != cgi.getElements().end()) {
+    tmb = cgi["tmb"]->getIntegerValue();
+    std::cout << "Select TMB " << tmb << std::endl;
+  } else {
+    std::cout << "No TMB" << std::endl;
+    tmb = -1;
+  }
+  //
+  TMB * thisTMB = NULL;
+  if (tmb >= 0 && (unsigned) tmb < tmbVector.size())
+    thisTMB = tmbVector[tmb];
+  //
+  if (thisTMB) {
+    std::string mcsfile = FirmwareDir_ + "otmb/me11_otmb.mcs";
+    std::cout << getLocalDateTime() << " OTMB program EPROM in slot " << thisTMB->slot() << " using MCS file" << mcsfile << std::endl;
+    thisTMB->otmb_program_eprom_poll(mcsfile.c_str());
+    std::cout << getLocalDateTime() << " OTMB program EPROM finished." << std::endl;
+  }
+  //
+  this->TMBUtils(in, out);
+  //
+}
+//
 void EmuPeripheralCrateConfig::ALCTReadFirmware(xgi::Input * in, xgi::Output * out )
   throw (xgi::exception::Exception) {
   //
@@ -10270,7 +11536,7 @@ void EmuPeripheralCrateConfig::ALCTReadFirmware(xgi::Input * in, xgi::Output * o
   if(tmb>=0 && (unsigned)tmb<tmbVector.size())  thisTMB = tmbVector[tmb];
   if(thisTMB)
   {
-    std::string chambername= thisCrate->GetChamber(thisTMB)->GetLabel();
+    std::string chambername= thisTMB->GetLabel();
     unsigned t = chambername.find('/');
     unsigned s = chambername.size();
     while(t<=s )
@@ -10320,62 +11586,58 @@ void EmuPeripheralCrateConfig::LoadALCTSlowFirmware(xgi::Input * in, xgi::Output
   if(tmb>=0 && (unsigned)tmb<tmbVector.size())  thisTMB = tmbVector[tmb];
   if(thisTMB)
   {
-    std::string chambername = thisCrate->GetChamber(thisTMB)->GetLabel();
-    std::string svffile = FirmwareDir_ + ALCT_SLOW_FIRMWARE_FILENAME;
+    std::string chambername = thisTMB->GetLabel();
     thisCCB->setCCBMode(CCB::VMEFPGA);
-      
+
     std::cout  << getLocalDateTime() << " Download ALCT Slow Control firmware to " << chambername << std::endl;
-      
-    //disable TMB clocks
-    std::cout << "Disable All TMB Clocks" << std::endl; 
-    thisTMB->disableAllClocks(); //anp
-    ::sleep(10);
 
-    //power cycle ALCT
-    DAQMB * thisDMB = dmbVector[tmb];  // TMB and DMB in a pair should have the the same number
+    //disable ALCT clock
+    std::cout << "Disable TMB ALCT Clock" << std::endl;
+    thisTMB->disableALCTClock();
+    ::sleep(1);
 
-    std::cout << "DMB Turn Off and then On ALCT: DMB " << tmb << std::endl;
-    if (thisDMB) 
-    {
-        int D_hversion=thisDMB->GetHardwareVersion();
-        int alct_on=((D_hversion<=1)?0x20:0x80);
-        int alct_off=((D_hversion<=1)?0x1F:0x7F);
-        int old_powermask=thisDMB->lowv_rdpwrreg();
-        // turn off
-        thisDMB->lowv_onoff(old_powermask & alct_off);
-        ::sleep(2);
-        //turn on
-        thisDMB->lowv_onoff(old_powermask | alct_on);
+    //hard reset ALCT
+    thisTMB->tmb_hard_reset_alct_fpga();
+
+    ALCTController * thisALCT = thisTMB->alctController();
+    thisALCT->ReadSlowControlId();
+    int prom_id = thisALCT->GetSlowControlPROMID();
+    bool prom_valid = 0;
+
+    std::string svffile;
+    // look for a recognized PROM ID
+    // the most-significant 4 bits of the PROMID may be a die revision code, which can vary per-chip
+    // so we mask off those bits and just check the lower 7 hex digits
+    if      ((prom_id&0xfffffff)==0x5034093 || prom_id==0x05024093) {
+        prom_valid=1;
+        svffile = FirmwareDir_ + ALCT_SLOW_FIRMWARE_FILENAME_XC18V01;
+        std::cout  << "Found ALCT Slow Control PROM Type XC18V01" << std::endl;
     }
+    else if ((prom_id&0xfffffff)==0x5036093 || prom_id==0x05026093) {
+        prom_valid=1;
+        svffile = FirmwareDir_ + ALCT_SLOW_FIRMWARE_FILENAME_XC18V04;
+        std::cout  << "Found ALCT Slow Control PROM Type XC18V04" << std::endl;
+    }
+    else
+        std::cout  << "ALCT Slow Control PROM IDCode=0x" << std::hex << prom_id << std::dec <<" Not Recognized" << std::endl;
 
-    thisTMB->setup_jtag(ChainAlctSlowMezz);
-    thisTMB->svfLoad(0,svffile.c_str(), 0, 1);
+    if (prom_valid) {
+        thisTMB->setup_jtag(ChainAlctSlowMezz);
+        thisTMB->svfLoad(0,svffile.c_str(), 0, 1);
+    }
 
     //reenable TMB clocks
-    std::cout << "Enable All TMB Clocks" << std::endl; 
+    std::cout << "Enable All TMB Clocks" << std::endl;
     ::sleep(1);
-    thisTMB->enableAllClocks(); //anp
-    
-    //power cycle ALCT again
+    thisTMB->enableAllClocks();
 
-    std::cout << "DMB Turn Off and then On ALCT: DMB " << tmb << std::endl;
-    if (thisDMB) 
-    {
-        int D_hversion=thisDMB->GetHardwareVersion();
-        int alct_on=((D_hversion<=1)?0x20:0x80);
-        int alct_off=((D_hversion<=1)?0x1F:0x7F);
-        int old_powermask=thisDMB->lowv_rdpwrreg();
-        // turn off
-        thisDMB->lowv_onoff(old_powermask & alct_off);
-        ::sleep(2);
-        //turn on
-        thisDMB->lowv_onoff(old_powermask | alct_on);
-    }
+    // hard reset to reload the alct
+    thisCCB->hardReset();
 
     // Put CCB back into DLOG mode to listen to TTC commands...
     thisCCB->setCCBMode(CCB::DLOG);
   }
-  
+
   this->TMBUtils(in,out);
 }
 //
@@ -10398,14 +11660,28 @@ void EmuPeripheralCrateConfig::LoadVirtex6TMBFirmware(xgi::Input * in, xgi::Outp
   if(tmb>=0 && (unsigned)tmb<tmbVector.size())  thisTMB = tmbVector[tmb];
   if(thisTMB && (thisTMB->GetHardwareVersion()==2))
   {
-    std::string svffile = TMBFirmware_[tmb].toString()+".svf";
+    std::string svffile1 = XMLDIR+"/virtex6lx240_header.svf";
+    std::string svffile2 = XMLDIR+"/virtex6_trailer.svf";
+    std::string corefile = XMLDIR+"/virtex6lx240_core.mcs";
+    std::string mcsfile = TMBFirmware_[tmb].toString()+".mcs";
+
     // Put CCB in FPGA mode to make the CCB ignore TTC commands (such as hard reset)
     thisCCB->setCCBMode(CCB::VMEFPGA);
       //
-    std::cout  << getLocalDateTime() <<  " Write OTMB (Virtex 6) firmware " << svffile << " to slot " << thisTMB->slot() << std::endl;
+    std::cout  << getLocalDateTime() <<  " Loading OTMB firmware " << mcsfile << " to slot " << thisTMB->slot() << std::endl;
       //
     thisTMB->setup_jtag(ChainTmbMezz);
-    thisTMB->svfLoad(0,svffile.c_str(), 0, 1);
+    std::cout << "Step #1, loading Xilinx Core..."  << std::endl;    
+    thisTMB->program_virtex6(corefile.c_str());
+    std::cout << "Step #2, erasing EPROM..."  << std::endl;    
+    thisTMB->svfLoad(0, svffile1.c_str(), 0, 0);
+    std::cout << "Step #3, programming EPROM with content from MCS file..."  << std::endl;
+    thisTMB->otmb_program_eprom(mcsfile.c_str());
+    std::cout << "Done!"  << std::endl;  
+    std::cout << "Step #4, finalizing..." << std::endl;
+    thisTMB->svfLoad(0, svffile2.c_str(), 0, 0);
+
+//    thisTMB->svfLoad(0,svffile.c_str(), 0, 1);
 
     // enable VME access to TMB FPGA
     // from function ClearTMBBootReg()
@@ -10417,6 +11693,7 @@ void EmuPeripheralCrateConfig::LoadVirtex6TMBFirmware(xgi::Input * in, xgi::Outp
 
     // Put CCB back into DLOG mode to listen to TTC commands...
     thisCCB->setCCBMode(CCB::DLOG);
+    std::cout  << getLocalDateTime() <<  " Finished loading firmware to EPROM." << std::endl;
   }
   //
 this->TMBUtils(in,out);
@@ -10448,9 +11725,10 @@ void EmuPeripheralCrateConfig::LoadVirtex6TMBFPGA(xgi::Input * in, xgi::Output *
     std::cout  << getLocalDateTime() <<  " Program OTMB (Virtex 6) FPGA with firmware " << mcsfile << " to slot " << thisTMB->slot() << std::endl;
       //
     thisTMB->program_virtex6(mcsfile.c_str());
-
+    thisTMB->tmb_set_boot_reg(0);
     // Put CCB back into DLOG mode to listen to TTC commands...
     thisCCB->setCCBMode(CCB::DLOG);
+    std::cout  << getLocalDateTime() <<  " Finished. " << std::endl;
   }
   //
 this->TMBUtils(in,out);
@@ -10479,7 +11757,7 @@ void EmuPeripheralCrateConfig::LoadSpartan6ALCTFirmware(xgi::Input * in, xgi::Ou
     ALCTController * thisALCT = thisTMB->alctController();
     if(thisALCT && (thisALCT->GetHardwareVersion()==2))
     {
-       std::string svffile = FirmwareDir_ + "alct/alct_mez_spartan6.svf";
+       std::string svffile = ALCTFirmware_[tmb].toString() + ".svf";
        // Put CCB in FPGA mode to make the CCB ignore TTC commands (such as hard reset)
        thisCCB->setCCBMode(CCB::VMEFPGA);
        //
@@ -10536,7 +11814,7 @@ void EmuPeripheralCrateConfig::DefineFirmwareFilenames() {
     char mpcdate[7];
     sprintf(mpcdate,"%02u%02u%02u",month,day,year);
     std::ostringstream MPCFirmware;
-    MPCFirmware << FirmwareDir_ << "mpc/mpc2004_" << mpcdate << ".svf";
+    MPCFirmware << FirmwareDir_ << "mpc/mez_" << mpcdate;
     MPCFirmware_ = MPCFirmware.str();
 
   //  std::cout << "CCB firmware name: " << CCBFirmware_ << std::endl;
@@ -10787,7 +12065,7 @@ void EmuPeripheralCrateConfig::LoadCrateTMBFirmware(xgi::Input * in, xgi::Output
   //
   // if there is only typeA chambers in this crate, then a single broadcast will suffice...
   //
-  for (unsigned ntmb=0;ntmb<(tmbVector.size()<9 ? 9 : tmbVector.size());ntmb++) {
+  for (unsigned ntmb=0;ntmb<(tmbVector.size()<9 ? tmbVector.size() : 9);ntmb++) {
     //
     if (tmbVector[ntmb]->GetClctStagger()) {
       ntmb_typea = ntmb;
@@ -10820,7 +12098,7 @@ void EmuPeripheralCrateConfig::LoadCrateTMBFirmware(xgi::Input * in, xgi::Output
   thisCrate->deleteChamber();
   //
   if (!typeA_only) {
-    for (unsigned ntmb=0;ntmb<(tmbVector.size()<9 ? 9 : tmbVector.size());ntmb++) {
+    for (unsigned ntmb=0;ntmb<(tmbVector.size()<9 ? tmbVector.size() : 9);ntmb++) {
       //
       if (!tmbVector[ntmb]->GetClctStagger()) {
 	std::cout << "Loading TMB firmware " << TMBFirmware_[ntmb].toString()
@@ -10840,6 +12118,54 @@ void EmuPeripheralCrateConfig::LoadCrateTMBFirmware(xgi::Input * in, xgi::Output
   thisCCB->setCCBMode(CCB::DLOG);
   //
   this->TMBUtils(in,out);
+  //
+}
+//
+void EmuPeripheralCrateConfig::SerialLoadCrateTMBFirmware(xgi::Input * in, xgi::Output * out ) 
+  throw (xgi::exception::Exception) {
+  //
+  cgicc::Cgicc cgi(in);
+  //
+  // Put CCB in FPGA mode to make the CCB ignore TTC commands (such as hard reset) during TMB downloading...
+  thisCCB->setCCBMode(CCB::VMEFPGA);
+  //
+  std::cout << "Load TMB firmware in serial mode....." << std::endl;
+  ::sleep(5);
+  //
+  short unsigned BootReg;
+  for (unsigned ntmb=0;ntmb<tmbVector.size();ntmb++) {
+      //
+     if (tmbVector[ntmb]->GetHardwareVersion()<=1 && tmbVector[ntmb]->slot()<21)
+     {
+	std::cout << "Loading TMB firmware " << TMBFirmware_[ntmb].toString()
+		  << " to slot " << tmbVector[ntmb]->slot() << " ..." << std::endl;
+	//
+	tmbVector[ntmb]->SetXsvfFilename(TMBFirmware_[ntmb].toString().c_str());
+	tmbVector[ntmb]->ProgramTMBProms();
+	tmbVector[ntmb]->ClearXsvfFilename();
+	number_of_tmb_firmware_errors[ntmb] = tmbVector[ntmb]->GetNumberOfVerifyErrors();
+        if(number_of_tmb_firmware_errors[ntmb]>0)
+        {  
+          std::cout << "Verification error(s) detected at slot " << tmbVector[ntmb]->slot() << ". Abort..." << std::endl;
+          break;
+        }
+        thisCCB->hardReset();
+        tmbVector[ntmb]->tmb_get_boot_reg(&BootReg);
+        if (tmbVector[ntmb]->GetBootVMEReady() != 1) tmbVector[ntmb]->UnjamFPGA();;
+        tmbVector[ntmb]->tmb_get_boot_reg(&BootReg);
+        std::cout << "Boot register = 0x" << std::hex << BootReg << std::dec << std::endl;
+        if (tmbVector[ntmb]->GetBootVMEReady() != 1) 
+        {
+           std::cout << "TMB VME inactive after loading firmware at slot " << tmbVector[ntmb]->slot() << ". Abort..." << std::endl;
+           break;
+        }
+     }
+  }
+  //
+  // Put CCB back into DLOG mode to listen to TTC commands...
+  thisCCB->setCCBMode(CCB::DLOG);
+  //
+  this->CrateConfiguration(in,out);
   //
 }
 //
@@ -11037,7 +12363,8 @@ void EmuPeripheralCrateConfig::LoadALCTFirmware(xgi::Input * in, xgi::Output * o
   able_to_load_alct[tmb] = -1;
   //
   // Put CCB in FPGA mode to make the CCB ignore TTC commands (such as hard reset) during ALCT downloading...
-  thisCCB->setCCBMode(CCB::VMEFPGA);
+  // Liu July-20,2015: commented out the following line to allow ALCT firmware loading during data taking
+  //  thisCCB->setCCBMode(CCB::VMEFPGA);
   //
   LOG4CPLUS_INFO(getApplicationLogger(), "Program ALCT firmware");
   //
@@ -11076,7 +12403,8 @@ void EmuPeripheralCrateConfig::LoadALCTFirmware(xgi::Input * in, xgi::Output * o
   }
   //
   // Put CCB back into DLOG mode to listen to TTC commands...
-  thisCCB->setCCBMode(CCB::DLOG);
+  // Liu July-20,2015: commented out the following line to allow ALCT firmware loading during data taking
+  // thisCCB->setCCBMode(CCB::DLOG);
   //
   this->TMBUtils(in,out);
   //
@@ -11642,7 +12970,7 @@ void EmuPeripheralCrateConfig::SaveTestSummary() {
       std::cout << cgi["ClearTMBTestsOutput"]->getValue() << std::endl ;
       OutputTMBTests[tmb][current_crate_].str("");
       OutputTMBTests[tmb][current_crate_] << "TMB-RAT Tests " 
-					  << thisCrate->GetChamber(tmbVector[tmb]->slot())->GetLabel().c_str() 
+					  << tmbVector[tmb]->GetLabel().c_str() 
 					  << " output:" << std::endl;
       //
       this->TMBTests(in,out);
@@ -11661,7 +12989,7 @@ void EmuPeripheralCrateConfig::SaveTestSummary() {
     //
     OutputTMBTests[tmb][current_crate_].str("");
     OutputTMBTests[tmb][current_crate_] << "TMB-RAT Tests " 
-				      << thisCrate->GetChamber(tmbVector[tmb]->slot())->GetLabel().c_str() 
+				      << tmbVector[tmb]->GetLabel().c_str() 
 				      << " output:" << std::endl;
     //
     this->TMBTests(in,out);
@@ -11695,7 +13023,7 @@ void EmuPeripheralCrateConfig::SaveTestSummary() {
       std::cout << cgi["ClearChamberTestsOutput"]->getValue() << std::endl ;
       ChamberTestsOutput[tmb][current_crate_].str("");
       ChamberTestsOutput[tmb][current_crate_] << "Chamber-Crate Phases " 
-					      << thisCrate->GetChamber(tmbVector[tmb]->slot())->GetLabel().c_str() 
+					      << tmbVector[tmb]->GetLabel().c_str() 
 					      << " output:" << std::endl;
       //
       this->ChamberTests(in,out);
@@ -11746,7 +13074,7 @@ void EmuPeripheralCrateConfig::SaveTestSummary() {
       std::cout << cgi["ClearALCT_TMB_communicationOutput"]->getValue() << std::endl ;
       ALCT_TMB_communicationOutput[tmb][current_crate_].str("");
       ALCT_TMB_communicationOutput[tmb][current_crate_] << "Chamber-Crate Phases " 
-					      << thisCrate->GetChamber(tmbVector[tmb]->slot())->GetLabel().c_str() 
+					      << tmbVector[tmb]->GetLabel().c_str() 
 					      << " output:" << std::endl;
       //
       this->ALCT_TMB_communication(in,out);
@@ -11816,7 +13144,135 @@ std::string EmuPeripheralCrateConfig::GetFormString(const std::string& form_elem
   return form_value;
 }
 
+
+void   EmuPeripheralCrateConfig::SetGEMPosneg(xgi::Input * in, xgi::Output * out )
+throw (xgi::exception::Exception)
+{
+    cgicc::Cgicc cgi(in);
+    cgicc::form_iterator name = cgi.getElement("tmb");
+    int tmb=0;
+    if(name != cgi.getElements().end())
+    {
+        tmb = cgi["tmb"]->getIntegerValue();
+        std::cout << "TMB " << tmb << std::endl;
+        TMB_ = tmb;
+    } else {
+        std::cout << "Not tmb" << std::endl ;
+        tmb = TMB_;
+    }
   //
+    TMB * thisTMB = tmbVector[tmb];
+
+    if(thisTMB)
+    {
+        cgicc::form_iterator name2 = cgi.getElement("GEM_posneg");
+        int GEMposneg=-1;
+        if(name2 != cgi.getElements().end())
+        {
+            GEMposneg=strtol(cgi["GEM_posneg"]->getValue().c_str(),NULL,10);
+        }
+        if (GEMposneg!= 0 && GEMposneg!=1)
+        {
+            std::cout<<"Given value for GEM posneg delay is out of range";
+        }
+        else if (GEMposneg!=(-1))
+        {
+            thisTMB->SetGemRxPosNeg(GEMposneg);
+            thisTMB->WriteRegister(phaser_gem_rxd_adr);
+            std::cout << "posneg changed to"<<GEMposneg<<endl;
+        }
+    }
+    else
+    {
+        std::cout << "No TMB found!" << std::endl;
+    }
+    this->ChamberTests(in,out);
+}
+
+void   EmuPeripheralCrateConfig::SetGEMIntDelay(xgi::Input * in, xgi::Output * out )
+throw (xgi::exception::Exception)
+{
+    cgicc::Cgicc cgi(in);
+    cgicc::form_iterator name = cgi.getElement("tmb");
+    int tmb=0;
+    if(name != cgi.getElements().end())
+    {
+        tmb = cgi["tmb"]->getIntegerValue();
+        std::cout << "TMB " << tmb << std::endl;
+        TMB_ = tmb;
+    } else {
+        std::cout << "Not tmb" << std::endl ;
+        tmb = TMB_;
+    }
+    //
+    TMB * thisTMB = tmbVector[tmb];
+
+    if(thisTMB)
+    {
+        cgicc::form_iterator name2 = cgi.getElement("GEM_rxd_delay");
+        int GEMrxInt=-1;
+        if(name2 != cgi.getElements().end())
+        {
+            GEMrxInt=strtol(cgi["GEM_rxd_delay"]->getValue().c_str(),NULL,10);
+        }
+        if (GEMrxInt<0||GEMrxInt>15)
+        {
+            std::cout<<"Given value for GEM rx int delay is out of range";
+        }
+        else if (GEMrxInt!= -1)
+        {
+            thisTMB->SetGemRxdIntDelay(GEMrxInt);
+            thisTMB->WriteRegister(gem_cfg_adr);
+        }
+        std::cout << "this TMB (rxInt)";
+    }
+    else
+    {
+        std::cout << "No TMB found!" << std::endl;
+    }
+    this->ChamberTests(in,out);
+
+}
+
+void   EmuPeripheralCrateConfig::SetGEMPhase(xgi::Input * in, xgi::Output * out )
+throw (xgi::exception::Exception)
+{
+    cgicc::Cgicc cgi(in);
+    cgicc::form_iterator name = cgi.getElement("tmb");
+    int tmb=0;
+    if(name != cgi.getElements().end()) {
+        tmb = cgi["tmb"]->getIntegerValue();
+        std::cout << "TMB " << tmb << std::endl;
+        TMB_ = tmb;
+    }
+    else {
+        std::cout << "Not tmb" << std::endl ;
+        tmb = TMB_;
+    }
+    //
+    TMB * thisTMB = tmbVector[tmb];
+
+    if(thisTMB) {
+        cgicc::form_iterator name2 = cgi.getElement("GEM_delay");
+        int GEMdelay=-1;
+        if(name2 != cgi.getElements().end()) {
+            GEMdelay=strtol(cgi["GEM_delay"]->getValue().c_str(),NULL,10);
+        }
+        if (GEMdelay<0||GEMdelay>26) {
+            std::cout<<"Given value for GEM delay is out of range";
+        }
+        if (GEMdelay!= -1) {
+            thisTMB->SetGemRxClockDelay(GEMdelay);
+            thisTMB->WriteRegister(phaser_gem_rxd_adr);
+            thisTMB->FirePhaser(phaser_gem_rxd_adr);
+        }
+    }
+    else {
+        std::cout << "No TMB found!" << std::endl;
+    }
+    this->ChamberTests(in,out);
+}
+//////////////////////////////
   void EmuPeripheralCrateConfig::ReadTMBRegister(xgi::Input * in, xgi::Output * out ) 
     throw (xgi::exception::Exception)
   {
@@ -11975,6 +13431,471 @@ void EmuPeripheralCrateConfig::ReadOTMBVirtex6Reg(xgi::Input * in, xgi::Output *
      this->TMBUtils(in,out);                                    
 }
 
+void EmuPeripheralCrateConfig::TMBBPIReset(xgi::Input * in, xgi::Output * out) throw (xgi::exception::Exception) {
+  //
+  cgicc::Cgicc cgi(in);
+  //
+  cgicc::form_iterator name2 = cgi.getElement("tmb");
+  //
+  int tmb;
+  if (name2 != cgi.getElements().end()) {
+    tmb = cgi["tmb"]->getIntegerValue();
+    std::cout << "Select TMB " << tmb << std::endl;
+  } else {
+    std::cout << "No TMB" << std::endl;
+    tmb = -1;
+  }
+  //
+  TMB * thisTMB = NULL;
+  if (tmb >= 0 && (unsigned) tmb < tmbVector.size())
+    thisTMB = tmbVector[tmb];
+  //
+  if (thisTMB) {
+    std::cout << getLocalDateTime() << " OTMB in slot " << thisTMB->slot() << " BPI Reset" << std::endl;
+    thisTMB->otmb_bpi_reset(true);
+  }
+  //
+  this->TMBUtils(in, out);
+  //
+}
+
+void EmuPeripheralCrateConfig::TMBBPIDisable(xgi::Input * in, xgi::Output * out) throw (xgi::exception::Exception) {
+  //
+  cgicc::Cgicc cgi(in);
+  //
+  cgicc::form_iterator name2 = cgi.getElement("tmb");
+  //
+  int tmb;
+  if (name2 != cgi.getElements().end()) {
+    tmb = cgi["tmb"]->getIntegerValue();
+    std::cout << "Select TMB " << tmb << std::endl;
+  } else {
+    std::cout << "No TMB" << std::endl;
+    tmb = -1;
+  }
+  //
+  TMB * thisTMB = NULL;
+  if (tmb >= 0 && (unsigned) tmb < tmbVector.size())
+    thisTMB = tmbVector[tmb];
+  //
+  if (thisTMB) {
+    std::cout << getLocalDateTime() << " OTMB in slot " << thisTMB->slot() << " BPI Disable" << std::endl;
+    thisTMB->otmb_bpi_disable(true);
+  }
+  //
+  this->TMBUtils(in, out);
+  //
+}
+
+void EmuPeripheralCrateConfig::TMBBPIEnable(xgi::Input * in, xgi::Output * out) throw (xgi::exception::Exception) {
+  //
+  cgicc::Cgicc cgi(in);
+  //
+  cgicc::form_iterator name2 = cgi.getElement("tmb");
+  //
+  int tmb;
+  if (name2 != cgi.getElements().end()) {
+    tmb = cgi["tmb"]->getIntegerValue();
+    std::cout << "Select TMB " << tmb << std::endl;
+  } else {
+    std::cout << "No TMB" << std::endl;
+    tmb = -1;
+  }
+  //
+  TMB * thisTMB = NULL;
+  if (tmb >= 0 && (unsigned) tmb < tmbVector.size())
+    thisTMB = tmbVector[tmb];
+  //
+  if (thisTMB) {
+    std::cout << getLocalDateTime() << " OTMB in slot " << thisTMB->slot() << " BPI Enable" << std::endl;
+    thisTMB->otmb_bpi_enable(true);
+  }
+  //
+  this->TMBUtils(in, out);
+  //
+}
+
+void EmuPeripheralCrateConfig::TMBBPIWrite(xgi::Input * in, xgi::Output * out) throw (xgi::exception::Exception) {
+  //
+  cgicc::Cgicc cgi(in);
+  //
+  cgicc::form_iterator name2 = cgi.getElement("tmb");
+  //
+  int tmb;
+  if (name2 != cgi.getElements().end()) {
+    tmb = cgi["tmb"]->getIntegerValue();
+    std::cout << "Select TMB " << tmb << std::endl;
+  } else {
+    std::cout << "No TMB" << std::endl;
+    tmb = -1;
+  }
+  //
+  unsigned short bpi_word_to_write = 0;
+  if (name2 != cgi.getElements().end()) {
+    std::string str_bpi_word_to_write = cgi["bpi_word_to_write"]->getValue();
+    // convert to HEX
+    if (str_bpi_word_to_write.substr(0, 2) == "0x") {
+      std::istringstream inStream(str_bpi_word_to_write.substr(2));
+      inStream >> std::hex >> bpi_word_to_write;
+    }
+  }
+  //
+  TMB * thisTMB = NULL;
+  if (tmb >= 0 && (unsigned) tmb < tmbVector.size())
+    thisTMB = tmbVector[tmb];
+  //
+  if (thisTMB) {
+    std::cout << getLocalDateTime() << " OTMB in slot " << thisTMB->slot() << " BPI Write to Command FIFO (16 bits)" << std::endl;
+    thisTMB->otmb_bpi_write_to_command_fifo(bpi_word_to_write, true);
+  }
+  //
+  this->TMBUtils(in, out);
+  //
+}
+
+void EmuPeripheralCrateConfig::TMBBPIRead(xgi::Input * in, xgi::Output * out) throw (xgi::exception::Exception) {
+  //
+  cgicc::Cgicc cgi(in);
+  //
+  cgicc::form_iterator name2 = cgi.getElement("tmb");
+  //
+  int tmb;
+  if (name2 != cgi.getElements().end()) {
+    tmb = cgi["tmb"]->getIntegerValue();
+    std::cout << "Select TMB " << tmb << std::endl;
+  } else {
+    std::cout << "No TMB" << std::endl;
+    tmb = -1;
+  }
+  //
+  TMB * thisTMB = NULL;
+  if (tmb >= 0 && (unsigned) tmb < tmbVector.size())
+    thisTMB = tmbVector[tmb];
+  //
+  if (thisTMB) {
+    std::cout << getLocalDateTime() << " OTMB in slot " << thisTMB->slot() << " BPI Read (16 bits)" << std::endl;
+    thisTMB->otmb_bpi_read(true);
+  }
+  //
+  this->TMBUtils(in, out);
+  //
+}
+
+void EmuPeripheralCrateConfig::TMBBPIReadN(xgi::Input * in, xgi::Output * out) throw (xgi::exception::Exception) {
+  //
+  cgicc::Cgicc cgi(in);
+  //
+  cgicc::form_iterator name2 = cgi.getElement("tmb");
+  //
+  int tmb;
+  if (name2 != cgi.getElements().end()) {
+    tmb = cgi["tmb"]->getIntegerValue();
+    std::cout << "Select TMB " << tmb << std::endl;
+  } else {
+    std::cout << "No TMB" << std::endl;
+    tmb = -1;
+  }
+  //
+  TMB * thisTMB = NULL;
+  if (tmb >= 0 && (unsigned) tmb < tmbVector.size())
+    thisTMB = tmbVector[tmb];
+  //
+  if (thisTMB) {
+    std::cout << getLocalDateTime() << " OTMB in slot " << thisTMB->slot() << " BPI Read Number of Remaining Words (11 bits)" << std::endl;
+    thisTMB->otmb_bpi_read_n_words(true);
+  }
+  //
+  this->TMBUtils(in, out);
+  //
+}
+
+void EmuPeripheralCrateConfig::TMBBPIStatus(xgi::Input * in, xgi::Output * out) throw (xgi::exception::Exception) {
+  //
+  cgicc::Cgicc cgi(in);
+  //
+  cgicc::form_iterator name2 = cgi.getElement("tmb");
+  //
+  int tmb;
+  if (name2 != cgi.getElements().end()) {
+    tmb = cgi["tmb"]->getIntegerValue();
+    std::cout << "Select TMB " << tmb << std::endl;
+  } else {
+    std::cout << "No TMB" << std::endl;
+    tmb = -1;
+  }
+  //
+  TMB * thisTMB = NULL;
+  if (tmb >= 0 && (unsigned) tmb < tmbVector.size())
+    thisTMB = tmbVector[tmb];
+  //
+  if (thisTMB) {
+    std::cout << getLocalDateTime() << " OTMB in slot " << thisTMB->slot() << " BPI Status" << std::endl;
+    thisTMB->otmb_bpi_status(true);
+  }
+  //
+  this->TMBUtils(in, out);
+  //
+}
+
+void EmuPeripheralCrateConfig::TMBBPITimerRead(xgi::Input * in, xgi::Output * out) throw (xgi::exception::Exception) {
+  //
+  cgicc::Cgicc cgi(in);
+  //
+  cgicc::form_iterator name2 = cgi.getElement("tmb");
+  //
+  int tmb;
+  if (name2 != cgi.getElements().end()) {
+    tmb = cgi["tmb"]->getIntegerValue();
+    std::cout << "Select TMB " << tmb << std::endl;
+  } else {
+    std::cout << "No TMB" << std::endl;
+    tmb = -1;
+  }
+  //
+  TMB * thisTMB = NULL;
+  if (tmb >= 0 && (unsigned) tmb < tmbVector.size())
+    thisTMB = tmbVector[tmb];
+  //
+  if (thisTMB) {
+    std::cout << getLocalDateTime() << " OTMB in slot " << thisTMB->slot() << " BPI Timer Read" << std::endl;
+    thisTMB->otmb_bpi_timer_read(true);
+  }
+  //
+  this->TMBUtils(in, out);
+  //
+}
+
+void EmuPeripheralCrateConfig::TMBBPIPromBlockErase(xgi::Input * in, xgi::Output * out) throw (xgi::exception::Exception) {
+  //
+  cgicc::Cgicc cgi(in);
+  //
+  cgicc::form_iterator name2 = cgi.getElement("tmb");
+  //
+  int tmb;
+  if (name2 != cgi.getElements().end()) {
+    tmb = cgi["tmb"]->getIntegerValue();
+    std::cout << "Select TMB " << tmb << std::endl;
+  } else {
+    std::cout << "No TMB" << std::endl;
+    tmb = -1;
+  }
+  //
+  TMB * thisTMB = NULL;
+  if (tmb >= 0 && (unsigned) tmb < tmbVector.size())
+    thisTMB = tmbVector[tmb];
+  //
+  if (thisTMB) {
+    std::cout << getLocalDateTime() << " OTMB in slot " << thisTMB->slot() << " BPI Block Erase" << std::endl;
+    thisTMB->otmb_bpi_prom_block_erase(true);
+  }
+  //
+  this->TMBUtils(in, out);
+  //
+}
+
+void EmuPeripheralCrateConfig::TMBBPIPromBlockLock(xgi::Input * in, xgi::Output * out) throw (xgi::exception::Exception) {
+  //
+  cgicc::Cgicc cgi(in);
+  //
+  cgicc::form_iterator name2 = cgi.getElement("tmb");
+  //
+  int tmb;
+  if (name2 != cgi.getElements().end()) {
+    tmb = cgi["tmb"]->getIntegerValue();
+    std::cout << "Select TMB " << tmb << std::endl;
+  } else {
+    std::cout << "No TMB" << std::endl;
+    tmb = -1;
+  }
+  //
+  TMB * thisTMB = NULL;
+  if (tmb >= 0 && (unsigned) tmb < tmbVector.size())
+    thisTMB = tmbVector[tmb];
+  //
+  if (thisTMB) {
+    std::cout << getLocalDateTime() << " OTMB in slot " << thisTMB->slot() << " BPI Block Lock" << std::endl;
+    thisTMB->otmb_bpi_prom_block_lock(true);
+  }
+  //
+  this->TMBUtils(in, out);
+  //
+}
+
+void EmuPeripheralCrateConfig::TMBBPIPromBlockUnlock(xgi::Input * in, xgi::Output * out) throw (xgi::exception::Exception) {
+  //
+  cgicc::Cgicc cgi(in);
+  //
+  cgicc::form_iterator name2 = cgi.getElement("tmb");
+  //
+  int tmb;
+  if (name2 != cgi.getElements().end()) {
+    tmb = cgi["tmb"]->getIntegerValue();
+    std::cout << "Select TMB " << tmb << std::endl;
+  } else {
+    std::cout << "No TMB" << std::endl;
+    tmb = -1;
+  }
+  //
+  TMB * thisTMB = NULL;
+  if (tmb >= 0 && (unsigned) tmb < tmbVector.size())
+    thisTMB = tmbVector[tmb];
+  //
+  if (thisTMB) {
+    std::cout << getLocalDateTime() << " OTMB in slot " << thisTMB->slot() << " BPI Block Unlock" << std::endl;
+    thisTMB->otmb_bpi_prom_block_unlock(true);
+  }
+  //
+  this->TMBUtils(in, out);
+  //
+}
+
+void EmuPeripheralCrateConfig::TMBBPIPromTimerStart(xgi::Input * in, xgi::Output * out) throw (xgi::exception::Exception) {
+  //
+  cgicc::Cgicc cgi(in);
+  //
+  cgicc::form_iterator name2 = cgi.getElement("tmb");
+  //
+  int tmb;
+  if (name2 != cgi.getElements().end()) {
+    tmb = cgi["tmb"]->getIntegerValue();
+    std::cout << "Select TMB " << tmb << std::endl;
+  } else {
+    std::cout << "No TMB" << std::endl;
+    tmb = -1;
+  }
+  //
+  TMB * thisTMB = NULL;
+  if (tmb >= 0 && (unsigned) tmb < tmbVector.size())
+    thisTMB = tmbVector[tmb];
+  //
+  if (thisTMB) {
+    std::cout << getLocalDateTime() << " OTMB in slot " << thisTMB->slot() << " BPI Timer Start" << std::endl;
+    thisTMB->otmb_bpi_prom_timerstart(true);
+  }
+  //
+  this->TMBUtils(in, out);
+  //
+}
+
+void EmuPeripheralCrateConfig::TMBBPIPromTimerStop(xgi::Input * in, xgi::Output * out) throw (xgi::exception::Exception) {
+  //
+  cgicc::Cgicc cgi(in);
+  //
+  cgicc::form_iterator name2 = cgi.getElement("tmb");
+  //
+  int tmb;
+  if (name2 != cgi.getElements().end()) {
+    tmb = cgi["tmb"]->getIntegerValue();
+    std::cout << "Select TMB " << tmb << std::endl;
+  } else {
+    std::cout << "No TMB" << std::endl;
+    tmb = -1;
+  }
+  //
+  TMB * thisTMB = NULL;
+  if (tmb >= 0 && (unsigned) tmb < tmbVector.size())
+    thisTMB = tmbVector[tmb];
+  //
+  if (thisTMB) {
+    std::cout << getLocalDateTime() << " OTMB in slot " << thisTMB->slot() << " BPI Timer Stop" << std::endl;
+    thisTMB->otmb_bpi_prom_timerstop(true);
+  }
+  //
+  this->TMBUtils(in, out);
+  //
+}
+
+void EmuPeripheralCrateConfig::TMBBPIPromTimerReset(xgi::Input * in, xgi::Output * out) throw (xgi::exception::Exception) {
+  //
+  cgicc::Cgicc cgi(in);
+  //
+  cgicc::form_iterator name2 = cgi.getElement("tmb");
+  //
+  int tmb;
+  if (name2 != cgi.getElements().end()) {
+    tmb = cgi["tmb"]->getIntegerValue();
+    std::cout << "Select TMB " << tmb << std::endl;
+  } else {
+    std::cout << "No TMB" << std::endl;
+    tmb = -1;
+  }
+  //
+  TMB * thisTMB = NULL;
+  if (tmb >= 0 && (unsigned) tmb < tmbVector.size())
+    thisTMB = tmbVector[tmb];
+  //
+  if (thisTMB) {
+    std::cout << getLocalDateTime() << " OTMB in slot " << thisTMB->slot() << " BPI Timer Reset" << std::endl;
+    thisTMB->otmb_bpi_prom_timerreset(true);
+  }
+  //
+  this->TMBUtils(in, out);
+  //
+}
+
+void EmuPeripheralCrateConfig::TMBBPIPromClearStatus(xgi::Input * in, xgi::Output * out) throw (xgi::exception::Exception) {
+  //
+  cgicc::Cgicc cgi(in);
+  //
+  cgicc::form_iterator name2 = cgi.getElement("tmb");
+  //
+  int tmb;
+  if (name2 != cgi.getElements().end()) {
+    tmb = cgi["tmb"]->getIntegerValue();
+    std::cout << "Select TMB " << tmb << std::endl;
+  } else {
+    std::cout << "No TMB" << std::endl;
+    tmb = -1;
+  }
+  //
+  TMB * thisTMB = NULL;
+  if (tmb >= 0 && (unsigned) tmb < tmbVector.size())
+    thisTMB = tmbVector[tmb];
+  //
+  if (thisTMB) {
+    std::cout << getLocalDateTime() << " OTMB in slot " << thisTMB->slot() << " BPI Clear Status" << std::endl;
+    thisTMB->otmb_bpi_prom_clearstatus(true);
+  }
+  //
+  this->TMBUtils(in, out);
+  //
+}
+
+void EmuPeripheralCrateConfig::TMBBPIPromLoadAddress(xgi::Input * in, xgi::Output * out) throw (xgi::exception::Exception) {
+  //
+  cgicc::Cgicc cgi(in);
+  //
+  cgicc::form_iterator name2 = cgi.getElement("tmb");
+  //
+  int tmb;
+  if (name2 != cgi.getElements().end()) {
+    tmb = cgi["tmb"]->getIntegerValue();
+    std::cout << "Select TMB " << tmb << std::endl;
+  } else {
+    std::cout << "No TMB" << std::endl;
+    tmb = -1;
+  }
+  //
+  TMB * thisTMB = NULL;
+  if (tmb >= 0 && (unsigned) tmb < tmbVector.size())
+    thisTMB = tmbVector[tmb];
+  //
+  if (thisTMB) {
+    std::cout << getLocalDateTime() << " OTMB in slot " << thisTMB->slot() << " BPI Load Address" << std::endl;
+    thisTMB->otmb_bpi_prom_loadaddress(0, 0, true);
+  }
+  //
+  this->TMBUtils(in, out);
+  //
+}
+
+void EmuPeripheralCrateConfig::EnableWriteDCFEBPROM(xgi::Input * in, xgi::Output * out) throw (xgi::exception::Exception) 
+{
+  cgicc::Cgicc cgi(in);
+  //
+    write_dcfeb_prom_allowed_ = true;
+    std::cout << getLocalDateTime() << " Enable Write to DCFEB's PROM. " << std::endl;
+}
 
  }  // namespace emu::pc
 }  // namespace emu

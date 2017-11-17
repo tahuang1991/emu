@@ -3,6 +3,20 @@
 # Invoke it as
 #   analysisScriptName analysisExeName 'dataFile1 dataFile2 ...' ['crateId1 dmbSlot1 chamberLabel1' 'crateId2 dmbSlot2 chamberLabel2' ...]
 
+function convertToDDU(){
+    # Adds DDU headers and trailers if necessary
+    # Argument 1: data file name
+    if [[ $(od -Ad -tx8z -w8 $1 | grep -c 8000ffff80008000) -eq 0 ]]; then
+	print "No DDU trailers found in $1. Adding them and the headers."
+	# First rename the original file.
+	print "mv ${1} ${1:r}.odmb"
+	mv ${1} ${1:r}.odmb
+	# Add the DDU headers and trailers.
+	print "Adding DDU headers and trailers:\n${ANALYZER:h}/add_ddu_hdr.exe ${1:r}.odmb ${1:r}.raw"
+	${ANALYZER:h}/add_ddu_hdr.exe ${1:r}.odmb ${1:r}.raw
+    fi
+}
+
 ulimit -c unlimited
 
 print
@@ -34,6 +48,11 @@ if [[ $2 == *STEP_27* ]]; then
     DQMANALYZER=${1:h}/runEmuCSCAnalyzer.exe
     print "Looks like test 27 (high-statistics cosmics and gas gain). Will try to analyze it with $ANALYZER and $DQMANALYZER"
     [[ -x $DQMANALYZER ]] || { print "*** Error: DQM analyzer \"$DQMANALYZER\" not found or not executable. Exiting."; exit 1 }
+elif [[ $2 == *STEP_40* ]]; then
+    DQMANALYZER=${1:h}/runEmuCSCAnalyzer.exe
+    print "Looks like test 40 (beam trigger). Will try to analyze it with $ANALYZER and $DQMANALYZER"
+    [[ -x $DQMANALYZER ]] || { print "*** Error: DQM analyzer \"$DQMANALYZER\" not found or not executable. Exiting."; exit 1 }
+
 fi
 
 [[ -x $ANALYZER ]] || { print "*** Error: Analyzer \"$ANALYZER\" not found or not executable. Exiting."; exit 1 }
@@ -149,6 +168,9 @@ for DATAFILE in $DATAFILES; do
 	DATAPATHNAME=/cmscsc/${DATAHOSTNAME}/${DATAPATHNAME#/data/}
     fi
     print "DATAPATHNAME   =$DATAPATHNAME"
+
+    convertToDDU $DATAPATHNAME
+
     RESULTSTOPDIR=${DATAPATHNAME:h}/Tests_results
     [[ -d $RESULTSTOPDIR ]] || mkdir -p $RESULTSTOPDIR
 
@@ -156,17 +178,26 @@ for DATAFILE in $DATAFILES; do
 	# For test 27, the high-stat cosmics, first produce the .root file, then the plots. Finally, list the chambers in chambers.txt for linkToChambers.sh to know which chambers' data these results contain.
 	print "cd $RESULTSTOPDIR && mkdir -p Test_27_Cosmics && cd Test_27_Cosmics && $DQMANALYZER $DATAPATHNAME && $DQMANALYZER ${DATAPATHNAME:t:r}.root && cd ${DATAPATHNAME:t:r}.plots && { print $CHAMBERARRAY > chambers.txt }"
 	cd $RESULTSTOPDIR && mkdir -p Test_27_Cosmics && cd Test_27_Cosmics && $DQMANALYZER $DATAPATHNAME && $DQMANALYZER ${DATAPATHNAME:t:r}.root && cd ${DATAPATHNAME:t:r}.plots && { print $CHAMBERARRAY > chambers.txt }
+    elif [[ $DATAPATHNAME == *STEP_40* ]]; then
+	# For test 40, the beam trigger, first produce the .root file, then the plots. Finally, list the chambers in chambers.txt for linkToChambers.sh to know which chambers' data these results contain.
+	print "cd $RESULTSTOPDIR && mkdir -p Test_40_Beam && cd Test_40_Beam && $DQMANALYZER $DATAPATHNAME && $DQMANALYZER ${DATAPATHNAME:t:r}.root && cd ${DATAPATHNAME:t:r}.plots && { print $CHAMBERARRAY > chambers.txt }"
+	cd $RESULTSTOPDIR && mkdir -p Test_40_Beam && cd Test_40_Beam && $DQMANALYZER $DATAPATHNAME && $DQMANALYZER ${DATAPATHNAME:t:r}.root && cd ${DATAPATHNAME:t:r}.plots && { print $CHAMBERARRAY > chambers.txt }
     fi
 
     print "cd $RESULTSTOPDIR && $ANALYZER $DATAPATHNAME"
     cd $RESULTSTOPDIR && $ANALYZER $DATAPATHNAME
 
-    RESULTSDIR=$( print $RESULTSTOPDIR/Test_*/${DATAPATHNAME:t:r}.plots(/om[1]) )
-    if [[ -x ${0:h}/generateIndexHTML.sh ]]; then
-	print "Generating web page with ${0:h}/generateIndexHTML.sh $RESULTSDIR"
-	${0:h}/generateIndexHTML.sh $RESULTSDIR
-    else
-	print "** Warning: Web page generator script ${0:h}/generateIndexHTML.sh not found."
+    # Generate web page for easier browsing. Not for tests 27 and 40, though, for those the DQM analyzer does it already:
+    print "Results' dir:"
+    print $RESULTSTOPDIR/Test_*/${DATAPATHNAME:t:r}.plots(/Nom[1])
+    RESULTSDIR=$( print $RESULTSTOPDIR/Test_*/${DATAPATHNAME:t:r}.plots(/Nom[1]) )
+    if [[ ${#RESULTSDIR} -gt 0 && $RESULTSDIR != *Test_27_* && $RESULTSDIR != *Test_40_* ]]; then
+	if [[ -x ${0:h}/generateIndexHTML.sh ]]; then
+	    print "Generating web page with ${0:h}/generateIndexHTML.sh $RESULTSDIR"
+	    ${0:h}/generateIndexHTML.sh $RESULTSDIR
+	else
+	    print "** Warning: Web page generator script ${0:h}/generateIndexHTML.sh not found."
+	fi
     fi
 
     if [[ -x ${0:h}/linkToChambers.sh ]]; then

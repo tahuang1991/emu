@@ -1,6 +1,7 @@
 var panels = null;
 var tmbPanel = null;
-
+var whoIsInControl = 'global';
+var TCDS_system = 'pri'; // TODO: switch automatically between 'pri' and 'sec'
 
 function onLoad() {
 
@@ -10,9 +11,11 @@ function onLoad() {
 	BlueM:    "http://csc-dcs-pc2.cms:20070/urn:xdaq-application:lid=70/ForEmuPage1",
 	PCMonP:   "http://csc-dcs-pc1.cms:20040/urn:xdaq-application:lid=30/ForEmuPage1",
 	PCMonM:   "http://csc-dcs-pc2.cms:20040/urn:xdaq-application:lid=30/ForEmuPage1",
-	DAQDisks: "http://srv-c2d04-25.cms:8845/urn:xdaq-application:lid=400/retrieveCollection",
-	CSCTF:    "http://l1ts-csctf.cms:5005/urn:xdaq-application:service=las/retrieveCollection",
-	TTC:      "http://srv-c2d04-27.cms:9945/urn:xdaq-application:lid=400/retrieveCollection",
+	DAQDisks: "http://kvm-s3562-1-ip151-99.cms:9945/urn:xdaq-application:lid=16/retrieveCollection",
+	// CSCTF:    "http://cmslas.cern.ch/emtflas/urn:xdaq-application:lid=16/retrieveCollection",
+	CSCTF:    "http://l1ts-xaas.cms:9945/urn:xdaq-application:lid=16/retrieveCollection",
+	// TCDS:     "http://cmslas.cern.ch/tcdslas/urn:xdaq-application:lid=16/retrieveCollection",
+	TCDS:     "http://tcds-xaas.cms:9945/urn:xdaq-application:lid=16/retrieveCollection",
 	FED:      "http://csc-sv.cms:20101/urn:xdaq-application:lid=66/ForEmuPage1",
 	DAQ:      "http://csc-daq00.cms:20200/urn:xdaq-application:class=emu::daq::manager::Application,instance=0/ForEmuPage1",
 	DQM:      "http://csc-dqm.cms:20550/urn:xdaq-application:lid=1450/ForEmuPage1"
@@ -26,17 +29,19 @@ function onLoad() {
     panels = new Array();
     var period = 10000;
     for ( var i=0; i<divs.length; i++ ){
-	if ( divs[i].id == 'TMB' ){
-	    new XSLTLoader('TMB_XSL.xml','RUI-to-chamber_mapping.xml',
-			   function(){
-			       $('#TMB').append( this.result );
-			       tmbPanel = new TMBPanel( tmbURLs );
-			   }
-			  );
-	}
-	else{
-	    panels.push( new Panel( divs[i].id, period, URLs[divs[i].id] ) );
-	}
+    	var position = divs[i].id.search("_panel");
+		var name = divs[i].id.slice(0, position);
+		if ( name == 'TMB' ){
+		    new XSLTLoader('TMB_XSL.xml','RUI-to-chamber_mapping.xml',
+				   function(){
+				       $('#TMB_panel').append( this.result );
+				       tmbPanel = new TMBPanel( tmbURLs );
+				   	}
+				  	);
+		}
+		else if(position > 0){
+		    panels.push( new Panel( name, period, URLs[name] ) );
+		}
     }
 
     document.onmousemove = mouseMove;
@@ -103,6 +108,15 @@ function toUnixTime( dateTime ){
 	 d.setHours   ( Number( dateTime.substr(11,2) )     );
 	 d.setMinutes ( Number( dateTime.substr(14,2) )     );
 	 d.setSeconds ( Number( dateTime.substr(17,2) )     );
+    }
+    else if ( dateTime.length == 23 ){
+	 // YYYY-MM-DD hh:mm:ss UTC
+	 d.setUTCFullYear( Number( dateTime.substr( 0,4) )     );
+	 d.setUTCMonth   ( Number( dateTime.substr( 5,2) ) - 1 );
+	 d.setUTCDate    ( Number( dateTime.substr( 8,2) )     );
+	 d.setUTCHours   ( Number( dateTime.substr(11,2) )     );
+	 d.setUTCMinutes ( Number( dateTime.substr(14,2) )     );
+	 d.setUTCSeconds ( Number( dateTime.substr(17,2) )     );
     }
     else {
 	 var months = { 'Jan':1, 'Feb':2, 'Mar':3, 'Apr':4, 'May':5, 'Jun':6, 'Jul':7, 'Aug':8, 'Sep':9, 'Oct':10, 'Nov':11, 'Dec':12 }
@@ -283,12 +297,42 @@ function Panel( name, refreshPeriod, dataURL ) {
     	this.coords_element = document.getElementById(this.name+"-pointerCoords");
     	this.pad_element = document.getElementById(this.name+"-pad");
     	this.pad_element.onmousedown = this.onMouseDownOnPad;
+    	this.pad_element.onmouseup = this.onMouseUpOnPad;
     	this.graph_element.onmouseover = this.onMouseOverGraph;
     	this.graph_element.onmouseout = this.onMouseOffGraph;
-    	this.pad_element.addEventListener('DOMMouseScroll', this.onMouseWheelOnPad, false);
+    	this.pad_element.addEventListener('DOMMouseScroll', this.onMouseWheelOnPad, false); // Firefox
+    	this.pad_element.addEventListener('mousewheel', this.onMouseWheelOnPad, false); // Chrome
     	this.follow_element.onmousedown = this.onMouseDownOnFollowButton;
     	this.zoom_element.onmousedown = this.onMouseDownOnZoomButton;
+    	$("#TCDS-td_value_LPMState").on("mouseover", {id: "TCDS-a_value_LPMState_tooltip", elementId: "TCDS-td_value_LPMState"}, this.onMouseOverTableData);
+    	$("#TCDS-td_value_LPMState").on("mouseout", {id: "TCDS-a_value_LPMState_tooltip", elementId: "TCDS-td_value_LPMState"}, this.onMouseOutTableData);
+    	$("#TCDS-td_value_CPMState").on("mouseover", {id: "TCDS-a_value_CPMState_tooltip", elementId: "TCDS-td_value_CPMState"}, this.onMouseOverTableData);
+    	$("#TCDS-td_value_CPMState").on("mouseout", {id: "TCDS-a_value_CPMState_tooltip", elementId: "TCDS-a_value_CPMState"}, this.onMouseOutTableData);
+    	$("#TCDS-td_value_State").on("mouseover", {id: "TCDS-a_value_State_tooltip", elementId: "TCDS-td_value_State"}, this.onMouseOverTableData);
+    	$("#TCDS-td_value_State").on("mouseout", {id: "TCDS-a_value_State_tooltip", elementId: "TCDS-td_value_State"}, this.onMouseOutTableData);
+    	$("#TCDS-td_value_MUTFUPState").on("mouseover", {id: "TCDS-a_value_MUTFUPState_tooltip", elementId: "TCDS-td_value_MUTFUPState"}, this.onMouseOverTableData);
+    	$("#TCDS-td_value_MUTFUPState").on("mouseout", {id: "TCDS-a_value_MUTFUPState_tooltip", elementId: "TCDS-td_value_MUTFUPState"}, this.onMouseOutTableData);
+    	$("#CSCTF-a_value_total_in").on("mouseover", {id: "CSCTF-a_value_total_in_tooltip", elementId: "CSCTF-a_value_total_in"}, this.onMouseOverTableData);
+    	$("#CSCTF-a_value_total_in").on("mouseout", {id: "CSCTF-a_value_total_in_tooltip", elementId: "CSCTF-a_value_total_in"}, this.onMouseOutTableData);
+    	$("#CSCTF-a_value_total_out").on("mouseover", {id: "CSCTF-a_value_total_out_tooltip", elementId: "CSCTF-a_value_total_out"}, this.onMouseOverTableData);
+    	$("#CSCTF-a_value_total_out").on("mouseout", {id: "CSCTF-a_value_total_out_tooltip", elementId: "CSCTF-a_value_total_out"}, this.onMouseOutTableData);
     };
+
+    this.onMouseOverTableData = function(e){
+    	var dataElement = document.getElementById(e.data.elementId);
+    	var dataElementTooltip = document.getElementById(e.data.id);
+    	if (dataElement && dataElementTooltip){
+    		tooltip(e, e.data.id);
+    	}
+    } 
+
+    this.onMouseOutTableData = function(e){
+    	var dataElement = document.getElementById(e.data.elementId);
+    	var dataElementTooltip = document.getElementById(e.data.id);
+    	if (dataElement && dataElementTooltip){
+    		tooltip(e, e.data.id);
+    	}
+    }
 
     this.onMouseDownOnPad = function (e){
 	//alert(self.graph_element + ' ' + self.dragStart.x );
@@ -298,6 +342,13 @@ function Panel( name, refreshPeriod, dataURL ) {
 	self.graph_element.transform.baseVal.consolidate();
 	self.oldTransform = self.graph_element.getAttribute( "transform" );
 	// self.printSvgSvg();
+	event.preventDefault();
+    };
+
+    this.onMouseUpOnPad = function (e){
+	if ( document.body ) document.body.style.cursor = 'default';
+	self.dragging = false;
+	event.preventDefault();
     };
 
     this.onMouseDownOnFollowButton = function (){
@@ -361,40 +412,37 @@ function Panel( name, refreshPeriod, dataURL ) {
     };
 
     this.onMouseWheelOnPad = function (event){
-	var newTransform;
-	var delta = 0;
-	// Delta is multiple of +-3.
-	// Or +-1 if Alt is pressed.
-	delta = event.detail;
-	if (delta){
-	    switch(delta){
-	    case -1:
-		// Scale up in X
-		if ( document.body ) document.body.style.cursor = 'w-resize';
- 		self.scale( 1.25, 1. );
-		break;
-	    case 1:
-		// Scale down in X
-		if ( document.body ) document.body.style.cursor = 'e-resize';
- 		self.scale( 0.8, 1. );
-		break;
-	    case -3:
+	// console.log( 'Alt: ' + event.altKey + '  detail: ' + event.detail + '  deltaX: ' + event.deltaX  + '  deltaY: ' + event.deltaY  + '  deltaZ: ' + event.deltaZ + '  wheelDelta: ' + event.wheelDelta );
+	var delta;
+	if ( typeof event.wheelDelta === "undefined" ) delta = -event.detail;     // Firefox
+	else                                           delta =  event.wheelDelta; // Chrome
+	if ( event.altKey ){
+	    if ( delta > 0 ){
 		// Scale up in Y
 		if ( document.body ) document.body.style.cursor = 'n-resize';
 		self.scale( 1., 1.25 );
-		break;    
-	    case 3:
+	    }
+	    else if ( delta < 0 ){
 		// Scale down in Y
 		if ( document.body ) document.body.style.cursor = 's-resize';
 		self.scale( 1., 0.8 );
-		break;
-	    default:
-		if ( document.body ) document.body.style.cursor = 'default';
+	    }
+	}
+	else{
+	    if ( delta > 0 ){
+		// Scale up in X
+		if ( document.body ) document.body.style.cursor = 'e-resize';
+ 		self.scale( 1.25, 1. );
+	    }
+	    else if ( delta < 0 ){
+		// Scale down in X
+		if ( document.body ) document.body.style.cursor = 'w-resize';
+ 		self.scale( 0.8, 1. );
 	    }
 	}
 	// Prevent default actions caused by mouse wheel.
 	event.preventDefault();
-	event.returnValue = false;
+	//event.returnValue = false; // what does this do?
     };
 
     this.translate = function ( xDistSVG, yDistSVG ){
@@ -550,152 +598,248 @@ function Panel( name, refreshPeriod, dataURL ) {
 	if ( this.autoZooming ) this.transformYToFit();
     };
 
-    this.TrackFinderFromJson = function (){
-	// Get info on Track Finder from csctf_emupageone flashlist
-	var state = null;
-	$.getJSON( this.DataURL+'?fmt=json&flash=urn:xdaq-flashlist:csctf_emupageone', function(json){
-	    var time = toUnixTime( json.table.properties.LastUpdate );
-	    $('#'+self.name+'-td_localDateTime').text( timeToString( time ) );
-	    var msg = '';
-	    $.each( json.table.rows, function(i,row){
-		if ( i == 0 ){
-		    msg += 'EMUPAGEONE_FSM_t.rows.length='+row.EMUPAGEONE_FSM_t.rows.length+'   EMUPAGEONE_RATES_t.rows.length='+row.EMUPAGEONE_RATES_t.rows.length;
-		    var validConfPatterns = ['^EmuLocal$','^Configuration$'];
-		    var foundGlobalConf = false;
-		    var foundLocalConf  = false;
-		    for ( var p=0; p<validConfPatterns.length; p++ ){
-			$.each( row.EMUPAGEONE_FSM_t.rows, function(j,configRow){
-			    if ( configRow['id'].search(validConfPatterns[p])==0 ){
-				$('#'+self.name+'-td_value_state').attr( 'class', configRow['state'] );
-				$('#'+self.name+'-a_value_state').text( configRow['state'] );
-				$('#'+self.name+'-a_value_state').attr( 'title', 'Operation \"'+configRow['id']+'\" is in '+configRow['state']+' state.' );
-				$('#'+self.name+'-td_value_confkey').attr( 'class', configRow['conf_key'] );
-				$('#'+self.name+'-a_value_confkey').text( configRow['conf_key'] );
-				$('#'+self.name+'-a_value_confkey').attr( 'title', 'Operation \"'+configRow['id']+'\" has configuration key '+configRow['conf_key']+'.' );
-				if ( p==0 ) foundGlobalConf = true;
-				else        foundLocalConf  = true;
-				state = configRow['state'];
-			    }
-			});
-		    }
-		    if ( !foundGlobalConf && !foundLocalConf ){
-			$('#'+self.name+'-td_value_state').attr( 'class', 'UNKNOWN' );
-			$('#'+self.name+'-a_value_state').text( 'UNKNOWN' );
-			$('#'+self.name+'-a_value_state').attr( 'title', (row.EMUPAGEONE_FSM_t.rows.length==0?'No operation found. (This is normal IF the TF Cell has been restarted in this run.)':' Only invalid operation found.') );
-			$('#'+self.name+'-td_value_confkey').attr( 'class', 'UNKNOWN' );
-			$('#'+self.name+'-a_value_confkey').text( 'UNKNOWN' );
-			$('#'+self.name+'-a_value_confkey').attr( 'title', (row.EMUPAGEONE_FSM_t.rows.length==0?'No operation found. (This is normal IF the TF Cell has been restarted in this run.)':' Only invalid operation found.') );
-		    }
-		    $.each( row.EMUPAGEONE_RATES_t.rows, function(j,ratesRow){ 
-			if ( j == 0 ){
-			    var graphPoint = { name:'total SP input rate [Hz]', time:time, value:ratesRow['Total SPs Rate'] };
-			    self.appendPoint( graphPoint );
-			    $('#'+self.name+'-a_value_min').text( formatNumber( ratesRow['Min Single SP Rate'] ) + ' Hz' );
-			    if ( ratesRow['Min Single SP Rate'] == 0 && ratesRow['Total SPs Rate'] > 100 ){
-				$('#'+self.name+'-td_value_min').attr('class', 'WARN' );
-				$('#'+self.name+'-a_value_min').attr('title', 'One or more SPs may be dead. Click to check.' );
-			    }
-			    else{
-				$('#'+self.name+'-td_value_min').attr('class', '');
-				$('#'+self.name+'-a_value_min').attr('title', '');
-				       }
-			    $('#'+self.name+'-a_value_total').text( formatNumber( ratesRow['Total SPs Rate'] ) + ' Hz' );
-			}
-		    });
-		}
-	    });
-	}).success( function(){
-	    // Get info on Track Finders' AFD registers from csctf_csr_af_wordcount flashlist. They only work as a canary in the enabled state.
-	    if ( state == 'enabled' ){
-		$.getJSON( self.DataURL+'?fmt=json&flash=urn:xdaq-flashlist:csctf_csr_af_wordcount', function(json){
-		    var time = toUnixTime( json.table.properties.LastUpdate );
-		    var msg = '';
-		    var title = '';
-		    var maxAllowedChange = 2;
-		    var maxChange = 0;
-		    $.each( json.table.rows, function(i,row){
-			$.each( row.CSR_AF_WORDCOUNT_t.rows, function(j,afCountRow){ 
-			    if ( self.trends[j]==undefined || self.trends[j]==null ) self.trends[j] = new Trend(10);
-			    self.trends[j].add( time, afCountRow.VALUE );
-			    var change = self.trends[j].difference(10);
-			    if ( Math.abs( change ) > maxChange ) maxChange = Math.abs( change );
-			    if ( Math.abs( change ) > maxAllowedChange ){
-				title += '('+afCountRow.NUM_ASP+','+afCountRow.NUM_LINK+','+afCountRow.VALUE+','+change+')\n';
-			    }
+    this.TrackFinderFromJson = function(){
+    	$.getJSON(self.DataURL + "?fmt=json&flash=urn:xdaq-flashlist:l1ts_cell", function(json){
+    		$.each(json.table.rows, function(i,row){
+    			if (row.name == "EMTF SWATCH Cell"){
+    				$('#'+self.name+'-td_value_state').attr( 'class', row.Operations.rows[0].state );
+		    		$('#'+self.name+'-a_value_state').text( row.Operations.rows[0].state );
+		    		$('#'+self.name+'-a_value_state').attr( 'title', 'The EMTF (Endcap Muon Track Finder) Controller application is '+row.Operations.rows[0].state);
+    			}
+    		});
+    	}).success(function(){
+    	    var graphPoint = null;
+    	    $.getJSON(self.DataURL + "?fmt=json&flash=urn:xdaq-flashlist:emtf_cell", function(json){
+		// Input (LCT) rates
+		$("#CSCTF-a_value_total_in_tooltip").empty();
+		$("#CSCTF-a_value_total_in_tooltip").append("<table><tbody><tr><td colspan='2'>Input LCT rates:</td></tr></tbody></table>");
+		var minInputLCTRate = Number.MAX_VALUE;
+		var totalInputLCTRate = 0;
+		var minInputTriggerSector = undefined;
+		var minInputTriggerSectorsArray = new Array();
+		var sortedInputTriggerSectors = new Array();
+		var nameOfMinInputTriggerSectors = "";
+		// Output (track) rates
+		$("#CSCTF-a_value_total_out_tooltip").empty();
+		$("#CSCTF-a_value_total_out_tooltip").append("<table><tbody><tr><td colspan='2'>Output track rates:</td></tr></tbody></table>");
+		var minOutputTrackRate = Number.MAX_VALUE;
+		var totalOutputTrackRate = 0;
+		var minOutputTriggerSector = undefined;
+		var minOutputTriggerSectorsArray = new Array();
+		var sortedOutputTriggerSectors = new Array();
+		var nameOfMinOutputTriggerSectors = "";
+		var time = toUnixTime( json.table.properties.LastUpdate );
+		$('#'+self.name+'-td_localDateTime').text( timeToString( time ) );
+    		$.each(json.table.rows[0].processor_EmtfProcessor.rows, function(i,row){
 
-			    //if ( Math.abs( change ) > 0 ) console.log( 'CSCTF: '+self.trends[j].print()+' self.trends['+j+'].difference(10)='+self.trends[j].difference(10) );	    
-			    msg += afCountRow.NUM_ASP+' '+afCountRow.NUM_LINK+' '+afCountRow.VALUE+' '+self.trends[j].difference(10)+'\n';
-			});
-			if ( title.length > 1 ){
-			    title = "These links' AFD register changed more than "+maxAllowedChange+' (SP,link,value,change):\n'+title;
-			    $('#'+self.name+'-a_value_afd').attr('title',title).text( maxChange );
-			    $('#'+self.name+'-td_value_afd').attr('class','WARN');
-			}
-			else{
-			    $('#'+self.name+'-a_value_afd').attr('title','All looking OK now.').text( maxChange );
-			    $('#'+self.name+'-td_value_afd').attr('class','');
-			}
+		    var inputLCTRate = 0;
+		    $.each(row, function(name,value){
+			if ( name.substr(0,8) == 'rateLct_' ) inputLCTRate += value;
+			// console.log( name+":"+value+"  " );
 		    });
-		}).success( function(){
-		    clearTimeout(self.Clock);
-		    self.ageOfPageClock(0);
-		});
-	    }
-	    else{
-		$('#'+self.name+'-a_value_afd').attr('title','Not enabled now therefore no reading reported.').text( '0' );
-		$('#'+self.name+'-td_value_afd').attr('class','');
-		clearTimeout(self.Clock);
-		self.ageOfPageClock(0);
-	    }
-	});
-	
-    };
+		    if (inputLCTRate < minInputLCTRate){
+			minInputLCTRate = inputLCTRate;
+    			minInputTriggerSector = row.id;
+    			minInputTriggerSectorsArray = [];
+    			minInputTriggerSectorsArray.push(minInputTriggerSector);
+		    }
+    		    else if (inputLCTRate == minInputLCTRate){
+    			minInputTriggerSector = row.id;
+    			minInputTriggerSectorsArray.push(minInputTriggerSector);
+    		    }
+    		    sortedInputTriggerSectors.push({name: row.id, value: inputLCTRate});
+		    totalInputLCTRate += inputLCTRate;
+			
+    		    var outputTrackRate = row.outputTrack0Rate + row.outputTrack1Rate + row.outputTrack2Rate;
+    		    if (outputTrackRate < minOutputTrackRate){
+    			minOutputTrackRate = outputTrackRate;
+    			minOutputTriggerSector = row.id;
+    			minOutputTriggerSectorsArray = [];
+    			minOutputTriggerSectorsArray.push(minOutputTriggerSector);
+    		    } 
+    		    else if (outputTrackRate == minOutputTrackRate){
+    			minOutputTriggerSector = row.id;
+    			minOutputTriggerSectorsArray.push(minOutputTriggerSector);
+    		    }
+    		    sortedOutputTriggerSectors.push({name: row.id, value: outputTrackRate});
+    		    totalOutputTrackRate += outputTrackRate;
+    		});
+    		sortedOutputTriggerSectors.sort(function(a,b){
+    		    if(a.name < b.name) return -1;
+    		    if(a.name > b.name) return 1;
+    		    return 0;
+    		});
 
-    this.TTCFromJson = function (){
-	// Get info on Track Finder from csctf_emupageone flashlist
-	$.getJSON( self.DataURL+'?fmt=json&flash=urn:xdaq-flashlist:ttcci_conf', function(json){
+    		sortedInputTriggerSectors.forEach(function(item,index){
+		    $("#CSCTF-a_value_total_in_tooltip table tbody").append("<tr><td>" + item.name + ": </td><td>" + item.value + "</td></tr>");
+    		});
+    		minInputTriggerSectorsArray.forEach(function(item, index){
+    		    nameOfMinInputTriggerSectors += (minInputTriggerSectorsArray[index] + ", ");
+    		});
+    		$("#CSCTF-a_value_min_in").text(minInputLCTRate);
+    		$("#CSCTF-a_value_min_in").attr("title", "Name(s) of the minimum trigger sector(s): " + nameOfMinInputTriggerSectors);
+    		$("#CSCTF-a_value_total_in").text(totalInputLCTRate);
+		
+    		sortedOutputTriggerSectors.forEach(function(item,index){
+		    $("#CSCTF-a_value_total_out_tooltip table tbody").append("<tr><td>" + item.name + ": </td><td>" + item.value + "</td></tr>");
+    		});
+    		minOutputTriggerSectorsArray.forEach(function(item, index){
+    		    nameOfMinOutputTriggerSectors += (minOutputTriggerSectorsArray[index] + ", ");
+    		});
+    		$("#CSCTF-a_value_min_out").text(minOutputTrackRate);
+    		$("#CSCTF-a_value_min_out").attr("title", "Name(s) of the minimum trigger sector(s): " + nameOfMinOutputTriggerSectors);
+    		$("#CSCTF-a_value_total_out").text(totalOutputTrackRate);
+    		graphPoint = { name:'Total track rate [kHz]', time: time, value:totalOutputTrackRate*0.001 };
+    		self.appendPoint(graphPoint);
+		
+    	    });
+    	    clearTimeout(self.Clock);
+	    self.ageOfPageClock(0);
+    	});
+    }
+
+    this.TCDSFromJson = function (){
+	// Get info on TCDS
+	var isFirstCall = false;
+	if ( self.trends.length == 0 ){
+	    self.trends[0] = new Trend(2); // container to keep the last two HardReset counts in
+	    self.trends[1] = new Trend(2); // container to keep the last two changed HardReset counts in
+	    self.trends[2] = new Trend(2); // container to keep the LPM L1A counts in
+	    isFirstCall = true; // So that we know that this is the first call after this page was loaded, and percieve a HardReset count of 0 on the second call as a change from the previous one.
+	}
+	$.getJSON( self.DataURL+'?fmt=json&flash=urn:xdaq-flashlist:tcds_common', function(json){
 	    var combinedState = null;
+	    $("#TCDS-a_value_LPMState_tooltip").empty();
+	    $("#TCDS-a_value_CPMState_tooltip").empty();
+	    $("#TCDS-a_value_State_tooltip").empty();
+	    $("#TCDS-a_value_State_tooltip").append("<table><tbody></tbody></table>");
 	    $.each( json.table.rows, function(i,row){
-		if ( row.ComponentKey.substr(0,3) == 'CSC' ){
-		    if ( combinedState && combinedState != row.FSMState ) combinedState = 'INDEFINITE';
-		    else                                                  combinedState = row.FSMState;
-		    //console.log( row.ComponentKey+' '+row.FSMState+' '+combinedState );
+		if ( row.service.search('i-csc[^ ]*-'+TCDS_system) >= 0 ){
+		    if ( combinedState && combinedState != row.state_name ) combinedState = 'INDEFINITE';
+		    else                                                    combinedState = row.state_name;
+		    // console.log( row.service+' '+row.state_name+' '+combinedState );
+		    //console.log($("#TCDS-a_value_State_tooltip") + "valami");
+		    if (row.problem_description == "-"){
+		    	$("#TCDS-a_value_State_tooltip table tbody").append("<tr><td>" + row.service + ": </td><td class='" + row.state_name + "'>" + row.state_name + "</td></tr>");
+		    }
+		    else {
+		    	$("#TCDS-a_value_State_tooltip table tbody").append("<tr><td>" + row.service + ": </td><td class='" + row.state_name + "'>" + row.state_name + "</td><td>Problem description: </td><td class='ERROR'>" + row.problem_description + "</td></tr>");
+		    }		    
+		}
+		else if ( row.service == 'lpm-csc-'+TCDS_system ){
+		    $('#'+self.name+'-td_value_LPMState').attr( 'class', row.state_name );
+		    $('#'+self.name+'-a_value_LPMState').text( row.state_name );
+		    $('#'+self.name+'-a_value_LPMState').attr( 'title', 'The LPM (Local Partition Manager) Controller application is '+row.state_name);
+		    if (row.problem_description != "-"){
+		    	$("#TCDS-a_value_LPMState_tooltip").append("<p>Problem description: " + row.problem_description + "</p>");
+		    }
+		}
+		else if ( row.service == 'cpm-'+TCDS_system ){
+		    $('#'+self.name+'-td_value_CPMState').attr( 'class', row.state_name );
+		    $('#'+self.name+'-a_value_CPMState').text( row.state_name );
+		    $('#'+self.name+'-a_value_CPMState').attr( 'title', 'The CPM (Central Partition Manager) Controller application is '+row.state_name);
+		    if (row.problem_description != "-"){
+		    	$("#TCDS-a_value_CPMState_tooltip").append("<p>Problem description: " + row.problem_description + "</p>");
+		    }
 		}
 	    });
 	    $('#'+self.name+'-td_value_State').attr( 'class', combinedState );
 	    $('#'+self.name+'-a_value_State').text( combinedState );
-	    $('#'+self.name+'-a_value_State').attr( 'title', (combinedState == 'INDEFINITE' ? 'Not all TTC applications are in the same FSM state.' : 'All TTC applications are '+combinedState) );
+	    $('#'+self.name+'-a_value_State').attr( 'title', (combinedState == 'INDEFINITE' ? 'Not all TCDS CI and PI Controller applications are in the same FSM state.' : 'All TCDS CI and PI Controller applications are '+combinedState ) );
 	    
 	}).success( function(){
-	    $.getJSON( self.DataURL+'?fmt=json&flash=urn:xdaq-flashlist:ttcci_scalers', function(json){
-		var time = toUnixTime( json.table.properties.LastUpdate );
-		$('#'+self.name+'-td_localDateTime').text( timeToString( time ) );
-		var minL1ARate = Number.POSITIVE_INFINITY;
-		$.each( json.table.rows, function(i,row){
-		    if ( row.ComponentKey.substr(row.ComponentKey.length-4) == 'CSC+' ){
-			$('#'+self.name+'-a_value_L1APlus').text( formatNumber( row.L1ARateHz )+' Hz' );
-			if ( row.L1ARateHz < minL1ARate ) minL1ARate = row.L1ARateHz;
-			//console.log( row.ComponentKey+' '+row.L1ARateHz );
-		    }
-		    else if ( row.ComponentKey.substr(row.ComponentKey.length-4) == 'CSC-' ){
-			$('#'+self.name+'-a_value_L1AMinus').text( formatNumber( row.L1ARateHz )+' Hz' );
-			if ( row.L1ARateHz < minL1ARate ) minL1ARate = row.L1ARateHz;
-			//console.log( row.ComponentKey+' '+row.L1ARateHz );
-		    }
-		    else if ( row.ComponentKey.substr(row.ComponentKey.length-5) == 'CSCTF' ){
-			$('#'+self.name+'-a_value_L1ATF').text( formatNumber( row.L1ARateHz )+' Hz' );
-			if ( row.L1ARateHz < minL1ARate ) minL1ARate = row.L1ARateHz;
-			//console.log( row.ComponentKey+' '+row.L1ARateHz );
-		    }
+	    if ( whoIsInControl == 'global' ){
+	      $.getJSON( self.DataURL+'?fmt=json&flash=urn:xdaq-flashlist:tcds_cpm_rates', function(json){
+ 	      	  var time = toUnixTime( json.table.properties.LastUpdate );
+	      	  $('#'+self.name+'-td_localDateTime').text( timeToString( time ) );
+	      	  var totalTriggerRate = 0;
+	      	  $.each( json.table.rows, function(i,row){
+	      	      if ( row.service == 'cpm-'+TCDS_system ) totalTriggerRate = row.trg_rate_total;
+	      	    });
+	    	  var graphPoint = { name:'Total '+(TCDS_system=='pri'?'primary':'secondary')+' CPM trigger [kHz]', time:time, value:totalTriggerRate*0.001 };
+	    	  self.appendPoint( graphPoint );
+	    	  // }).success( function(){
+	    	  clearTimeout(self.Clock);
+	    	  self.ageOfPageClock(0);
+	    	});
+	    }
+	    else{
+		$.getJSON('http://tcds-control-csc-'+TCDS_system+'.cms:2104/urn:xdaq-application:service=lpm-csc-'+TCDS_system+'/update', function(json){
+		    var time = toUnixTime( json["Application state"]["Latest monitoring update time"] );
+		    $('#'+self.name+'-td_localDateTime').text( timeToString( time ) );
+		    var L1As = json["itemset-trigger-counter"]["# L1As"];
+		    self.trends[2].add( time, Number(L1As) );
+		    var graphPoint = { name:'CSC LPM L1A rate [Hz]', time:time, value:self.trends[2].rate( 2 ) };
+		    self.appendPoint( graphPoint );
+		    clearTimeout(self.Clock);
+		    self.ageOfPageClock(0);
 		});
-		var graphPoint = { name:'TTC L1A rate [Hz]', time:time, value:minL1ARate };
-		self.appendPoint( graphPoint );
-	    }).success( function(){
-		clearTimeout(self.Clock);
-		self.ageOfPageClock(0);
-	    });
+	    }
+			  
 	});
-    }
+
+	//$.getJSON("http://cmslas.cern.ch/emtflas/urn:xdaq-application:lid=16/retrieveCollection?fmt=json&flash=urn:xdaq-flashlist:l1ts_cell", function(json){
+	$.getJSON("http://l1ts-xaas.cms:9945/urn:xdaq-application:lid=16/retrieveCollection?fmt=json&flash=urn:xdaq-flashlist:l1ts_cell", function(json){
+		var combinedState = null;
+		$("#TCDS-a_value_MUTFUPState_tooltip").empty();
+		$("#TCDS-a_value_MUTFUPState_tooltip").append("<table><tbody></tbody></table>");
+		$.each(json.table.rows, function(i,row){
+			if(row.name == "MUTFUP TCDS ICI Cell" || row.name == "MUTFUP TCDS PI Cell"){
+				if(combinedState && combinedState != row.Operations.rows[0].state) combinedState = "INDEFINITE";
+				else 															   combinedState = row.Operations.rows[0].state;
+				$("#TCDS-a_value_MUTFUPState_tooltip table tbody").append("<tr><td>" + row.name + ": </td><td class='" + row.Operations.rows[0].state + "'>" + row.Operations.rows[0].state + "</td></tr>");
+			}
+		});
+		$("#" + self.name + "-td_value_MUTFUPState").attr("class", combinedState);
+		$("#" + self.name + "-a_value_MUTFUPState").text( combinedState );
+		$("#" + self.name + "-a_value_MUTFUPState").attr("title", (combinedState == "INDEFINITE" ? 'MUTFUP TCDS CI and PI Controller applications are not in the same FSM state.' : 'MUTFUP TCDS CI and PI Controller applications are '+combinedState ));
+	});
+
+ 	// Get TCDS PI spy log
+	$.getJSON('http://tcds-control-csc-'+TCDS_system+'.cms:2104/urn:xdaq-application:service=pi-cscm-'+TCDS_system+'/update', function(json){
+	    // var msg='';
+	    var time = toUnixTime( json["Application state"]["Latest monitoring update time"] );
+	    var nHardResets=0;
+	    $.each( json["itemset-ttcspylog"], function(k,v){
+	    	// msg+=' '+k+'\n';
+	    	$.each( v, function(l,u){
+		    if ( u["Data"] == 0x10 ){
+			nHardResets++;
+	    		// msg+='  '+ nHardResets +' '+l+' '+u["Delta"].split(' ')[0]+' '+u["Data"]+'\n';
+		    }
+	    	});
+	    });
+	    // Add this value to the container of counts:
+	    self.trends[0].add( time, nHardResets );
+	    if ( self.trends[0].difference( 2 ) > 0 || isFirstCall ){
+		// The count changed w.r.t. the previous reading, or this is the first call. Add the new value to the container of changed values:
+		self.trends[1].add( time, nHardResets );
+	    }
+	    //console.log( 'self.trends[1].points.length ' + self.trends[1].points.length );
+	    if ( isFirstCall ){
+		// First call. Wait for the next one.
+		$('#TCDS-a_value_LastHardReset').text( 'reading...' ).attr('title','Please, wait for the next automatic refresh.');
+	    }
+	    else{
+		if ( nHardResets == 0 ){
+		    $('#TCDS-a_value_LastHardReset').text( 'none' + String.fromCharCode(160) + 'yet' ).attr('title','No HardReset yet, at least since the PI Spy was last configured. Click to visit the plus-side PI.');
+		}
+		else{
+		    var timeOfLastHardReset = self.trends[1].points[self.trends[1].points.length-1].time;
+		    if ( self.trends[1].points.length > 1 ){
+			// We have seen more than one change. (One change may just mean that the first reading was non-zero, in which case we don't know when it incremented last.)
+			$('#TCDS-a_value_LastHardReset').text( timeToString( timeOfLastHardReset ) + String.fromCharCode(160,177) + '15s' ).attr('title','This time is accurate to wothin ~15s. '+nHardResets+' HardReset(s) issued since the last time the PI Spy was configured. Click to visit the plus-side PI.');
+		    }
+		    else{
+			// We don't know when the first change actually happened, so we just give an upper limit.
+			$('#TCDS-a_value_LastHardReset').text( 'before' + String.fromCharCode(160) + timeToString( timeOfLastHardReset ) ).attr('title','Not sure when the last HardReset was issued as it may have been before this page was loaded. '+nHardResets+' HardReset(s) issued since the last time the PI Spy was configured. Click to visit the plus-side PI.');
+		    }
+		}
+	    }
+	    // msg = json["Application state"]["Latest monitoring update time"] + ' ' + time + ' ' + msg; 
+            // console.log( msg );
+	});
+   }
 
 
     this.diskUsageFromJson = function(){
@@ -710,7 +854,7 @@ function Panel( name, refreshPeriod, dataURL ) {
 			if ( fsRow.fileSystem == '/data' ){
 			    try{
 				// Select local DAQ farm machines that read out DDUs
-				var matches = contextRow.context.match('^http://([cC][sS][cC]-[cC]2[dD]08-(0[1-9]|10)(.cms)?):[0-9]+');
+				var matches = contextRow.context.match('^http://([sS][rR][vV]-[cC]2[dD]08-(0[7-9]|1[0-9])-01(.cms)?):[0-9]+');
 				if ( matches.length > 1 ){
 				    disks.push( new Disk( matches[1], '/data', fsRow.sampleTime, fsRow.state, 
 							  fsRow.usePercent, (1.-0.01*fsRow.usePercent)*fsRow.totalMB ) );
@@ -722,12 +866,14 @@ function Panel( name, refreshPeriod, dataURL ) {
 		}
 	    });
 	    // Display disk of highest usage
-	    var d = disks.sort( function( a, b ){ return b.usage - a.usage; } )[0]; // Sort function must return a pos/neg number. With boolean, e.g. a>b, it doesn't work in WebKit (e.g., in rekonq).
-	    var klass = 'ON';
-	    if      ( d.usage > 80 ) klass = 'WARN';
-	    else if ( d.usage > 95 ) klass = 'OFF';
-	    $('#'+self.name+'-td_value_0').attr('class',klass);
-	    $('#'+self.name+'-a_value_0').attr('title',d.host+':'+d.mount+' has '+formatNumber(d.free)+' MB free left at '+d.time+'.').text(d.usage.toFixed(0)+' %');
+	    if ( disks.length > 0 ){
+		var d = disks.sort( function( a, b ){ return b.usage - a.usage; } )[0]; // Sort function must return a pos/neg number. With boolean, e.g. a>b, it doesn't work in WebKit (e.g., in rekonq).
+		var klass = 'ON';
+		if      ( d.usage > 80 ) klass = 'WARN';
+		else if ( d.usage > 95 ) klass = 'OFF';
+		$('#'+self.name+'-td_value_0').attr('class',klass);
+		$('#'+self.name+'-a_value_0').attr('title',d.host+':'+d.mount+' has '+formatNumber(d.free)+' MB free left at '+d.time+'.').text(d.usage.toFixed(0)+' %');
+	    }
 	})
 	    .success( function(){
 		clearTimeout(self.Clock);
@@ -853,6 +999,7 @@ function Panel( name, refreshPeriod, dataURL ) {
 			           $('#DAQ-a_value_RunType' ).attr('href' ,$(this).attr('valueURL')).attr('title',$(this).attr('valueDescription')).text($(this).attr('value'));
 			       }
 			       else if ( $(this).attr('name') == 'ctrl' ){
+				   whoIsInControl = $(this).attr('value');
 				   $('#DAQ-a_name_RunCtrl'  ).attr('href' ,$(this).attr('nameURL' )).attr('title',$(this).attr('nameDescription' )).text($(this).attr('name' ));
 			           $('#DAQ-a_value_RunCtrl' ).attr('href' ,$(this).attr('valueURL')).attr('title',$(this).attr('valueDescription')).text($(this).attr('value'));
 			       }
@@ -1044,7 +1191,7 @@ function Panel( name, refreshPeriod, dataURL ) {
     this.autoReloadData = function (){
 	if      ( self.name == 'DAQDisks' ) this.diskUsageFromJson();
 	else if ( self.name == 'CSCTF'    ) this.TrackFinderFromJson();
-	else if ( self.name == 'TTC'      ) this.TTCFromJson();
+	else if ( self.name == 'TCDS'     ) this.TCDSFromJson();
 	else                                this.getXML();
 
 	setTimeout( function(){ self.autoReloadData(); }, this.pageRefreshPeriod );

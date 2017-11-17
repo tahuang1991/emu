@@ -233,6 +233,7 @@ VMEModule::VMEModule(Crate * theCrate, int newslot):
   theSlot(newslot)
 {
   theCrate_ = theCrate;
+  special_flags_=0;
   //
 #ifdef debugV
   std::cout << "creating VMEModule in crate " << theCrate->CrateID() << std::endl;
@@ -264,7 +265,6 @@ void VMEModule::end() {
 
  
 void VMEModule::endDevice() {
-  theController->end();
 }
 
 void VMEModule::do_vme(char fcn, char vme, 
@@ -802,7 +802,7 @@ int VMEModule::svfLoad(int jch, const char *fn, int db, int verify )
 	    send_packages++ ;
             if(!readprom)
             {
-               if ( (send_packages%one_pct)==0 ) 
+               if ( total_packages>=100 &&  (send_packages%one_pct)==0 ) 
                   std::cout << "Sending " << std::dec << send_packages/one_pct << "%..." << std::endl;
 	       if ( send_packages == total_packages ) std::cout << "Done!" << std::endl;
             }
@@ -1255,8 +1255,8 @@ int VMEModule::svfLoad(int jch, const char *fn, int db, int verify )
     }
   // At the end of downloading, bring JTAG to RESET state.
   // Not absolutely necessary if it is always followed by a Hard-Reset.
-  RestoreReset();
-  this->endDevice();
+//  RestoreReset();
+//  this->endDevice();
   // turn off delay.
   theController->SetUseDelay(false);
 
@@ -1424,7 +1424,7 @@ int VMEModule::read_mcs(char *binbuf, FILE *finp)
 {
    unsigned ext_add, loc_add, dsize, current_ext=0, current_add, index, i;
    char buf[1024], addbuf[5]={0,0,0,0,0}, lenbuf[3]={0,0,0};
-   int finish=0, segmented=0, lines=0, chksum, crc, n, c;
+   int finish=0, segmented=0, lines=0, chksum, crc, c; //SK: unused:, n;
    int total_read=0;
 
    rewind(finp);
@@ -1511,6 +1511,7 @@ void VMEModule::Jtag_Ohio(int dev, int reg,const char *snd,int cnt,char *rcv,int
 {
 // dev= device ID (0-0xF), bits 15-12 of VME address
 // reg = 0 instruction shift;
+//       ( cnt < 0   Reset Jtag to Idle; )
 //     = 1  data shift;
 //     = 2  empty clocks; 
 // ird = 0  no TDO read
@@ -1665,6 +1666,7 @@ void VMEModule::Jtag_Lite(int dev, int reg, const char *snd, int cnt, char *rcv,
 // dev= VME address of the register (bits 18-0)
 //
 // reg = 0 instruction shift;
+//       ( cnt < 0   Reset Jtag to Idle; )
 //     = 1  data shift;
 //     = 2  empty clocks; 
 // ird = 0  no TDO read   
@@ -1796,6 +1798,209 @@ void VMEModule::Jtag_Lite(int dev, int reg, const char *snd, int cnt, char *rcv,
      }
      if (DEBUG) {
        printf("Jtag_Lite output: ");
+       for(i=0; i<cnt8/8; i++) printf("%02X ", rcv2[i]);
+       printf("\n");
+     }
+  }
+}
+
+// JTAG routine for normal state machine
+void VMEModule::Jtag_Norm(long dev, int reg, const char *snd, int cnt, char *rcv, int ird, int when)
+{
+// dev (bit 50-32 = VME address of the register (bits 18-0)
+//     (bit 31-16 = default value of the register (usually has chain/channel selection info))
+//     (bit 15-12, 11-8, 7-4, 3-0 = bit positions of TDO,TCK,TMS,TDI in the register)
+// reg = 0 instruction shift;
+//       ( cnt < 0   Reset Jtag to Idle; )
+//     = 1  data shift;
+//     = 2  empty clocks; 
+// ird = 0  no TDO read   
+//     = 1  read TDO      
+// when = 0  send vme packet LATER; 
+//      = 1  send vme packet NOW;   
+
+  int DEBUG=0;
+  int i, j, k, bit, cnt8;
+  unsigned short int pvme, ival, d, dd;
+  unsigned int ptr;
+  unsigned char *rcv2, bdata, *data, mytmp[MAXLINE];
+  int buff_mode;
+  unsigned short TDI_, TMS_, TCK_, TDO_, *mytmp2;
+  unsigned short vmesleep=0;
+
+  TDI_= dev & 0xF;
+  TMS_= (dev >> 4) & 0xF;
+  TCK_= (dev >> 8) & 0xF;
+  TDO_= (dev >> 12) & 0xF;
+  pvme= (dev >> 16) & 0xFFFF;
+  ptr= (theSlot<<19) + ((dev >> 32) & 0x7FFFF);
+ 
+  const unsigned short int TCK=(1<<TCK_);
+  const unsigned short int TMS=(1<<TMS_);
+  
+  if(cnt==0 || reg<0 || reg>2)return;
+  for(int i=0;i<MAXLINE;i++) mytmp[i] = 0;
+  rcv2=(unsigned char *)rcv;
+  data=(unsigned char *)snd;
+  mytmp2=(unsigned short *)mytmp;
+ 
+  if(get_flag(4)) vmesleep += 2;
+  if(get_flag(5)) vmesleep += 8;
+ //cout << "ptr = " << ptr << std::endl;
+ //cout << "TCK= " << TCK << std::endl;
+ //cout << "TMS= " << TMS << std::endl;
+
+// Jinghua Liu on Aug-15-2006: 
+// With the updated vme_controller() fucntion, it's now safe to
+// buffer all VME commands, including cross jumbo packet READs.
+  buff_mode = 1;
+
+ //
+   theController->start( theSlot, boardType() );
+   DEBUG=theController->GetDebug();
+   if (DEBUG) {
+      printf("scan_jtag: reg=%d, cnt=%d, ird=%d, Send %02x %02x", reg, cnt, ird, snd[0]&0xff, snd[1]&0xff);
+      if(cnt>16) printf(" %02x %02x", snd[2]&0xff, snd[3]&0xff);
+      printf("\n");
+   }
+   //  reset JTAG State Machine to Idle state
+   if(reg==0 && cnt<0)
+   {
+     for(i=0; i<6; i++)
+     {
+       d=pvme;
+       if(i<5) d |=TMS;  // five tms=1, followed by one tms=0
+       for(j=0;j<3;j++)
+       {  
+         // each shift needs 3 VME writes, the 2nd one with TCK on:
+         dd=d;
+         if(j==1) dd |= TCK;
+         theController->VME_controller((i<5 || j<2)?1:3,ptr,&dd,rcv);        
+         if(vmesleep) vme_delay(vmesleep);
+       }
+     }
+     return;
+   }
+
+   //  clocks
+   if(reg==2)
+   {
+     d=pvme;
+     for(i=0;i <cnt; i++)
+     {
+       for(j=0;j<3;j++)
+       {  
+         // each shift needs 3 VME writes, the 2nd one with TCK on:
+         dd=d;
+         if(j==1) dd |= TCK;
+         theController->VME_controller((j<2)?1:3,ptr,&dd,rcv);        
+         if(vmesleep) vme_delay(vmesleep);
+       }
+//        vme_delay(1);
+     }
+     return;
+   }
+
+   //  reg=0: instruction
+   //  reg=1: data
+   //
+   for(i=reg; i<4; i++)
+   {
+     d=pvme;
+     if(i<2) d |=TMS;
+     for(j=0;j<3;j++)
+     {  
+        // each shift needs 3 VME writes, the 2nd one with TCK on:
+        dd=d;
+        if(j==1) dd |= TCK;
+	//std::cout << " dd = " << dd << std::endl;
+        theController->VME_controller(1,ptr,&dd,rcv);        
+         if(vmesleep) vme_delay(vmesleep);
+     }
+   }
+
+  // Loop to shift in/out bits
+  bit=0;
+  k=0;
+  bdata = data[k];
+  for(i=0;i<cnt;i++) 
+  {
+    ival = bdata&0x01;
+     bdata >>= 1;
+     bit++;
+     if(bit==8) 
+     { 
+        bit=0;
+        k++;
+        bdata = data[k];
+     }
+
+     if(ird){
+       // read out one bit, the last argument is just a dummy.
+       theController->VME_controller(0,ptr,&dd,rcv);
+         if(vmesleep) vme_delay(vmesleep);
+     }
+     
+     // data bit to write (ival) is in the lowest bit (TDI)
+     d=pvme|(ival<<TDI_);
+     // at the last shift, we need set TMS=1
+     if(i==cnt-1) d |=TMS;
+     for(j=0;j<3;j++)
+     {
+        dd=d;
+        if(j==1) dd |= TCK;
+        // buff_mode could be either 3 (send and READ!!!) or 1 (buffered):
+	//std::cout << " dd = " << dd << std::endl;
+        theController->VME_controller((j==2)?buff_mode:1,ptr,&dd,(char *)(mytmp+2*i));
+         if(vmesleep) vme_delay(vmesleep);
+     }
+  }
+  
+  // printf("done loop\n");
+  // Now put the state machine into idle.
+  int steps=2;
+  if(get_flag(reg)==1) steps=1;   // if special flag is set, stop at UPDATE
+  for(i=0; i<steps; i++)
+  {
+     d=pvme;
+     if(i==0) d |=TMS;
+     for(j=0;j<3;j++)
+     {  
+        dd=d;
+        if(j==1) dd |= TCK;
+        // In the last VME WRITE send the packets. And READ back all data 
+        // in the case of fully buffered mode (buff_mode=1).
+        theController->VME_controller((i==1 && j==2)?3:1,ptr,&dd,(char *)mytmp);        
+         if(vmesleep) vme_delay(vmesleep);
+     }
+  }
+
+  if(ird)
+  {
+    // combine bits in mytmp2[] into bytes in rcv[].
+    // for(i=0; i<cnt; i++) printf("%04x ", mytmp2[i]&0xffff);
+    //  printf("\n");
+     bit=0; 
+     bdata=0; 
+     j=0;
+    // Use cnt8 instead of cnt, to make sure the bits are in right place.
+     cnt8 = 8*((cnt+7)/8);
+     for(i=0;i<cnt8;i++)
+     {
+       if(i<cnt)
+       {  if(TDO_<=7)
+             bdata |= ((mytmp2[i] & (1<<TDO_))<<(7-TDO_));
+          else
+             bdata |= (((mytmp2[i]>>8) & (1<<(TDO_-8)))<<(15-TDO_));
+       }
+                                                           
+       if(bit==7)
+	 { rcv2[j++]=bdata;  bit=0;  bdata=0; }
+       else
+	 { bdata >>= 1;     bit++; }
+     }
+     if (DEBUG) {
+       printf("scan_jtag output: ");
        for(i=0; i<cnt8/8; i++) printf("%02X ", rcv2[i]);
        printf("\n");
      }

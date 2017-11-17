@@ -338,9 +338,10 @@ void XMLParser::TMBParser(xercesc::DOMNode * pNode, Crate * theCrate, Chamber * 
     //
     int value;
     int tmbHwVersion = 0;
-    if (fillInt("hardware_version", value)) { tmbHwVersion = value;  }     
-
-    TMB * tmb_ = new TMB(theCrate, theChamber, slot, tmbHwVersion);
+    if (fillInt("hardware_version", value)) { tmbHwVersion = value;  }
+    int gemEnabled = 0;
+    if (fillInt("gem_enabled",value)) {gemEnabled = value; }
+    TMB * tmb_ = new TMB(theCrate, theChamber, slot, tmbHwVersion, gemEnabled);
     //
     // need still to put in 
     //   . ddd_oe mask
@@ -519,9 +520,19 @@ void XMLParser::TMBParser(xercesc::DOMNode * pNode, Crate * theCrate, Chamber * 
     //if (fillInt("scint_veto_clr"         ,value)) { tmb_->SetScintillatorVetoClear(value);     }
     //
     //0XB2:
-    if (fillInt("match_trig_alct_delay" ,value)) { tmb_->SetAlctVpfDelay(value);        }
-    if (fillInt("match_trig_window_size",value)) { tmb_->SetAlctMatchWindowSize(value); }
-    if (fillInt("mpc_tx_delay"          ,value)) { tmb_->SetMpcTxDelay(value);          }
+    if (fillInt("match_trig_alct_delay" ,value)) { tmb_->SetAlctVpfDelay(value);           }
+    if (fillInt("match_trig_window_size",value)) { tmb_->SetAlctMatchWindowSize(value);    }
+    if (fillInt("mpc_tx_delay"          ,value)) { tmb_->SetMpcTxDelay(value);             }
+    if (fillInt("clct_match_window_size",value)) { tmb_->Set_clct_match_window_size(value);}
+    //
+    //0X198 = ADR_NEWALGO_CTRL:  Controls parameters of new trigger algorithm  (Yuriy, 2016)
+    if (fillInt("use_dead_time_zone"        ,value)) { tmb_->Set_use_dead_time_zone        (value); }
+    if (fillInt("dead_time_zone_size"       ,value)) { tmb_->Set_dead_time_zone_size       (value); }
+    if (fillInt("use_dynamic_dead_time_zone",value)) { tmb_->Set_use_dynamic_dead_time_zone(value); }
+    if (fillInt("clct_to_alct"              ,value)) { tmb_->Set_clct_to_alct              (value); }
+    if (fillInt("drop_used_clcts"           ,value)) { tmb_->Set_drop_used_clcts           (value); }
+    if (fillInt("cross_bx_algorithm"        ,value)) { tmb_->Set_cross_bx_algorithm        (value); }
+    if (fillInt("clct_use_corrected_bx"     ,value)) { tmb_->Set_clct_use_corrected_bx     (value); }
     //
     //0XB6:
     if (fillInt("rpc_exists"     ,value)) { tmb_->SetRpcExist(value);           }
@@ -574,7 +585,8 @@ void XMLParser::TMBParser(xercesc::DOMNode * pNode, Crate * theCrate, Chamber * 
     //0XF4
     if (fillInt("clct_blanking"          ,value)) { tmb_->SetClctBlanking(value);        }
     if (fillInt("clct_pid_thresh_pretrig",value)) { tmb_->SetClctPatternIdThresh(value); }
-    if (fillInt("adjacent_cfeb_distance" ,value)) { tmb_->SetAdjacentCfebDistance(value);}
+    if (fillInt("clct_pid_thresh_postdrift",value)) { tmb_->SetClctPatternIdThreshPostDrift(value); }    
+    if (fillInt("adjacent_cfeb_distance" ,value)) { tmb_->SetAdjacentCfebDistance(value); }
     //
     //0XF6
     if (fillInt("clct_min_separation",value)) { tmb_->SetMinClctSeparation(value); }
@@ -660,6 +672,30 @@ void XMLParser::TMBParser(xercesc::DOMNode * pNode, Crate * theCrate, Chamber * 
     //
     //0X122
     if (fillInt("cfeb_badbits_block",value)) { tmb_->SetCFEBBadBitsBlock(value); }
+    //
+
+    if (gemEnabled) {
+        //
+        if (tmb_->HasGroupedGemRxValues() == 1){
+            if (fillInt("gem_delay",      value)) { tmb_->SetGemRxClockDelay(value); }
+            if (fillInt("gem_fine_delay" ,value)) { tmb_->SetGemRxFineDelay(value); }
+            if (fillInt("gem_posneg",     value)) { tmb_->SetGemRxPosNeg(value);     }
+        }
+        //
+        //0x310
+        if (fillInt ("gem_fifo_tbins"          , value)) { tmb_->SetGemFifoTbins         (value);}
+        if (fillInt ("gem_fifo_pretrig"        , value)) { tmb_->SetGemFifoPreTrig       (value);}
+        if (fillInt ("gem_decouple"            , value)) { tmb_->SetGemDecoupleTbins     (value);}
+        if (fillInt ("gem_read_enable"         , value)) { tmb_->SetGemReadEnable        (value);}
+        if (fillInt ("gem_zero_supress_enable" , value)) { tmb_->SetGemZeroSupressEnable (value);}
+
+        //0x312
+        if (fillInt ("gemA_fifo_rxd_int_delay"    , value)) { tmb_->SetGemARxdIntDelay        (value);}
+        if (fillInt ("gemB_fifo_rxd_int_delay"    , value)) { tmb_->SetGemBRxdIntDelay        (value);}
+        if (fillInt ("gem_decouple_rxd_int_delay" , value)) { tmb_->SetDecoupleGemRxdIntDelay (value);}
+        if (fillInt ("gem_fifo_rxd_int_delay"     , value)) { tmb_->SetGemRxdIntDelay         (value);}
+
+    }
     //
     xercesc::DOMNode * daughterNode = pNode->getFirstChild();
     while(daughterNode) {
@@ -748,7 +784,15 @@ void XMLParser::TMBParser(xercesc::DOMNode * pNode, Crate * theCrate, Chamber * 
 	//	  alct_->SetHotChannelFile(file);
 	//	}
 	
-	int number, delay, threshold;
+        std::string hot_ch_mask;     
+        if (fillString("alct_layer0_hot_chann_mask",hot_ch_mask)) { alct_->SetALCTHotChanMaskString(0, hot_ch_mask); }
+        if (fillString("alct_layer1_hot_chann_mask",hot_ch_mask)) { alct_->SetALCTHotChanMaskString(1, hot_ch_mask); }
+        if (fillString("alct_layer2_hot_chann_mask",hot_ch_mask)) { alct_->SetALCTHotChanMaskString(2, hot_ch_mask); }
+        if (fillString("alct_layer3_hot_chann_mask",hot_ch_mask)) { alct_->SetALCTHotChanMaskString(3, hot_ch_mask); }
+        if (fillString("alct_layer4_hot_chann_mask",hot_ch_mask)) { alct_->SetALCTHotChanMaskString(4, hot_ch_mask); }
+        if (fillString("alct_layer5_hot_chann_mask",hot_ch_mask)) { alct_->SetALCTHotChanMaskString(5, hot_ch_mask); }
+
+        int number, delay, threshold;
 	
 	xercesc::DOMNode * grandDaughterNode = daughterNode->getFirstChild();
 

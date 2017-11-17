@@ -261,7 +261,7 @@ std::string EmuPeripheralCrateBase::getLocalDateTime(bool AsFileName){
 bool EmuPeripheralCrateBase::CommonParser(std::string XML_or_DB, std::string configKey)
 {
   std::string Valid_key, InFlash_key;
-  xdata::UnsignedInteger64 Valid_key_64, InFlash_key_64;
+  xdata::UnsignedInteger64 Valid_key_64(0), InFlash_key_64(0);
 //  EmuEndcap* myEndcap_=NULL;
   int use_flash=0;
     //
@@ -366,5 +366,28 @@ emu::db::TStoreReadWriter *EmuPeripheralCrateBase::GetEmuTStore()
     return activeTStore_; 
 }
  
+void EmuPeripheralCrateBase::MyHeader(xgi::Input * in, xgi::Output * out, std::string title ) 
+  throw (xgi::exception::Exception)
+{
+    *out << " <head>" << std::endl << " <style type=\"text/css\"> " << std::endl;
+    *out << " form" << std::endl;
+    *out << " {  margin-bottom: 2px; }" << std::endl;  
+    *out << " input, select, button, input[type=submit]" << std::endl;
+    *out << " { font-size: 90%; border: 1px solid black; padding: 0.5em 0.5em; margin: 1px; }" << std::endl;
+    *out << " button, input[type=submit]" << std::endl;
+    *out << " { background-color: #E6E6E6; border-radius: 6px; }" << std::endl;
+    *out << " select" << std::endl;
+    *out << " {  background-color: white; }" << std::endl;  
+    *out << " fieldset" << std::endl;
+    *out << " {  border-style: solid; border-width: thin; border-color: black; padding: 0.5em; }" << std::endl;  
+    *out << " textarea" << std::endl;
+    *out << " {  margin: 1px 1px 1px 1px; }" << std::endl;  
+    *out << " legend" << std::endl;
+    *out << " {  border: none; width: auto; padding: 0.35em; }" << std::endl;  
+    *out << " </style>" << std::endl << " </head> " << std::endl;
+    *out << "<h1 style=\"text-align: center\"> " << title << "</h1>" << std::endl;
+    *out << "<h5 style=\" font-weight: regular; text-align: center\"> " << "( time stamp: " << getLocalDateTime()  << " ) </h5>" << std::endl;
+}
+
  }  // namespace emu::pc
 }  // namespace emu

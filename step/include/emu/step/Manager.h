@@ -82,6 +82,7 @@ namespace emu { namespace step {
       map<string,xdaq::ApplicationDescriptor*> testerDescriptors_; ///< peripheral crate group --> emu::step::Tester application descriptor map
       set<uint32_t> ruisToReadData_;
       set<string> dataFileNames_; ///< The names of all data files written since the last configure
+      xdata::String dataFileNamesCSV_; ///< The names of all data files written since the last configure
       xdata::Vector< xdata::Bag<ChamberMap> > chamberMaps_; ///< the parameters that the analysis program will use for identifying which chamber the data belongs to
     };
 

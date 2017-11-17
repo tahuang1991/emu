@@ -124,7 +124,7 @@ emu::supervisor::RunInfo::bookRunNumber( const string sequence ){
     while ( std::getline(book, reply) ) {
       replyLines.push_back(reply);
     }
-    copy( replyLines.begin(), replyLines.end(), ostream_iterator<string>(cout, "\n") );
+    // copy( replyLines.begin(), replyLines.end(), ostream_iterator<string>(cout, "\n") );
 
     vector<string>::const_iterator line;
     for ( line = replyLines.begin(); line != replyLines.end(); ++line ){
@@ -155,7 +155,7 @@ emu::supervisor::RunInfo::bookRunNumber( const string sequence ){
     }
 
     if ( !success )
-      for ( line = replyLines.begin(); line != replyLines.end(); ++line ) errorMessage_ += *line;
+      for ( line = replyLines.begin(); line != replyLines.end(); ++line ) errorMessage_ += *line + "\n";
 
     return success;
     

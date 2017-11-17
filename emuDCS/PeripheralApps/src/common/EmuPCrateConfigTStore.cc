@@ -2116,6 +2116,29 @@ void EmuPCrateConfigTStore::copyTMBToTable(xdata::Table &newRows, TMB * TStore_t
     std::string MINISCOPE_ENABLE("MINISCOPE_ENABLE");
     std::string HARDWARE_VERSION("HARDWARE_VERSION");
 
+    std::string CLCT_MATCH_WINDOW_SIZE("CLCT_MATCH_WINDOW_SIZE");
+    std::string USE_DEAD_TIME_ZONE("USE_DEAD_TIME_ZONE");
+    std::string DEAD_TIME_ZONE_SIZE("DEAD_TIME_ZONE_SIZE");
+    std::string USE_DYNAMIC_DEAD_TIME_ZONE("USE_DYNAMIC_DEAD_TIME_ZONE");
+    std::string CLCT_TO_ALCT("CLCT_TO_ALCT");
+    std::string DROP_USED_CLCTS("DROP_USED_CLCTS");
+    std::string CROSS_BX_ALGORITHM("CROSS_BX_ALGORITHM");
+    std::string CLCT_USE_CORRECTED_BX("CLCT_USE_CORRECTED_BX");
+
+    std::string GEM_ENABLED("GEM_ENABLED");
+    std::string GEM_DELAY("GEM_DELAY");
+    std::string GEM_FINE_DELAY("GEM_FINE_DELAY");
+    std::string GEM_POSNEG("GEM_POSNEG");
+    std::string GEM_FIFO_TBINS("GEM_FIFO_TBINS");
+    std::string GEM_FIFO_PRETRIG("GEM_FIFO_PRETRIG");
+    std::string GEM_DECOUPLE("GEM_DECOUPLE");
+    std::string GEM_READ_ENABLE("GEM_READ_ENABLE");
+    std::string GEM_ZERO_SUPRESS_ENABLE("GEM_ZERO_SUPRESS_ENABLE");
+    std::string GEMA_FIFO_RXD_INT_DELAY("GEMA_FIFO_RXD_INT_DELAY");
+    std::string GEMB_FIFO_RXD_INT_DELAY("GEMB_FIFO_RXD_INT_DELAY");
+    std::string GEM_DECOUPLE_RXD_INT_DELAY("GEM_DECOUPLE_RXD_INT_DELAY");
+    std::string GEM_FIFO_RXD_INT_DELAY("GEM_FIFO_RXD_INT_DELAY");
+
     xdata::UnsignedShort  _adjacent_cfeb_distance      = TStore_thisTMB->GetAdjacentCfebDistance();
     xdata::UnsignedShort  _aff_thresh                  = TStore_thisTMB->GetActiveFebFlagThresh();
     xdata::UnsignedShort  _alct_bx0_delay              = TStore_thisTMB->GetAlctBx0Delay();
@@ -2270,6 +2293,29 @@ void EmuPCrateConfigTStore::copyTMBToTable(xdata::Table &newRows, TMB * TStore_t
     xdata::UnsignedShort  _l1a_priority_enable           = TStore_thisTMB->GetL1APriorityEnable();
     xdata::UnsignedShort  _miniscope_enable              = TStore_thisTMB->GetMiniscopeEnable();
     xdata::UnsignedShort  _hardware_version              = TStore_thisTMB->GetHardwareVersion();
+	
+    xdata::UnsignedShort  _clct_match_window_size	= TStore_thisTMB->Get_clct_match_window_size();
+    xdata::UnsignedShort  _use_dead_time_zone		= TStore_thisTMB->Get_use_dead_time_zone();
+    xdata::UnsignedShort  _dead_time_zone_size		= TStore_thisTMB->Get_dead_time_zone_size();
+    xdata::UnsignedShort  _use_dynamic_dead_time_zone	= TStore_thisTMB->Get_use_dynamic_dead_time_zone();
+    xdata::UnsignedShort  _clct_to_alct			= TStore_thisTMB->Get_clct_to_alct();
+    xdata::UnsignedShort  _drop_used_clcts		= TStore_thisTMB->Get_drop_used_clcts();
+    xdata::UnsignedShort  _cross_bx_algorithm		= TStore_thisTMB->Get_cross_bx_algorithm();
+    xdata::UnsignedShort  _clct_use_corrected_bx	= TStore_thisTMB->Get_clct_use_corrected_bx();
+	
+    xdata::UnsignedShort  _gem_enabled			= TStore_thisTMB->GetGemEnabled();
+    xdata::UnsignedShort  _gem_delay			= TStore_thisTMB->GetGemRxClockDelay();
+    xdata::UnsignedShort  _gem_fine_delay		= TStore_thisTMB->GetGemRxFineDelay();
+    xdata::UnsignedShort  _gem_posneg			= TStore_thisTMB->GetGemRxPosNeg();
+    xdata::UnsignedShort  _gem_fifo_tbins		= TStore_thisTMB->GetGemFifoTbins();
+    xdata::UnsignedShort  _gem_fifo_pretrig		= TStore_thisTMB->GetGemFifoPreTrig();
+    xdata::UnsignedShort  _gem_decouple			= TStore_thisTMB->GetGemDecoupleTbins();
+    xdata::UnsignedShort  _gem_read_enable		= TStore_thisTMB->GetGemReadEnable();
+    xdata::UnsignedShort  _gem_zero_supress_enable	= TStore_thisTMB->GetGemZeroSupressEnable();
+    xdata::UnsignedShort  _gema_fifo_rxd_int_delay	= TStore_thisTMB->GetGemARxdIntDelay();
+    xdata::UnsignedShort  _gemb_fifo_rxd_int_delay	= TStore_thisTMB->GetGemBRxdIntDelay();
+    xdata::UnsignedShort  _gem_decouple_rxd_int_delay	= TStore_thisTMB->GetDecoupleGemRxdIntDelay();
+    xdata::UnsignedShort  _gem_fifo_rxd_int_delay	= TStore_thisTMB->GetGemRxdIntDelay();
 
     newRows.setValueAt(rowId, ADJACENT_CFEB_DISTANCE,        _adjacent_cfeb_distance); 
     newRows.setValueAt(rowId, AFF_THRESH,                    _aff_thresh);
@@ -2404,6 +2450,29 @@ void EmuPCrateConfigTStore::copyTMBToTable(xdata::Table &newRows, TMB * TStore_t
     newRows.setValueAt(rowId, L1A_PRIORITY_ENABLE,           _l1a_priority_enable);
     newRows.setValueAt(rowId, MINISCOPE_ENABLE,              _miniscope_enable);
     newRows.setValueAt(rowId, HARDWARE_VERSION,              _hardware_version);
+
+    newRows.setValueAt(rowId, CLCT_MATCH_WINDOW_SIZE	, _clct_match_window_size);
+    newRows.setValueAt(rowId, USE_DEAD_TIME_ZONE	, _use_dead_time_zone);
+    newRows.setValueAt(rowId, DEAD_TIME_ZONE_SIZE	, _dead_time_zone_size);
+    newRows.setValueAt(rowId, USE_DYNAMIC_DEAD_TIME_ZONE	, _use_dynamic_dead_time_zone);
+    newRows.setValueAt(rowId, CLCT_TO_ALCT	, _clct_to_alct);
+    newRows.setValueAt(rowId, DROP_USED_CLCTS	, _drop_used_clcts);
+    newRows.setValueAt(rowId, CROSS_BX_ALGORITHM	, _cross_bx_algorithm);
+    newRows.setValueAt(rowId, CLCT_USE_CORRECTED_BX	, _clct_use_corrected_bx);
+
+    newRows.setValueAt(rowId, GEM_ENABLED	, _gem_enabled);
+    newRows.setValueAt(rowId, GEM_DELAY	, _gem_delay);
+    newRows.setValueAt(rowId, GEM_FINE_DELAY	, _gem_fine_delay);
+    newRows.setValueAt(rowId, GEM_POSNEG	, _gem_posneg);
+    newRows.setValueAt(rowId, GEM_FIFO_TBINS	, _gem_fifo_tbins);
+    newRows.setValueAt(rowId, GEM_FIFO_PRETRIG	, _gem_fifo_pretrig);
+    newRows.setValueAt(rowId, GEM_DECOUPLE	, _gem_decouple);
+    newRows.setValueAt(rowId, GEM_READ_ENABLE	, _gem_read_enable);
+    newRows.setValueAt(rowId, GEM_ZERO_SUPRESS_ENABLE	, _gem_zero_supress_enable);
+    newRows.setValueAt(rowId, GEMA_FIFO_RXD_INT_DELAY	, _gema_fifo_rxd_int_delay);
+    newRows.setValueAt(rowId, GEMB_FIFO_RXD_INT_DELAY	, _gemb_fifo_rxd_int_delay);
+    newRows.setValueAt(rowId, GEM_DECOUPLE_RXD_INT_DELAY	, _gem_decouple_rxd_int_delay);
+    newRows.setValueAt(rowId, GEM_FIFO_RXD_INT_DELAY	, _gem_fifo_rxd_int_delay);
   }
   catch (xcept::Exception &e)
   {
@@ -2479,6 +2548,12 @@ void EmuPCrateConfigTStore::copyALCTToTable(xdata::Table &newRows, ALCTControlle
   std::string ALCT_TESTPULSE_AMPLITUDE("ALCT_TESTPULSE_AMPLITUDE");
   std::string ALCT_TESTPULSE_DIRECTION("ALCT_TESTPULSE_DIRECTION");
   std::string ALCT_TESTPULSE_INVERT("ALCT_TESTPULSE_INVERT");
+  std::string ALCT_LAYER0_HOT_CHANN_MASK("ALCT_LAYER0_HOT_CHANN_MASK");
+  std::string ALCT_LAYER1_HOT_CHANN_MASK("ALCT_LAYER1_HOT_CHANN_MASK");
+  std::string ALCT_LAYER2_HOT_CHANN_MASK("ALCT_LAYER2_HOT_CHANN_MASK");
+  std::string ALCT_LAYER3_HOT_CHANN_MASK("ALCT_LAYER3_HOT_CHANN_MASK");
+  std::string ALCT_LAYER4_HOT_CHANN_MASK("ALCT_LAYER4_HOT_CHANN_MASK");
+  std::string ALCT_LAYER5_HOT_CHANN_MASK("ALCT_LAYER5_HOT_CHANN_MASK");
   std::string ALCT_TRIG_INFO_EN("ALCT_TRIG_INFO_EN");
   std::string ALCT_TRIG_MODE("ALCT_TRIG_MODE");
   std::string ALCT_ZERO_SUPPRESS("ALCT_ZERO_SUPPRESS");
@@ -2513,6 +2588,12 @@ void EmuPCrateConfigTStore::copyALCTToTable(xdata::Table &newRows, ALCTControlle
   xdata::UnsignedShort _alct_testpulse_amplitude       = TStore_thisALCT->GetTestpulseAmplitude();
   xdata::String        _alct_testpulse_direction       = TStore_thisALCT->Get_PulseDirection();
   xdata::String        _alct_testpulse_invert          = TStore_thisALCT->Get_InvertPulse();
+  xdata::String        _alct_layer0_hot_chann_mask     = TStore_thisALCT->GetALCTHotChanMaskString(0);
+  xdata::String        _alct_layer1_hot_chann_mask     = TStore_thisALCT->GetALCTHotChanMaskString(1);
+  xdata::String        _alct_layer2_hot_chann_mask     = TStore_thisALCT->GetALCTHotChanMaskString(2);
+  xdata::String        _alct_layer3_hot_chann_mask     = TStore_thisALCT->GetALCTHotChanMaskString(3);
+  xdata::String        _alct_layer4_hot_chann_mask     = TStore_thisALCT->GetALCTHotChanMaskString(4);
+  xdata::String        _alct_layer5_hot_chann_mask     = TStore_thisALCT->GetALCTHotChanMaskString(5);
   //std::cout << "ALCT_TESTPULSE_INVERT read: " << _alct_testpulse_invert << std::endl;
   xdata::UnsignedShort _alct_trig_info_en              = TStore_thisALCT->GetWriteTriggerInfoEnable();
   xdata::UnsignedShort _alct_trig_mode                 = TStore_thisALCT->GetWriteTriggerMode();
@@ -2549,6 +2630,12 @@ void EmuPCrateConfigTStore::copyALCTToTable(xdata::Table &newRows, ALCTControlle
   std::cout << "-- ALCT alct_testpulse_amplitude ---------- " << _alct_testpulse_amplitude.toString()       << std::endl;
   std::cout << "-- ALCT alct_testpulse_direction ---------- " << _alct_testpulse_direction.toString()       << std::endl;
   std::cout << "-- ALCT alct_testpulse_invert ------------- " << _alct_testpulse_invert.toString()          << std::endl;
+  std::cout << "-- ALCT alct_layer0_hot_chann_mask -------- " << _alct_layer0_hot_chann_mask.toString()     << std::endl;
+  std::cout << "-- ALCT alct_layer1_hot_chann_mask -------- " << _alct_layer1_hot_chann_mask.toString()     << std::endl;
+  std::cout << "-- ALCT alct_layer2_hot_chann_mask -------- " << _alct_layer2_hot_chann_mask.toString()     << std::endl;
+  std::cout << "-- ALCT alct_layer3_hot_chann_mask -------- " << _alct_layer3_hot_chann_mask.toString()     << std::endl;
+  std::cout << "-- ALCT alct_layer4_hot_chann_mask -------- " << _alct_layer4_hot_chann_mask.toString()     << std::endl;
+  std::cout << "-- ALCT alct_layer5_hot_chann_mask -------- " << _alct_layer5_hot_chann_mask.toString()     << std::endl;
   std::cout << "-- ALCT alct_trig_info_en ----------------- " << _alct_trig_info_en.toString()              << std::endl;
   std::cout << "-- ALCT alct_trig_mode -------------------- " << _alct_trig_mode.toString()                 << std::endl;
   std::cout << "-- ALCT chamber_type ---------------------- " << _chamber_type.toString()                   << std::endl;
@@ -2585,6 +2672,12 @@ void EmuPCrateConfigTStore::copyALCTToTable(xdata::Table &newRows, ALCTControlle
   newRows.setValueAt(rowId, ALCT_TESTPULSE_AMPLITUDE,       _alct_testpulse_amplitude);
   newRows.setValueAt(rowId, ALCT_TESTPULSE_DIRECTION,       _alct_testpulse_direction);
   newRows.setValueAt(rowId, ALCT_TESTPULSE_INVERT,          _alct_testpulse_invert);
+  newRows.setValueAt(rowId, ALCT_LAYER0_HOT_CHANN_MASK,     _alct_layer0_hot_chann_mask);
+  newRows.setValueAt(rowId, ALCT_LAYER1_HOT_CHANN_MASK,     _alct_layer1_hot_chann_mask);
+  newRows.setValueAt(rowId, ALCT_LAYER2_HOT_CHANN_MASK,     _alct_layer2_hot_chann_mask);
+  newRows.setValueAt(rowId, ALCT_LAYER3_HOT_CHANN_MASK,     _alct_layer3_hot_chann_mask);
+  newRows.setValueAt(rowId, ALCT_LAYER4_HOT_CHANN_MASK,     _alct_layer4_hot_chann_mask);
+  newRows.setValueAt(rowId, ALCT_LAYER5_HOT_CHANN_MASK,     _alct_layer5_hot_chann_mask);
   newRows.setValueAt(rowId, ALCT_TRIG_INFO_EN,              _alct_trig_info_en);
   newRows.setValueAt(rowId, ALCT_TRIG_MODE,                 _alct_trig_mode);
   newRows.setValueAt(rowId, ALCT_ZERO_SUPPRESS,             _alct_zero_suppress);
@@ -3698,7 +3791,30 @@ void EmuPCrateConfigTStore::readTMB(
       if (*column == "CFEB_BADBITS_READOUT"  ) tmb_->SetCFEBBadBitsReadout(IntValue);
       if (*column == "L1A_PRIORITY_ENABLE"   ) tmb_->SetL1APriorityEnable(IntValue);
       if (*column == "MINISCOPE_ENABLE"      ) tmb_->SetMiniscopeEnable(IntValue);
-      
+      	
+      if (*column == "CLCT_MATCH_WINDOW_SIZE") tmb_->Set_clct_match_window_size(IntValue);
+      if (*column == "USE_DEAD_TIME_ZONE") tmb_->Set_use_dead_time_zone(IntValue);
+      if (*column == "DEAD_TIME_ZONE_SIZE") tmb_->Set_dead_time_zone_size(IntValue);
+      if (*column == "USE_DYNAMIC_DEAD_TIME_ZONE") tmb_->Set_use_dynamic_dead_time_zone(IntValue);
+      if (*column == "CLCT_TO_ALCT") tmb_->Set_clct_to_alct(IntValue);
+      if (*column == "DROP_USED_CLCTS") tmb_->Set_drop_used_clcts(IntValue);
+      if (*column == "CROSS_BX_ALGORITHM") tmb_->Set_cross_bx_algorithm(IntValue);
+      if (*column == "CLCT_USE_CORRECTED_BX") tmb_->Set_clct_use_corrected_bx(IntValue);
+	
+      if (*column == "GEM_ENABLED") tmb_->SetGemEnabled(IntValue);
+      if (*column == "GEM_DELAY") tmb_->SetGemRxClockDelay(IntValue);
+      if (*column == "GEM_FINE_DELAY") tmb_->SetGemRxFineDelay(IntValue);
+      if (*column == "GEM_POSNEG") tmb_->SetGemRxPosNeg(IntValue);
+      if (*column == "GEM_FIFO_TBINS") tmb_->SetGemFifoTbins(IntValue);
+      if (*column == "GEM_FIFO_PRETRIG") tmb_->SetGemFifoPreTrig(IntValue);
+      if (*column == "GEM_DECOUPLE") tmb_->SetGemDecoupleTbins(IntValue);
+      if (*column == "GEM_READ_ENABLE") tmb_->SetGemReadEnable(IntValue);
+      if (*column == "GEM_ZERO_SUPRESS_ENABLE") tmb_->SetGemZeroSupressEnable(IntValue);
+      if (*column == "GEMA_FIFO_RXD_INT_DELAY") tmb_->SetGemARxdIntDelay(IntValue);
+      if (*column == "GEMB_FIFO_RXD_INT_DELAY") tmb_->SetGemBRxdIntDelay(IntValue);
+      if (*column == "GEM_DECOUPLE_RXD_INT_DELAY") tmb_->SetDecoupleGemRxdIntDelay(IntValue);
+      if (*column == "GEM_FIFO_RXD_INT_DELAY") tmb_->SetGemRxdIntDelay(IntValue);
+
       if (*column == "TMB_CONFIG_ID" ) tmb_config_id_ = StrgValue;
     }
     std::string identifier = DAQMBID(chamberID(theCrate->CrateID(), theChamber->GetLabel()), slot);
@@ -3834,6 +3950,12 @@ void EmuPCrateConfigTStore::readALCT(
         //std::cout << "ALCT_TESTPULSE_INVERT read as: " << alct_->Get_InvertPulse() << std::endl;
       }
       if (*column == "ALCT_TESTPULSE_DIRECTION"      ) alct_->Set_PulseDirection(StrgValue);
+      if (*column == "ALCT_LAYER0_HOT_CHANN_MASK"    ) alct_->SetALCTHotChanMaskString(0,StrgValue);
+      if (*column == "ALCT_LAYER1_HOT_CHANN_MASK"    ) alct_->SetALCTHotChanMaskString(1,StrgValue);
+      if (*column == "ALCT_LAYER2_HOT_CHANN_MASK"    ) alct_->SetALCTHotChanMaskString(2,StrgValue);
+      if (*column == "ALCT_LAYER3_HOT_CHANN_MASK"    ) alct_->SetALCTHotChanMaskString(3,StrgValue);
+      if (*column == "ALCT_LAYER4_HOT_CHANN_MASK"    ) alct_->SetALCTHotChanMaskString(4,StrgValue);
+      if (*column == "ALCT_LAYER5_HOT_CHANN_MASK"    ) alct_->SetALCTHotChanMaskString(5,StrgValue);
       if (*column == "ALCT_ZERO_SUPPRESS"            ) alct_->SetAlctZeroSuppress(IntValue);
       if (*column == "HARDWARE_VERSION"              ) alct_->SetHardwareVersion(IntValue);
       if (*column == "ALCT_CONFIG_ID"                ) alct_config_id_ = StrgValue;

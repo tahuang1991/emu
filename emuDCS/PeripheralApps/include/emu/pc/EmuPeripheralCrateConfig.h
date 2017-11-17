@@ -141,6 +141,8 @@ protected:
   std::ostringstream ALCT_TMB_communicationOutput[10][30];
   std::ostringstream OutputStringDMBStatus[10];
   std::ostringstream OutputStringTMBStatus[10];
+  std::ostringstream OutputStringCCBStatus;
+  std::ostringstream OutputStringMPCStatus;
   std::ostringstream OutputDMBTests[10][30];
   std::ostringstream OutputTMBTests[10][30];
   std::ostringstream OutputCCBTests[30];
@@ -198,6 +200,7 @@ protected:
   unsigned long int CFEBBoardNumber[62][10][7];
 
   bool tmb_fiber_status_read_;
+  bool write_dcfeb_prom_allowed_;
 
   //VCC Utilities
 
@@ -369,6 +372,7 @@ private:
   void CrateStatus(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void DDUStatus(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
   void LVMBStatus(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
+  void ODMBCounters(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
   //
   // Crate tests
   void CrateTests(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
@@ -431,11 +435,18 @@ private:
   void DMBTurnOn(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void CFEBUtils(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void CFEBFunction(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
+  void DCFEBPromTest(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
+  void DCFEBPromTestFast(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
+  void AllDCFEBsPromTestFast(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
+  void DCFEBParaPrint(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
+  void DCFEBParaErase(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void DCFEBReadFirmware(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void DCFEBProgramFpga(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void DCFEBProgramFpgaAll(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void DCFEBProgramEprom(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
+  void DCFEBProgramEpromOffset(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void DCFEBProgramEpromSVF(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
+  void DCFEBProgramEpromXilinx(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void DCFEBProgramEpromAll(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void ODMBLoadFirmwarePoll(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void RestoreCfebJtagIdle(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
@@ -471,6 +482,8 @@ private:
   void TMBResetSyncError(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);  
   void TMBRawHits(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void ALCTRawHits(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
+  void GEMRawHits(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
+  void DisableALCTTestPulse(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void TMBPrintCounters(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void TMBResetCounters(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void TMBCounterForFixedTime(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
@@ -478,8 +491,29 @@ private:
   void armScope(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void forceScope(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void readoutScope(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
-  void TriggerTestInjectCLCT(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
+  void TriggerTestInjectCLCT(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
+  void OTMBLoadFirmware(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
   void TMBReadFirmware(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
+  void SerialLoadCrateTMBFirmware(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
+  
+  void TMBBPIReset(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
+  void TMBBPIDisable(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
+  void TMBBPIEnable(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
+  void TMBBPIWrite(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
+  void TMBBPIRead(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
+  void TMBBPIReadN(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
+  void TMBBPIStatus(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
+  void TMBBPITimerRead(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
+  
+  void TMBBPIPromTimerReset(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
+  void TMBBPIPromTimerStop(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
+  void TMBBPIPromTimerStart(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
+  void TMBBPIPromClearStatus(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
+  void TMBBPIPromLoadAddress(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
+  void TMBBPIPromBlockUnlock(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
+  void TMBBPIPromBlockErase(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
+  void TMBBPIPromBlockLock(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
+  
   void ALCTReadFirmware(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
   void LoadALCTSlowFirmware(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
   void LoadVirtex6TMBFirmware(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);  
@@ -522,6 +556,7 @@ private:
   void ReadMPCRegister(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void WriteMPCRegister(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void MPCLoadFirmware(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
+  void MPCLoadFirmwareMCS(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void MPCMask(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void MPCConfig(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
   void MPCReadFirmware(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
@@ -529,6 +564,7 @@ private:
   void MPCnewPRBS(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
   void MPCPRBSError(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
   void MPCGTPReset(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
+  void MPCCheckConfig(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
   //
   // CCB utils
   void CCBUtils(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
@@ -537,11 +573,19 @@ private:
   void CCBLoadFirmware(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void ReadTTCRegister(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void HardReset(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
+  void CCBFPGAReset(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void CCBConfig(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
   void CCBReadFirmware(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
   void CCBSignals(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
   void PrepareForTriggering(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
-  //
+  void CCBCheckConfig(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);  //
+  void GEMreadFPGAid(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);  //
+  void GEMreadFPGAsysmon(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);  //
+  void GEMProgramFPGA(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);  //
+  void GEMProgramEPROM(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);  //
+  void GEMHardreset(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);  //
+  void GEMSetMUX(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);  //
+  
   // DDU utils
   void DDUUtils(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
   //
@@ -564,10 +608,14 @@ private:
   void CfebDavCableDelay(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void PrintDmbValuesAndScopes(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void RatTmbTiming(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
+  void ScanOTMBFiberDelays(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
   void RpcRatTiming(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void ALCT_TMB_communication(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void ALCT_TMB_Loopback(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void TMB_to_ALCT_walking_ones(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
+  void SetGEMPhase (xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
+  void SetGEMPosneg (xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
+  void SetGEMIntDelay (xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
   //
   // synchronization functions looping over CSC's
   void MeasureL1AsAndDAVsForCrate(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
@@ -626,6 +674,9 @@ private:
   void ExpertToolsPage(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void StartPRBS(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void StopPRBS(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
+  void StartNewPRBS(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
+  void StopNewPRBS(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
+  void DumpDCFEBLinkStatus(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void SetRadioactivityTrigger(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void SetTwoLayerTriggerForSystem(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void SetTwoLayerTriggerForCrate(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
@@ -634,6 +685,7 @@ private:
   void MeasureAllTMBVoltages(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void ProgramAllOdmbEproms(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void ProgramOdmbEpromsForCrate(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
+  void TestDcfebEpromsForCrate(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void HardResetForSystem(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void OtmbFiberTest(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void UpdateInFlashKey(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
@@ -643,6 +695,7 @@ private:
   //
   void DefineFirmwareFilenames();
   std::string GetFormString(const std::string& form_element, xgi::Input* in);
+  void EnableWriteDCFEBPROM(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception);
 
   //
   std::vector<TMBTester> InitTMBTests(Crate *);
@@ -708,6 +761,8 @@ private:
   bool print_config_check_output;
   char date_and_time_[13];
   //
+  bool showBPITools_;
+  unsigned iSelectedGEM;
 };
 
   } // namespace emu::pc

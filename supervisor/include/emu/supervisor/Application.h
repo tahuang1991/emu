@@ -162,6 +162,7 @@ private: // XDAQ parameters
 	xdata::String          TFCellOpName_;
 	xdata::String          TFCellClass_;
 	xdata::UnsignedInteger TFCellInstance_;
+	xdata::Boolean         isUsingLegacyTF_;
 
 	toolbox::task::WorkLoop *wl_;
 	toolbox::BSem wl_semaphore_;
@@ -183,6 +184,7 @@ private: // XDAQ parameters
 	void refreshConfigParameters();
 
 	string getCGIParameter(xgi::Input *in, string name);
+	int getCalibParamIndex(const string name);
 	int keyToIndex(const string key);
 
         bool allCalibrationRuns();
@@ -194,21 +196,23 @@ private: // XDAQ parameters
 
         xdaq::ApplicationDescriptor* findAppDescriptor( const string& klass, const string& service );
         void getAppDescriptors();
+        void getTFAppDescriptor();
         void getTCDSAppDescriptors();
+        bool getTCDSAppDescriptors( bool useSystemSwitchTag );
+
+  void setUpLogger();
 
   //////////////////////////////////////////////////////////////
 
-  void sendCommandCellOpInit();
- 
+  // TF SOAP
   void sendCommandCell(string command);
-
   std::string OpGetStateCell();
-
   void OpResetCell();
 
-  void sendCommandCellOpkill();
-
   //////////////////////////////////////////////////////////////
+
+  bool skipTFCellConfiguration();
+  bool ignoreTFCell();
 
   bool waitForTFCellOpToReach( const string targetState, const unsigned int seconds );
 
@@ -234,6 +238,11 @@ private: // XDAQ parameters
 
   xdata::Boolean usePrimaryTCDS_;
 
+  bool isUsingTCDS_;		///< Will be FALSE if a legacy TTCci application is found. Then the legacy TTC system will be used instead of TCDS.
+
+  xdata::Boolean isTFCellResponsive_; ///< Will be FALSE once a SOAP exchange fails. This is to prevent a stuck TF Cell from holding up the global run.
+  xdata::Boolean isDAQResponsive_; ///< Will be FALSE once a SOAP exchange fails. This is to prevent a stuck local DAQ from holding up the global run.
+
 	xdata::Integer64 nevents_;
 	unsigned int step_counter_;
 
@@ -243,10 +252,12 @@ private: // XDAQ parameters
 	bool hide_tts_control_;
 
         xdata::Boolean controlTFCellOp_;
+        xdata::Boolean forceTFCellConf_; ///< If TRUE, the TF Cell will be (re)configured even if it is already configured with the current key.
 
         xdata::Boolean localDAQWriteBadEventsOnly_;
 
-        xdata::String tf_key_;       // Track Finder Key
+        xdata::String tf_key_;          // Track Finder Key
+        xdata::String tf_run_settings_; // Track Finder Run Settings (needed for EMTF)
 	
 	emu::supervisor::RunInfo *runInfo_;         // communicates with run database
 	xdata::String runDbBookingCommand_; // e.g. "java -jar runnumberbooker.jar"
@@ -283,21 +294,6 @@ private: // XDAQ parameters
 		vector<pair<xdaq::ApplicationDescriptor *, string> > table_;
 	} state_table_;
 
-
-	class LastLog
-	{
-	public:
-		void size(unsigned int size);
-		unsigned int size() const;
-		void add(string message);
-		void webOutput(xgi::Output *out) throw (xgi::exception::Exception);
-
-	private:
-		string getTime(void) const;
-
-		unsigned int size_;
-		deque<string> messages_;
-	} last_log_;
 };
 
     ostream& operator<<( ostream& os, const emu::supervisor::Application::StateTable& st );

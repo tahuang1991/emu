@@ -24,6 +24,7 @@ void EmuPlotter::init()
   binCheckMask      = 0xFFFFFFFF;
   dduBinCheckMask     = 0x02080016;
   fCheckMapping = false;
+  fCheckDeadComparatorsChannels = false;
   reset();
 }
 
@@ -50,8 +51,8 @@ void EmuPlotter::reset()
   bin_checker.crcCFEB(true);
   bin_checker.modeDDU(true);
   // bin_checker.modeDDU(false);
-//  bin_checker.output1().show();
-//  bin_checker.output2().show();
+  // bin_checker.output1().show();
+  // bin_checker.output2().show();
 
   nDMBEvents.clear();
   L1ANumbers.clear();
@@ -67,10 +68,10 @@ void EmuPlotter::clearMECollection(std::map<std::string, ME_List > & collection)
 {
   std::map<std::string, ME_List >::iterator itr;
   for (itr = collection.begin(); itr != collection.end(); ++itr)
-  {
-    LOG4CPLUS_DEBUG(logger_,"Clean ME Collection " << itr->first );
-    clearMECollection(itr->second);
-  }
+    {
+      LOG4CPLUS_DEBUG(logger_,"Clean ME Collection " << itr->first );
+      clearMECollection(itr->second);
+    }
 
   collection.clear();
 }
@@ -80,22 +81,22 @@ void EmuPlotter::clearMECollection(ME_List & collection)
 {
 
   if (collection.size() > 0)
-  {
-    for (ME_List_iterator itr = collection.begin(); itr != collection.end(); ++itr)
     {
-      if (itr->second) delete itr->second;
+      for (ME_List_iterator itr = collection.begin(); itr != collection.end(); ++itr)
+        {
+          if (itr->second) delete itr->second;
+        }
+      collection.clear();
     }
-    collection.clear();
-  }
 
 }
 void EmuPlotter::printMECollection(ME_List & collection)
 {
   int i = 0;
   for (ME_List_iterator itr = collection.begin(); itr != collection.end(); ++itr)
-  {
-    LOG4CPLUS_INFO(logger_, ++i << ":" << itr->first << ":" << itr->second->getFullName());
-  }
+    {
+      LOG4CPLUS_INFO(logger_, ++i << ":" << itr->first << ":" << itr->second->getFullName());
+    }
 
 }
 
@@ -103,10 +104,10 @@ void EmuPlotter::clearCanvasesCollection(std::map<std::string, MECanvases_List >
 {
   std::map<std::string, MECanvases_List >::iterator citr;
   for (citr = collection.begin(); citr != collection.end(); ++citr)
-  {
-    LOG4CPLUS_DEBUG(logger_,"Clean Canvases Collection " << citr->first );
-    clearCanvasesCollection(citr->second);
-  }
+    {
+      LOG4CPLUS_DEBUG(logger_,"Clean Canvases Collection " << citr->first );
+      clearCanvasesCollection(citr->second);
+    }
 
   collection.clear();
 
@@ -116,10 +117,10 @@ void EmuPlotter::printCanvasesCollection(std::map<std::string, MECanvases_List >
 {
   std::map<std::string, MECanvases_List >::iterator citr;
   for (citr = collection.begin(); citr != collection.end(); ++citr)
-  {
-    LOG4CPLUS_DEBUG(logger_,"Print Canvases Collection " << citr->first );
-    printCanvasesCollection(citr->second);
-  }
+    {
+      LOG4CPLUS_DEBUG(logger_,"Print Canvases Collection " << citr->first );
+      printCanvasesCollection(citr->second);
+    }
 
 }
 
@@ -128,14 +129,14 @@ void EmuPlotter::clearCanvasesCollection(MECanvases_List & collection)
 {
 
   if (collection.size() > 0)
-  {
-    for (MECanvases_List_iterator itr = collection.begin(); itr != collection.end(); ++itr)
     {
-      LOG4CPLUS_DEBUG(logger_,"Clean " << itr->first );
-      if (itr->second) delete itr->second;
+      for (MECanvases_List_iterator itr = collection.begin(); itr != collection.end(); ++itr)
+        {
+          LOG4CPLUS_DEBUG(logger_,"Clean " << itr->first );
+          if (itr->second) delete itr->second;
+        }
+      collection.clear();
     }
-    collection.clear();
-  }
 
 }
 
@@ -143,9 +144,9 @@ void EmuPlotter::printCanvasesCollection(MECanvases_List & collection)
 {
   int i = 0;
   for (MECanvases_List_iterator itr = collection.begin(); itr != collection.end(); ++itr)
-  {
-    LOG4CPLUS_DEBUG(logger_, ++i << ":" << itr->first << ":" << itr->second->getFullName());
-  }
+    {
+      LOG4CPLUS_DEBUG(logger_, ++i << ":" << itr->first << ":" << itr->second->getFullName());
+    }
 
 }
 
@@ -171,19 +172,14 @@ EmuPlotter::~EmuPlotter()
 
 void EmuPlotter::book()
 {
-  /*  appBSem_.take();
-    clearCanvasesCollection(MECanvases);
-    clearMECollection(MEs);
-    appBSem_.give();
-  */
-  reset();
+  appBSem_.take();
+  clearCanvasesCollection(MECanvases);
+  clearMECollection(MEs);
+  appBSem_.give();
   if (loadXMLBookingInfo(xmlHistosBookingCfgFile) == 0)
-  {
-//      reset();
-    loadXMLCanvasesInfo(xmlCanvasesCfgFile);
-  }
-
-
+    {
+      loadXMLCanvasesInfo(xmlCanvasesCfgFile);
+    }
 }
 
 
@@ -192,11 +188,11 @@ void EmuPlotter::book()
 void EmuPlotter::setCSCMapFile(std::string filename)
 {
   if (filename != "")
-  {
-    cscMapFile = filename;
-    LOG4CPLUS_INFO(logger_, "Load CSC Mapping  from " << filename);
-    cscMapping  = CSCReadoutMappingFromFile(cscMapFile);
-  }
+    {
+      cscMapFile = filename;
+      LOG4CPLUS_INFO(logger_, "Load CSC Mapping  from " << filename);
+      cscMapping  = CSCReadoutMappingFromFile(cscMapFile);
+    }
 
 
 }
@@ -231,22 +227,22 @@ std::string EmuPlotter::getCSCTypeLabel(int endcap, int station, int ring )
   std::string label = "Unknown";
   std::ostringstream st;
   if ((endcap > 0) && (station>0) && (ring>0))
-  {
-    if (endcap==1)
     {
-      st << "ME+" << station << "/" << ring;
-      label = st.str();
+      if (endcap==1)
+        {
+          st << "ME+" << station << "/" << ring;
+          label = st.str();
+        }
+      else if (endcap==2)
+        {
+          st << "ME-" << station << "/" << ring;
+          label = st.str();
+        }
+      else
+        {
+          label = "Unknown";
+        }
     }
-    else if (endcap==2)
-    {
-      st << "ME-" << station << "/" << ring;
-      label = st.str();
-    }
-    else
-    {
-      label = "Unknown";
-    }
-  }
   return label;
 }
 
@@ -261,9 +257,9 @@ std::string EmuPlotter::getCSCFromMap(int crate, int slot, int& csctype, int& cs
   int id = cscMapping.chamber(iendcap, istation, crate, slot, -1);
   std::string cscname="";
   if (id==0)
-  {
-    return cscname;
-  }
+    {
+      return cscname;
+    }
   CSCDetId cid( id );
   iendcap = cid.endcap();
   istation = cid.station();
@@ -274,16 +270,16 @@ std::string EmuPlotter::getCSCFromMap(int crate, int slot, int& csctype, int& cs
   std::string tlabel = getCSCTypeLabel(iendcap, istation, iring );
   std::map<std::string,int>::const_iterator it = tmap.find( tlabel );
   if (it != tmap.end())
-  {
-    csctype = it->second;
-    //      LOG4CPLUS_INFO(logger_, "========== get CSC from Map label:" << tlabel << "/" << cscposition);
-    cscname=std::string(Form("%s/%02d",tlabel.c_str(),cscposition));
-  }
+    {
+      csctype = it->second;
+      //      LOG4CPLUS_INFO(logger_, "========== get CSC from Map label:" << tlabel << "/" << cscposition);
+      cscname=std::string(Form("%s/%02d",tlabel.c_str(),cscposition));
+    }
   else
-  {
-    //      LOG4CPLUS_INFO(logger_, "========== can not find map");
-    csctype = 0;
-  }
+    {
+      //      LOG4CPLUS_INFO(logger_, "========== can not find map");
+      csctype = 0;
+    }
 
   // return bin number which corresponds for CSC Type (ex. ME+4/2 -> bin 18)
   return cscname;
@@ -295,17 +291,25 @@ bool EmuPlotter::isMEvalid(ME_List& MEs, std::string name, EmuMonitoringObject*&
 {
   ME_List_iterator res = MEs.find(name);
   if (res != MEs.end() && (res->second != 0))
-  {
-    me = res->second;
-    // cout << "Found " << me->getName() << endl;
-    return true;
-  }
+    {
+      me = res->second;
+      if (me != 0)
+        {
+          return true;
+        }
+      else
+        {
+          me = 0;
+          return false;
+        }
+
+    }
   else
-  {
-    if (debug) LOG4CPLUS_WARN(logger_, "Plotter can not find ME: '" << name << "'");
-    me = 0;
-    return false;
-  }
+    {
+      if (debug) LOG4CPLUS_WARN(logger_, "Plotter can not find ME: '" << name << "'");
+      me = 0;
+      return false;
+    }
 
 }
 
@@ -316,19 +320,19 @@ ME_List EmuPlotter::bookMEs(std::string factoryID, std::string prefix)
 
   std::map<std::string, ME_List >::iterator f_itr = MEFactories.find(factoryID);
   if (f_itr != MEFactories.end())
-  {
-    ME_List& factory = f_itr->second;
-    for (itr = factory.begin(); itr != factory.end(); ++itr)
     {
-      EmuMonitoringObject * obj = new EmuMonitoringObject(*itr->second);
-      obj->setPrefix(prefix);
-      mes[obj->getName()] = obj;
+      ME_List& factory = f_itr->second;
+      for (itr = factory.begin(); itr != factory.end(); ++itr)
+        {
+          EmuMonitoringObject * obj = new EmuMonitoringObject(*itr->second);
+          obj->setPrefix(prefix);
+          mes[obj->getName()] = obj;
+        }
     }
-  }
   return  mes;
 }
 
-CSCCounters EmuPlotter::bookCounters()
+CSCCounters EmuPlotter::bookCounters(std::string cscName)
 {
   CSCCounters trigCnts;
   trigCnts["ALCT"] = 0;
@@ -336,6 +340,14 @@ CSCCounters EmuPlotter::bookCounters()
   trigCnts["CFEB"] = 0;
   trigCnts["DMB"] = 0;
   trigCnts["BAD"] = 0;
+  if (cscName != "")
+    {
+      int nCFEBs = emu::dqm::utils::getNumCFEBs(cscName, theFormatVersion);
+      for (int i=0; i<nCFEBs; i++)
+        {
+          trigCnts[Form("CFEB%d", i+1)] = 0;
+        }
+    }
   nDetectedCSCs++;
   return trigCnts;
 }
@@ -349,17 +361,17 @@ MECanvases_List EmuPlotter::bookMECanvases(std::string factoryID, std::string pr
 
   std::map<std::string, MECanvases_List >::iterator f_itr = MECanvasFactories.find(factoryID);
   if (f_itr != MECanvasFactories.end())
-  {
-    MECanvases_List& factory = f_itr->second;
-    for (itr = factory.begin(); itr != factory.end(); ++itr)
     {
-      EmuMonitoringCanvas * obj = new EmuMonitoringCanvas(*itr->second);
-      obj->setPrefix(prefix);
-      std::string new_title = obj->getTitle() + title;
-      obj->setTitle(new_title);
-      mes[obj->getName()] = obj;
+      MECanvases_List& factory = f_itr->second;
+      for (itr = factory.begin(); itr != factory.end(); ++itr)
+        {
+          EmuMonitoringCanvas * obj = new EmuMonitoringCanvas(*itr->second);
+          obj->setPrefix(prefix);
+          std::string new_title = obj->getTitle() + title;
+          obj->setTitle(new_title);
+          mes[obj->getName()] = obj;
+        }
     }
-  }
   return  mes;
 }
 
