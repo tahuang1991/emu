@@ -21,7 +21,7 @@
 # Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
 #
 ################################################################################
-WD:=$(BUILD_HOME)/emu/drivers/igb_emu
+WD:=$(BUILD_HOME)/emu/drivers/igb_emu_cc7
 KBUILD_EXTRA_SYMBOLS := $(WD)/eth_hook_2_vme/Module.symvers $(WD)/eth_hook_3_vme/Module.symvers
 
 ifneq ($(KERNELRELEASE),)
