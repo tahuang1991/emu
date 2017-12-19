@@ -630,6 +630,9 @@ bool TMBTester::testDSN(int BoardType){
 }
 //
 bool TMBTester::testADC(){
+  //
+  // all tolerances in comprareValue() are percentages.
+  //
   int hwv=tmb_->GetHardwareVersion();
   //
   (*MyOutput_) << "TMBTester: Checking ADC and status" << std::endl;
@@ -691,17 +694,17 @@ bool TMBTester::testADC(){
   float vcore_expect = vcore_noload - a1p5core*0.010;                              //Expect Vcore-Acore*.010ohms.  At Acore nom=0.870A, Vcore=1.516
   bool v1p5coreOK;
   if(hwv<=1)
-     v1p5coreOK = compareValues("+1.5V core     ",v1p5core,vcore_expect,0.0015); // most critical value on TMB
+     v1p5coreOK = compareValues("+1.5V core     ",v1p5core,vcore_expect,0.01); // most critical value on TMB
   else
      v1p5coreOK = compareValues("+1.5V core     ",v1p5core,1.5,0.03);  // for Virtex6 FPGA on OTMB, this is relaxed
   
   //
   bool v1p5ttOK   = compareValues("+1.5V TT       ",v1p5tt  ,1.493,0.025);
-  bool v1p0OK     = compareValues("+1.0V TT       ",v1p0    ,(hwv<=1)?1.005:1.000,0.005);
+  bool v1p0OK     = compareValues("+1.0V TT       ",v1p0    ,(hwv<=1)?1.005:1.000,0.02);
   bool v1p8ratOK  = (hwv<=1)?compareValues("+1.8V RAT core ",v1p8rat ,1.805,0.025):true;  // temporarily disable RAT voltage check for OTMB 
-  bool vref2OK    = compareValues("+vref/2        ",vref2   ,2.048,0.001);
-  bool vzeroOK    = compareValues("+vzero         ",vzero   ,0.0  ,0.001);
-  bool vrefOK     = compareValues("+vref          ",vref    ,4.095,0.001);
+  bool vref2OK    = compareValues("+vref/2        ",vref2   ,2.048,0.01);
+  bool vzeroOK    = compareValues("+vzero         ",vzero   ,0.0  ,0.01);
+  bool vrefOK     = compareValues("+vref          ",vref    ,4.095,0.01);
 
   //  float atol = 0.16;
   //  bool a5p0OK     = compareValues("+5.0A TMB      ",a5p0    ,0.245,atol);
