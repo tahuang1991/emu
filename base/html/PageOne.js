@@ -259,7 +259,7 @@ function Panel( name, refreshPeriod, dataURL ) {
 	this.follow_element = document.getElementById(this.name+"-follow");
 	this.zoom_element = document.getElementById(this.name+"-zoom");
     }
-	
+
     //
     // Member methods
     //
@@ -610,6 +610,36 @@ function Panel( name, refreshPeriod, dataURL ) {
     	}).success(function(){
     	    var graphPoint = null;
     	    $.getJSON(self.DataURL + "?fmt=json&flash=urn:xdaq-flashlist:emtf_cell", function(json){
+		// Links
+		var nonAligned = new Array();
+		var nonLocked  = new Array();
+		$.each(json.table.rows[0].rxPort_EmtfCscInputPort.rows, function(i,row){
+		    if ( !row.isAligned && !row.isMasked ) nonAligned.push( Link( row.boardId, row.portId ) );
+		    if ( !row.isLocked  && !row.isMasked ) nonLocked .push( Link( row.boardId, row.portId ) );
+		});
+		if ( nonAligned.length == 0 && nonLocked.length == 0 ){
+		    $("#CSCTF-td_links").text( "aligned & locked" );
+		    $("#CSCTF-td_links").attr( "class", "ON" );
+		    $("#CSCTF-td_links").attr( "title", "All non-masked links are aligned and locked." );
+		}
+		else{
+		    var summary="";
+		    var details="";
+		    if ( nonAligned.length > 0 ){
+			summary += nonAligned.length+" non-aligned ";
+			details+="Non-aligned board:port list\n";
+			nonAligned.forEach( function( link ){ details+=link.board+":"+link.port+" "; } );
+			details+="\n";
+		    }
+		    if ( nonLocked.length > 0  ){
+			summary += nonLocked.length +" non-locked";
+			details+="Non-locked board:port list\n";
+			nonLocked.forEach( function( link ){ details+=link.board+":"+link.port+" "; } );
+		    }
+		    $("#CSCTF-td_links").text( summary );
+		    $("#CSCTF-td_links").attr( "class", "OFF" );
+		    $("#CSCTF-td_links").attr( "title", details );
+		}
 		// Input (LCT) rates
 		$("#CSCTF-a_value_total_in_tooltip").empty();
 		$("#CSCTF-a_value_total_in_tooltip").append("<table><tbody><tr><td colspan='2'>Input LCT rates:</td></tr></tbody></table>");
@@ -1472,3 +1502,12 @@ function Monitorable( time, name, value, nameDescr, valueDescr, nameURL, valueUR
     return Math.max( 0, (this.value-this.prevPrevValue) * 1000 / (this.time-this.prevPrevTime) ); // ms --> s
   };
 }
+
+//
+// Link object
+//
+function Link( board, port ){
+    this.board = board;
+    this.port  = port;
+}
+    

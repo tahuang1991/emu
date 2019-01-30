@@ -73,7 +73,7 @@ var TREE_ITEMS = [
                 ['V01', 'Wire Groups Occupancy']
 	],
 
-	['AFEB06','Thresholds',
+	['13_AFEB_Thresholds','Thresholds',
 		['R01', 'Noise for 20 fC'],
 		['R02', 'Thresholds for 20 fC'],
                 ['R04', 'Thresholds Offset for 20 fC'],

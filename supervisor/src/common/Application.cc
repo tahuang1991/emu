@@ -130,8 +130,10 @@ emu::supervisor::Application::Application(xdaq::ApplicationStub *stub)
   isBookedRunNumber_  ( false ),
   state_table_(this)
 {  
-  appDescriptor_ = getApplicationDescriptor();
+  setUpLogger();
   
+  appDescriptor_ = getApplicationDescriptor();
+
   xdata::InfoSpace *i = getApplicationInfoSpace();
   i->fireItemAvailable("isInCalibrationSequence", &isInCalibrationSequence_);
   i->fireItemAvailable("RunType", &run_type_);
@@ -211,6 +213,7 @@ emu::supervisor::Application::Application(xdaq::ApplicationStub *stub)
   halt_signature_        = toolbox::task::bind(this, &emu::supervisor::Application::haltAction,           "haltAction");
   calibration_signature_ = toolbox::task::bind(this, &emu::supervisor::Application::calibrationAction,    "calibrationAction");
   sequencer_signature_   = toolbox::task::bind(this, &emu::supervisor::Application::calibrationSequencer, "calibrationSequencer");
+  notifier_signature_    = toolbox::task::bind(this, &emu::supervisor::Application::rcmsNotifier,         "rcmsNotifier");
   
   fsm_.addState('H', "Halted",     this, &emu::supervisor::Application::stateChanged);
   fsm_.addState('C', "Configured", this, &emu::supervisor::Application::stateChanged);
@@ -257,8 +260,6 @@ emu::supervisor::Application::Application(xdaq::ApplicationStub *stub)
   state_table_.addApplication("tcds::pi::PIController");
   state_table_.addApplication("tcds::lpm::LPMController");
 
-  setUpLogger();
-  
   LOG4CPLUS_INFO(getApplicationLogger(), "emu::supervisor::Application constructed for " << state_table_ );
 }
 
@@ -501,8 +502,17 @@ xoap::MessageReference emu::supervisor::Application::onConfigure(xoap::MessageRe
   run_number_ = 1;
   nevents_ = -1;
 
-  submit(configure_signature_);
-  
+  if ( run_type_.toString() == "Calib_RunAllInOneGo" ){
+    // We're to run all calibration in one go, so let's not really configure here, just pretend to RCMS that we have.
+    // During the sequence we'll be making the configure-->start-->halt transition cycle several times
+    // while pretending to RCMS that we're 'running' uninterrupted.
+    calib_wl_->submit( notifier_signature_ );
+  }
+  else{
+    // This is to be a normal single run, not one driven by the sequencer, so we configure it now.
+    submit(configure_signature_);
+  }
+
   return createReply(message);
 }
 
@@ -522,8 +532,18 @@ xoap::MessageReference emu::supervisor::Application::onStart(xoap::MessageRefere
   }
 
   isCommandFromWeb_ = false;
-  submit(start_signature_);
-  
+
+  if ( run_type_.toString() == "Calib_RunAllInOneGo" ){
+    // We're to run all calibration in one go, so let's start the whole sequence.
+    // During the sequence we'll be making the configure-->start-->halt transition cycle several times
+    // while pretending to RCMS that we're 'running' uninterrupted.
+    calib_wl_->submit( sequencer_signature_ );
+  }
+  else{
+    // This is to be a normal single run, not one driven by the sequencer, so we start it now.
+    submit(start_signature_);
+  }  
+
   return createReply(message);
 }
 
@@ -552,9 +572,14 @@ xoap::MessageReference emu::supervisor::Application::onReset(xoap::MessageRefere
   throw (xoap::exception::Exception)
 {
   isCommandFromWeb_ = false;
-  resetAction();
+  try{
+    resetAction();
+  }
+  catch( toolbox::fsm::exception::Exception& e ){
+    XCEPT_RETHROW( xoap::exception::Exception, "Reset failed. ", e );
+  }
   
-  return onHalt(message);
+  return createReply(message);
 }
 
 xoap::MessageReference emu::supervisor::Application::onSetTTS(xoap::MessageReference message)
@@ -941,9 +966,15 @@ void emu::supervisor::Application::webReset(xgi::Input *in, xgi::Output *out)
   throw (xgi::exception::Exception)
 {
   isCommandFromWeb_ = true;
-  resetAction();
+  try{
+    resetAction();
+  }
+  catch( toolbox::fsm::exception::Exception& e ){
+    XCEPT_RETHROW( xgi::exception::Exception, "Reset failed. ", e );
+  }
   
-  webHalt(in, out);
+  keep_refresh_ = true;
+  webRedirect(in, out);
 }
 
 void emu::supervisor::Application::webSetTTS(xgi::Input *in, xgi::Output *out)
@@ -1191,6 +1222,10 @@ bool emu::supervisor::Application::calibrationAction(toolbox::task::WorkLoop *wl
 bool emu::supervisor::Application::calibrationSequencer(toolbox::task::WorkLoop *wl)
 {
   // Do all calibrations in one go.
+
+  // First tell RCMS we're running, not to worry. We'll then keep quiet about all the state changes during the sequence.
+  notifyRCMS( "Running" );
+
   LOG4CPLUS_DEBUG(getApplicationLogger(), "calibrationSequencer " << "(begin)");
   isInCalibrationSequence_ = true;
   size_t nRunTypes = ( isUsingTCDS_ ? runParameters_.size() : calib_params_.size() );
@@ -1212,6 +1247,39 @@ bool emu::supervisor::Application::calibrationSequencer(toolbox::task::WorkLoop 
   keep_refresh_ = true;
   LOG4CPLUS_DEBUG(getApplicationLogger(), "calibrationSequencer " << "(end)");
   return false;
+}
+
+bool emu::supervisor::Application::rcmsNotifier(toolbox::task::WorkLoop *wl){
+  // Make RCMS believe that we've configured.
+  notifyRCMS( "Configured" );
+  return false;
+}
+
+void emu::supervisor::Application::notifyRCMS( const string state ){
+  try
+    {
+      rcmsStateNotifier_.findRcmsStateListener();      	
+      LOG4CPLUS_INFO(getApplicationLogger(),"Sending state '" << state << "' notification to RCMS");
+      rcmsStateNotifier_.stateChanged( state, "" );
+    }
+  catch(xcept::Exception &e)
+    {
+      stringstream ss;
+      ss << "Failed to notify RCMS about state change to " << state << ". ";
+      LOG4CPLUS_ERROR(getApplicationLogger(), ss.str() << xcept::stdformat_exception_history(e));
+    }
+  catch( std::exception& e )
+    {
+      stringstream ss;
+      ss << "Failed to notify RCMS about state change to " << state << ".  std::exception caught: ";
+      LOG4CPLUS_ERROR(getApplicationLogger(), ss.str() << e.what() );
+    }
+  catch(...)
+    {
+      stringstream ss;
+      ss << "Failed to notify RCMS about state change to " << state << ". Unknown exception caught.";
+      LOG4CPLUS_ERROR(getApplicationLogger(), ss.str() );
+    }
 }
 
 void emu::supervisor::Application::sendCalibrationStatus( unsigned int iRun, unsigned int nRuns, unsigned int iStep, unsigned int nSteps ){
@@ -1242,7 +1310,7 @@ void emu::supervisor::Application::configureAction(toolbox::Event::Reference evt
   LOG4CPLUS_DEBUG(getApplicationLogger(), evt->type() << "(begin)");
   LOG4CPLUS_INFO(getApplicationLogger(), "runtype: " << run_type_.toString()
 		 << " runnumber: " << run_number_ << " nevents: " << nevents_.toString());
-  
+
   xdata::Boolean isGlobalInControl( toolbox::tolower( run_type_.toString() ) == "global" );
 
   rcmsStateNotifier_.findRcmsStateListener();      	
@@ -1352,6 +1420,11 @@ void emu::supervisor::Application::configureAction(toolbox::Event::Reference evt
     
     if ( isUsingTCDS_ ){
       int index = keyToIndex(run_type_);
+      if ( index < 0 ){
+	ostringstream oss;
+	oss << "'" << run_type_.toString() << "' is not a known run type.";
+	XCEPT_RAISE( toolbox::fsm::exception::Exception, oss.str() );
+      }
       // Configure TCDS
       // See https://indico.cern.ch/event/403280/contribution/3/material/slides/0.pdf for the proper order.
       RegDumpPreprocessor pp;
@@ -1904,7 +1977,116 @@ void emu::supervisor::Application::resetAction() throw (toolbox::fsm::exception:
   fsm_.reset();
   reasonForFailure_ = "";
   state_ = fsm_.getStateName(fsm_.getCurrentState());
-  
+
+  emu::soap::Messenger m( this );
+
+  try {
+    emu::base::Stopwatch sw;
+    sw.start();
+    state_table_.refresh();
+    cout << "Timing in resetAction: " << endl
+	 << "    state table: " << state_table_
+	 << "    state_table_.refresh: " << sw.read() << endl;    
+
+    // Reset TF Cell operation
+    if ( isUsingLegacyTF_.value_ ){
+      if ( tf_descr_ != NULL && controlTFCellOp_.value_ ){
+	if ( bool(forceTFCellConf_) ){
+	  if ( !ignoreTFCell() ) OpResetCell();
+	  cout << "    reset TFCellOp: " << sw.read() << endl;
+	}
+	else{
+	  LOG4CPLUS_WARN( getApplicationLogger(), "\"forceTFCellConf\" is set to FALSE, therefore the TF Cell will not be 'reset' (to 'halted' state). Instead, it will be 'stopped' (to 'configured' state) so that it can be ready to start without being (re)configured if the correct key is already active." );
+	  if ( !ignoreTFCell() ) sendCommandCell("stop");
+	  if ( !ignoreTFCell() ) waitForTFCellOpToReach("configured",5);
+	  cout << "    stop TFCellOp: " << sw.read() << endl;
+	}
+      }
+    } // if ( isUsingLegacyTF_.value_ )
+    else{
+      if ( tf_descr_ != NULL && controlTFCellOp_.value_ ){
+	LOG4CPLUS_INFO( getApplicationLogger(), "Resetting the TF Cell." );
+	OpResetCell();
+	LOG4CPLUS_INFO( getApplicationLogger(), "Reset the TF Cell." );
+      }
+    } // if ( isUsingLegacyTF_.value_ ) else
+
+    if ( ! isUsingTCDS_ ){
+      if (state_table_.getState("ttc::LTCControl", 0) != "halted") {
+	m.sendCommand( "ttc::LTCControl", "reset" );
+	cout << "    Halt (reset) ttc::LTCControl: " << sw.read() << endl;
+      }
+
+      if (state_table_.getState("ttc::TTCciControl", 0) != "halted") {
+	m.sendCommand( "ttc::TTCciControl", "reset" );
+	cout << "    Halt (reset) ttc::TTCciControl: " << sw.read() << endl;
+      }
+    }
+
+    m.sendCommand( "emu::fed::Manager", "Halt" );
+    cout << "    Halt emu::fed::Manager: " << sw.read() << endl;
+
+    m.sendCommand( "emu::pc::EmuPeripheralCrateManager", "Halt" );
+    cout << "    Halt emu::pc::EmuPeripheralCrateManager: " << sw.read() << endl;
+    
+    isDAQResponsive_ = true; // Maybe the local DAQ has been relaunched/cured in the meantime if it was unresponsive, so let's give it a chance.
+    try {
+      if ( isDAQManagerControlled("Halt") ){
+	if ( bool( isDAQResponsive_ ) ){
+	  m.sendCommand( "emu::daq::manager::Application", 0, "Halt" );
+	  if ( isCommandFromWeb_ ) waitForDAQToExecute("Halt", 60, true);
+	  else                     waitForDAQToExecute("Halt", 3);
+	}
+      }
+    } catch (xcept::Exception& e){
+      isDAQResponsive_ = false;
+      LOG4CPLUS_ERROR( getApplicationLogger(), "Failed to Halt emu::daq::manager::Application in Reset." << xcept::stdformat_exception_history(e) );
+    }
+    cout << "    Halt emu::daq::manager::Application: " << sw.read() << endl;
+
+    if ( ! isUsingTCDS_ ){
+      // Issue a resync now to make sure L1A is reset to zero in the FEDs in case a global run follows.
+      // In a global run, when backpressure is not ignored, this would fail (see http://cmsonline.cern.ch/cms-elog/756961).
+      // By resynching through LTC, we make sure it's only done in local runs. 
+      // The following command will do nothing if no ttc::LTCControl application is found.
+      xdata::String attributeValue( "resync" );
+      m.sendCommand( "ttc::LTCControl", "ExecuteSequence", emu::soap::Parameters::none, emu::soap::Attributes().add( "Param", &attributeValue ) );
+    }
+    else{
+      // Halt TCDS. This is the only valid command if we don't hold the hardware lease...
+      // LPM
+      LOG4CPLUS_ERROR( getApplicationLogger(), "Halting TCDS LPM." );
+      if ( pm_       ) pm_      ->halt();
+      if ( pm_       ) pm_      ->waitForState( "Halted", 30 );
+      // CIs
+      LOG4CPLUS_ERROR( getApplicationLogger(), "Halting TCDS CIs." );
+      if ( ci_plus_  ) ci_plus_ ->halt();
+      if ( ci_minus_ ) ci_minus_->halt();
+      if ( ci_tf_    ) ci_tf_   ->halt();
+      if ( ci_plus_  ) ci_plus_ ->waitForState( "Halted", 30 );
+      if ( ci_minus_ ) ci_minus_->waitForState( "Halted", 30 );
+      if ( ci_tf_    ) ci_tf_   ->waitForState( "Halted", 30 );
+      // PIs
+      LOG4CPLUS_ERROR( getApplicationLogger(), "Halting TCDS PIs." );
+      if ( pi_plus_  ) pi_plus_ ->halt();
+      if ( pi_minus_ ) pi_minus_->halt();
+      if ( pi_tf_    ) pi_tf_   ->halt();
+      if ( pi_plus_  ) pi_plus_ ->waitForState( "Halted", 30 );
+      if ( pi_minus_ ) pi_minus_->waitForState( "Halted", 30 );
+      if ( pi_tf_    ) pi_tf_   ->waitForState( "Halted", 30 );
+    }
+
+    writeRunInfo( isCommandFromWeb_ ); // only write runinfo if Halt was issued from the web interface
+    if ( isCommandFromWeb_ ) cout << "    Write run info: " << sw.read() << endl;
+
+  } catch ( xoap::exception::Exception& e) {
+    XCEPT_RETHROW( toolbox::fsm::exception::Exception, "Halt transition failed with xoap::exception on Reset command.", e );
+  } catch ( xcept::Exception& e ) {
+    XCEPT_RETHROW( toolbox::fsm::exception::Exception, "Halt transition failed with xcept::Exception on Reset command.", e );
+  } catch( std::exception& e ){
+    XCEPT_RAISE( toolbox::fsm::exception::Exception, string( "Halt transition failed with std::exception on Reset command: " ) + e.what() );
+  }
+    
   LOG4CPLUS_DEBUG(getApplicationLogger(), "reset(end)");
 }
 
@@ -1953,13 +2135,20 @@ void emu::supervisor::Application::stateChanged(toolbox::fsm::FiniteStateMachine
   keep_refresh_ = false;
   
   LOG4CPLUS_INFO(getApplicationLogger(),"Current state is: [" << fsm.getStateName (fsm.getCurrentState()) << "]");
+
+  if ( (bool)isInCalibrationSequence_ && reasonForFailure_.toString().length() == 0 ){
+    LOG4CPLUS_INFO(getApplicationLogger(),"We're in a calibration sequence, so no state notification is sent to RCMS.");
+    emu::base::Supervised::stateChanged(fsm);
+    return;
+  }
+
   // Send notification to Run Control
   state_=fsm.getStateName (fsm.getCurrentState());
   try
     {
       rcmsStateNotifier_.findRcmsStateListener();      	
-      LOG4CPLUS_INFO(getApplicationLogger(),"Sending state changed notification to Run Control.");
-      rcmsStateNotifier_.stateChanged((std::string)state_,"");
+      LOG4CPLUS_INFO(getApplicationLogger(),"Sending state changed notification to Run Control:\n" + reasonForFailure_.toString());
+      rcmsStateNotifier_.stateChanged((std::string)state_,reasonForFailure_.toString());
     }
   catch(xcept::Exception &e)
     {
@@ -2008,19 +2197,7 @@ void emu::supervisor::Application::transitionFailed(toolbox::Event::Reference ev
   reasonForFailure_ = reason.str();
   LOG4CPLUS_ERROR(getApplicationLogger(), reason.str());
 
-  // Send notification to Run Control
-  try {
-    rcmsStateNotifier_.findRcmsStateListener();      	
-    LOG4CPLUS_INFO(getApplicationLogger(),"Sending state changed notification (Error) to Run Control.");
-    rcmsStateNotifier_.stateChanged("Error",xcept::stdformat_exception_history(failed.getException()));
-  } catch(xcept::Exception &e) {
-    LOG4CPLUS_ERROR(getApplicationLogger(), "Failed to notify state change to Run Control : "
-		    << xcept::stdformat_exception_history(e));
-    stringstream ss3;
-    ss3 << "Failed to notify state change to Run Control : ";
-    XCEPT_DECLARE_NESTED( emu::supervisor::exception::Exception, eObj, ss3.str(), e );
-    this->notifyQualified( "error", eObj );
-  }
+  // Send notification to Run Control. Or rather not. It's done in emu::supervisor::Application::stateChanged, fail or succeed the transition.
   
 }
 

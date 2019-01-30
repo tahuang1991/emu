@@ -373,7 +373,7 @@ void EmuPeripheralCrateBase::MyHeader(xgi::Input * in, xgi::Output * out, std::s
     *out << " form" << std::endl;
     *out << " {  margin-bottom: 2px; }" << std::endl;  
     *out << " input, select, button, input[type=submit]" << std::endl;
-    *out << " { font-size: 90%; border: 1px solid black; padding: 0.5em 0.5em; margin: 1px; }" << std::endl;
+    *out << " { font-size: 90%; border: 1px solid black; padding: 0.5em 0.5em; margin: 1px 5px 1px 5px; }" << std::endl;
     *out << " button, input[type=submit]" << std::endl;
     *out << " { background-color: #E6E6E6; border-radius: 6px; }" << std::endl;
     *out << " select" << std::endl;

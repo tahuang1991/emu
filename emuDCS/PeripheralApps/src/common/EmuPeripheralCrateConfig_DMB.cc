@@ -948,8 +948,8 @@ void EmuPeripheralCrateConfig::CFEBUtils(xgi::Input * in, xgi::Output * out )
   FuncName.push_back("Read EXTPLS Counter (12)");  
   FuncName.push_back("Read BC0 Counter (12)");  
   FuncName.push_back("Comparator Clock Phase Reset");  
-  FuncName.push_back("Toggle DAQ TX_Disable");  
-  FuncName.push_back("TOGGLE Trig TX_Disable");  
+  FuncName.push_back("Toggle DAQ TX_Disable");  // 63  
+  FuncName.push_back("TOGGLE Trig TX_Disable"); // 64 
 
   cgicc::Cgicc cgi(in);
   //
@@ -1056,6 +1056,56 @@ void EmuPeripheralCrateConfig::CFEBUtils(xgi::Input * in, xgi::Output * out )
   //End select signal
     //
   *out << cgicc::fieldset()<< cgicc::br() << std::endl;
+
+  // --=== Reset DCFEB Optical Transceivers ===--
+  *out << cgicc::fieldset().set("style","font-size: 11pt; font-family: arial;") << std::endl ;
+  //
+  *out << cgicc::legend("Reset DCFEB Optical Transceivers").set("style","color:blue") ;
+  //
+  *out << cgicc::table().set("border","1");
+  //
+  *out << cgicc::td() << cgicc::td();
+  int tot_p_chans=7;
+  for(int icc=1; icc<=tot_p_chans; icc++)
+  {
+           *out << cgicc::td().set("align","center") << "CFEB " << icc  << cgicc::td();
+  }
+  *out << cgicc::tr();
+  *out << cgicc::td() << "ODMB link" << cgicc::td();
+  for(int icc=0; icc<tot_p_chans; icc++)
+  {
+     *out << cgicc::td();
+        std::string DCFEBLinkReset = toolbox::toString("/%s/DCFEBLinkReset",getApplicationDescriptor()->getURN().c_str());
+        *out << cgicc::form().set("method","GET").set("action",DCFEBLinkReset) << std::endl ;
+        *out << cgicc::input().set("type","submit").set("value","Reset") << std::endl ;
+        *out << cgicc::input().set("type","hidden").set("name","dmb").set("value",dmbstring) << std::endl ;          
+        *out << cgicc::input().set("type","hidden").set("value","1").set("name","link");
+        sprintf(sbuf, "%d", icc ); 
+        *out << cgicc::input().set("type","hidden").set("value",sbuf).set("name","cfeb");
+        *out << cgicc::form() << std::endl ;
+     *out << cgicc::td();
+  }
+
+  *out << cgicc::tr();
+  *out << cgicc::td() << "OTMB link" << cgicc::td();
+  for(int icc=0; icc<tot_p_chans; icc++)
+  {
+     *out << cgicc::td();
+        std::string DCFEBLinkReset = toolbox::toString("/%s/DCFEBLinkReset",getApplicationDescriptor()->getURN().c_str());
+        *out << cgicc::form().set("method","GET").set("action",DCFEBLinkReset) << std::endl ;
+        *out << cgicc::input().set("type","submit").set("value","Reset") << std::endl ;
+        *out << cgicc::input().set("type","hidden").set("name","dmb").set("value",dmbstring) << std::endl ;          
+        *out << cgicc::input().set("type","hidden").set("value","2").set("name","link");
+        sprintf(sbuf, "%d", icc ); 
+        *out << cgicc::input().set("type","hidden").set("value",sbuf).set("name","cfeb");
+        *out << cgicc::form() << std::endl ;
+     *out << cgicc::td();
+  }
+ // *out << cgicc::tr();
+  *out << cgicc::table();
+  //
+  *out << cgicc::fieldset() << cgicc::br();
+  //
   
   // --=== Virtex6 register read ===--
   //
@@ -1588,6 +1638,51 @@ void EmuPeripheralCrateConfig::CFEBFunction(xgi::Input * in, xgi::Output * out )
      this->CFEBUtils(in,out);                               
      
 }
+
+//
+void EmuPeripheralCrateConfig::DCFEBLinkReset(xgi::Input * in, xgi::Output * out )
+  throw (xgi::exception::Exception) {
+  //
+  cgicc::Cgicc cgi(in);
+  //
+  cgicc::form_iterator name = cgi.getElement("dmb");
+  //
+  int dmb=0;
+  if(name != cgi.getElements().end()) {
+    dmb = cgi["dmb"]->getIntegerValue();
+    // std::cout << "DCFEBLinkReset:  DMB " << dmb << std::endl;
+  }
+  //
+  name = cgi.getElement("cfeb");
+  //
+  int icfeb=-1;
+  if(name != cgi.getElements().end()) {
+    icfeb = cgi["cfeb"]->getIntegerValue();
+    // std::cout << "DCFEBLinkReset: CFEB " << icfeb << std::endl;
+  }
+  name = cgi.getElement("link");
+  //
+  int ilink=-1;
+  if(name != cgi.getElements().end()) {
+    ilink = cgi["link"]->getIntegerValue();
+    // std::cout << "DCFEBLinkReset: link " << ilink << std::endl;
+  }
+  DAQMB * thisDMB = dmbVector[dmb];
+  std::vector<CFEB> cfebs = thisDMB->cfebs() ;
+  //
+  std::cout << "DCFEBLinkReset: " << thisCrate->GetChamberName(dmb+1) << " on CFEB #" << icfeb+1 << " link #" << ilink <<std::endl;  
+  //
+  if (thisDMB && icfeb>=0)
+  {
+     if(ilink==1) thisDMB->dcfeb_toggle_daq_txdisable(cfebs[icfeb]);
+     else if(ilink==2) thisDMB->dcfeb_toggle_trig_txdisable(cfebs[icfeb]); 
+  }
+  //
+  this->CFEBUtils(in,out);
+  //
+}
+//
+
 void EmuPeripheralCrateConfig::ReadDcfebVirtex6Reg(xgi::Input * in, xgi::Output * out ) 
   throw (xgi::exception::Exception) {
   //
@@ -2564,7 +2659,7 @@ void EmuPeripheralCrateConfig::DMBUtils(xgi::Input * in, xgi::Output * out )
   for(int icc=1; icc<=tot_p_chans; icc++)
   {
      int licc=chn2pos[icc-1];
-     *out << cgicc::td();
+     *out << cgicc::td().set("align", "center");
      if(power_state[licc+1]>0)
         *out << cgicc::span().set("style","color:green");
      else if(power_state[licc+1]==0)
@@ -2598,7 +2693,7 @@ std::cout << "Power Read: " << std::hex << power_read << std::dec <<std::endl;
   for(int icc=0; icc<tot_p_chans; icc++)
   {
      int licc=chn2pos[icc];
-     *out << cgicc::td();
+     *out << cgicc::td().set("align", "center");
      if(power_state[licc+1]>0)
      {
         *out << "On";

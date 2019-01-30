@@ -451,6 +451,7 @@ private:
   void ODMBLoadFirmwarePoll(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void RestoreCfebJtagIdle(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
   void ReadDcfebVirtex6Reg(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
+  void DCFEBLinkReset(xgi::Input * in, xgi::Output * out ) throw (xgi::exception::Exception); 
     
   //
   // TMB utils

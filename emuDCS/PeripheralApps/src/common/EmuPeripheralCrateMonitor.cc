@@ -2915,13 +2915,13 @@ void EmuPeripheralCrateMonitor::DatabaseOutput(xgi::Input * in, xgi::Output * ou
         *out << "    <count chamber=\"";
         *out << myVector[j]->GetLabel();
         *out << "\" ";
-        for(int tc=0; tc<REAL_TMB_COUNTERS; tc++)
+        for(int tc=0; tc<TOTAL_TMB_COUNTERS; tc++)
         {
            sprintf(tcname+2,"%02d",tc);
            *out << tcname << "=\"";
            n_value = (*tmbdata)[j*MAX_TMB_COUNTERS+tc];
            // for real counters, if counter error, set it to -1 here:
-           if(n_value == 0x3FFFFFFF || n_value <0) n_value = -1;
+           if((tc < myVector[j]->GetMaxCounter()) && (n_value == 0x3FFFFFFF || n_value <0)) n_value = -1;
            *out << n_value;
            *out << "\" ";
         }

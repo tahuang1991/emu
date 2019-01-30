@@ -4,6 +4,12 @@
 <head>
 <title>EMU CSC Calibration Results Browser</title>
 <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+<meta http-equiv="cache-control" content="max-age=0" />
+<meta http-equiv="cache-control" content="no-cache" />
+<meta http-equiv="expires" content="0" />
+<meta http-equiv="expires" content="Tue, 01 Jan 1980 1:00:00 GMT" />
+<meta http-equiv="pragma" content="no-cache" />
+
 <style type="text/css">
 	body {
 		color: #000000; 
@@ -237,6 +243,16 @@
 	td.me_type{ background-color: #ddd; font-weight: bold;  width: 40px;} 
 	td.me, td.me_emu { background-color: #ddd; font-weight: bold; font-size:9pt; width: 50px; }
 	th.RunLink {padding: 0 0 0 4px; text-align: left; font-size:10pt;  font-weight: bold; background-color: #AFAFFF; } 
+        table.page_layout {
+
+                border-spacing: 2px;
+                background-color: #6060FF;
+
+        }
+        table.page_layout tr, table.page_layout th, table.page_layout td {
+                vertical-align: top;
+
+        }
 	
 </style>
 <script type="text/javascript">
@@ -739,7 +755,7 @@ function loadRunsList()
 
 function loadRunsListFile(testID)
 {
-	var fullUrl = baseURL+"Test_"+testID+"/"+RunsList;
+	var fullUrl = baseURL+"Test_"+testID+"/"+RunsList+"?r=" + Math.random();
 	
 	var req=false;
 	if (window.XMLHttpRequest) { 
@@ -1673,7 +1689,11 @@ get_element = document.all ?
 //-->
 </script>
 
-<div class="MainWindow" id="l_panel">
+<!-- div class="MainWindow" id="l_panel"-->
+<table  class='page_layout' style='border: 0px black solid;'>
+<tr style='border: 0px black solid;'>
+    <td style='border: 0px black solid;'>
+
 	<fieldset id="Runs">
 		<legend>
 			<a class='winTitle' href='#' onClick='showHide("runs_div");'>Runs</a>
@@ -1719,12 +1739,14 @@ get_element = document.all ?
 			   </tr>
 			</table>
 		</div>
-	</fieldse>
+	</fieldset>
 	
 	
-</div>
+<!--/div>
 
-<div class="MainWindow" id="r_panel">
+<div class="MainWindow" id="r_panel"-->
+</td><td style='border: 0px black solid;'>
+
 	<fieldset id="SystemView">
 		<legend>
 			<a class='winTitle' href='#' onClick='showHide("sysview_div");'>System View</a>
@@ -1755,7 +1777,7 @@ get_element = document.all ?
 			<div class="tabs">
 				<ul>
 				<li title="plot_view" id="selected_res" onClick="return setSelectedResTab(this);"><a href="#">Plot</a></li>
-				<li title="text_view"   onClick="return setSelectedResTab(this);"><a href="#">Text</a></li>				
+				<li title="text_view"   onClick="return setSelectedResTab(this);"><a href="#">Text Results</a></li>				
 				</ul>
 			</div>
 			
@@ -1789,7 +1811,10 @@ get_element = document.all ?
 		</div>
 		</table>
 	</fieldset>
-</div>
+<!--/div-->
+
+</td></tr>
+</table>
 
 </body>
 </html>

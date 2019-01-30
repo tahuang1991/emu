@@ -53,7 +53,7 @@ int CrateUtilities::MpcTMBLoopTest(int Nloop)
             std::cout << "Test TMB #" << tmb_num << " at slot #" << TMBslot << std::endl;
             (*MyOutput_) << "Test TMB #" << tmb_num << " at slot #" << TMBslot << std::endl;
             (*MyOutput_) << "========> ";
-	    int pass=MpcTMBTest(Nloop);
+	    int pass=MpcTMBTest(Nloop/10);
             if(!pass) total_bad_tmb++;
          }
     }
@@ -77,7 +77,7 @@ int CrateUtilities::MpcTMBTest(int Nloop, int min_delay, int max_delay){
   int tmb_mask = myCrate_->mpc()->ReadMask();
 
   std::vector <TMB*> myTmbs = myCrate_->tmbs();
-  // clear TMB's mpc_tx_delay during the test
+  // clear TMB's mpc_tx_delay and disable ALCT clock during the test
       for (unsigned i=0; i<myTmbs.size(); i++) 
       {
 	 int TMBslot = myTmbs[i]->slot();
@@ -87,6 +87,7 @@ int CrateUtilities::MpcTMBTest(int Nloop, int min_delay, int max_delay){
          if(tmbmaskbit==0)
 	 { 
 	    myTmbs[i]->clear_mpc_tx_delay();
+            myTmbs[i]->disableALCTClock();
          }
       }
   //
@@ -133,7 +134,7 @@ int CrateUtilities::MpcTMBTest(int Nloop, int min_delay, int max_delay){
       //  myCrate_->ccb()->FireCCBMpcInjector();
       myCrate_->ccb()->injectTMBPattern();
       //
-      ::usleep(150);
+      ::usleep(250);
       myCrate_->mpc()->read_fifos();
       //
       if (((myCrate_->mpc())->GetFIFOBLct0()).size() == 0 ) {
@@ -256,7 +257,10 @@ int CrateUtilities::MpcTMBTest(int Nloop, int min_delay, int max_delay){
 	  std::cout << std::endl;
 	}
 	//
-	if ( (InjectedLCT[0]|0x800) == (MPCLct0|0x800) ) {
+        unsigned compmask=0x800;
+        if((MPCLct0 & 0xFFFF)==0) compmask |= 0xFFFF;   // if MPCLct0's lowest 16 bits =0, treat as read error, skip that part
+        if((MPCLct0 & 0xFFFF0000)==0) compmask |= 0xFFFF0000;   // if MPCLct0's highest 16 bits =0, treat as read error, skip that part
+	if ( (InjectedLCT[0]|compmask) == (MPCLct0|compmask) ) {
 	  NFound[delay] ++;
 	  N_LCTs_found_this_pass++;
 	} else {
@@ -267,7 +271,9 @@ int CrateUtilities::MpcTMBTest(int Nloop, int min_delay, int max_delay){
 	  std::cout << "FAIL on LCT 0" << std::endl;
 	}
 	//
-	if ( (InjectedLCT[1]|0x800) == (MPCLct1|0x800) ) {
+        if((MPCLct1 & 0xFFFF)==0) compmask |= 0xFFFF;   // if MPCLct1's lowest 16 bits =0, treat as read error, skip that part
+        if((MPCLct1 & 0xFFFF0000)==0) compmask |= 0xFFFF0000;   // if MPCLct1's highest 16 bits =0, treat as read error, skip that part
+	if ( (InjectedLCT[1]|compmask) == (MPCLct1|compmask) ) {
 	  NFound[delay] ++;
 	  N_LCTs_found_this_pass++;
 	} else {
@@ -278,7 +284,9 @@ int CrateUtilities::MpcTMBTest(int Nloop, int min_delay, int max_delay){
 	  std::cout << "FAIL on LCT 1" << std::endl;
 	}
 	//
-	if ( (InjectedLCT.size()<3) || (InjectedLCT[2]|0x800) == (MPCLct2|0x800) ) {
+        if((MPCLct2 & 0xFFFF)==0) compmask |= 0xFFFF;   // if MPCLct2's lowest 16 bits =0, treat as read error, skip that part
+        if((MPCLct2 & 0xFFFF0000)==0) compmask |= 0xFFFF0000;   // if MPCLct2's highest 16 bits =0, treat as read error, skip that part
+	if ( (InjectedLCT.size()<3) ||(InjectedLCT[2]|compmask) == (MPCLct2|compmask) ) {
 	  NFound[delay] ++;
 	  N_LCTs_found_this_pass++;
 	} else {

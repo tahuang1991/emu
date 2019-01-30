@@ -91,6 +91,7 @@ public:
 	bool startAction(toolbox::task::WorkLoop *wl);
 	bool calibrationAction(toolbox::task::WorkLoop *wl);
 	bool calibrationSequencer(toolbox::task::WorkLoop *wl);
+	bool rcmsNotifier(toolbox::task::WorkLoop *wl);
 
 	// State transitions
 	void configureAction(toolbox::Event::Reference e) 
@@ -170,6 +171,7 @@ private: // XDAQ parameters
 	toolbox::task::ActionSignature *calibration_signature_;
 	toolbox::task::WorkLoop *calib_wl_;
 	toolbox::task::ActionSignature *sequencer_signature_;
+	toolbox::task::ActionSignature *notifier_signature_;
 	bool quit_calibration_;
 
 	void submit(toolbox::task::ActionSignature *signature);
@@ -178,6 +180,8 @@ private: // XDAQ parameters
 	  throw (toolbox::fsm::exception::Exception);
         void transitionFailed(toolbox::Event::Reference event)
 	  throw (toolbox::fsm::exception::Exception);
+
+        void notifyRCMS( const string state );
 
         void sendCalibrationStatus( unsigned int iRun, unsigned int nRuns, unsigned int iStep, unsigned int nSteps );
 
