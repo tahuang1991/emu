@@ -337,7 +337,9 @@
 	      <form name="controls" action="">
 		<table class="controls">
 		  <tr>
-		    <th>Time</th>
+		    <th>ME+ Time</th>
+		    <th>&#916;t [s]</th>
+		    <th>ME&#8211; Time</th>
 		    <th>&#916;t [s]</th>
 		    <th colspan="1">Counter</th>
 		    <th colspan="2">Sample</th>
@@ -346,8 +348,10 @@
 		    <th colspan="3">Scale</th>
 		  </tr>
 		  <tr>
-		    <td id="sampleTime"></td>
-		    <td id="sampleDeltaT"></td>
+		    <td id="sampleTime_plus"></td>
+		    <td id="sampleDeltaT_plus"></td>
+		    <td id="sampleTime_minus"></td>
+		    <td id="sampleDeltaT_minus"></td>
 		    <td>
 
 		      <select id="counterSelector" title="Select counter." onchange="tmbPanel.onSampleOrCounterSwitch()">

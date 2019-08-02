@@ -398,14 +398,15 @@ function TMBPanel( dataURLs ) {
 	var selectedSample = $('input:radio[name=sampleSelector]:checked').val();
 	//console.log( selectedUnit+' '+selectedSample );
 	$.each( this.xmlDoc, function(side,xml){
+	    // console.log( 'Processing '+side );
 	    //if (xml) console.log( (new XMLSerializer()).serializeToString( xml ) );
 	    // var th_sum_endcap = document.getElementById( 'sum_endcap_'+side );
 	    // th_sum_endcap.innerHTML = 0;
 	    $('emuCounters',xml).each( function(){ 
-		$('#sampleTime').text( $(this).attr('dateTime').replace('T',String.fromCharCode(160)).substring(0,19) );
+		$('#sampleTime_'+side).text( $(this).attr('dateTime').replace('T',String.fromCharCode(160)).substring(0,19) );
 		$('sample',this).each( function(){
 		    if ( $(this).attr('name') == selectedSample ){
-			$('#sampleDeltaT').text( $(this).attr('delta_t') );
+			$('#sampleDeltaT_'+side).text( $(this).attr('delta_t') );
 			$('count',this).each( function(){
 			    // jQuery is confused by the - and / in the chamber name: 
 			    // $('#td_'+$(this).attr('chamber')).text( $(this).attr($("#counterSelector").val()));

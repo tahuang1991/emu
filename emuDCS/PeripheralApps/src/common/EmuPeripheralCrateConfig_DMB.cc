@@ -640,6 +640,7 @@ void EmuPeripheralCrateConfig::CFEBStatus(xgi::Input * in, xgi::Output * out )
   char Name[100];
   sprintf(Name,"%s CFEB status, crate=%s, DMBslot=%d",
 	  (thisChamber->GetLabel()).c_str(), ThisCrateID_.c_str(),thisDMB->slot());
+  std::cout << getLocalDateTime() << " CFEB status " << thisChamber->GetLabel() << std::endl;
   //
   MyHeader(in,out,Name);
   //
@@ -969,7 +970,8 @@ void EmuPeripheralCrateConfig::CFEBUtils(xgi::Input * in, xgi::Output * out )
   //
   sprintf(Name,"%s CFEB Utilities, crate=%s, DMBslot=%d",
 	  (thisChamber->GetLabel()).c_str(), ThisCrateID_.c_str(),thisDMB->slot());
-  //
+  
+  std::cout << getLocalDateTime() << " CFEB utilities " << thisChamber->GetLabel() << std::endl;  //
   MyHeader(in,out,Name);
 
   CFEBDataIn_ = 0;
@@ -2587,6 +2589,7 @@ void EmuPeripheralCrateConfig::DMBUtils(xgi::Input * in, xgi::Output * out )
      tot_p_chans=8;
      allmask=0xFF;
   }
+  std::cout << getLocalDateTime() << " DMB utilities " << thisChamber->GetLabel() << std::endl;
   //
   MyHeader(in,out,Name);
   //
@@ -4020,6 +4023,7 @@ void EmuPeripheralCrateConfig::DMBStatus(xgi::Input * in, xgi::Output * out )
   //
   char Name[100];
   sprintf(Name,"%s DMB status, crate=%s, slot=%d",(thisChamber->GetLabel()).c_str(), ThisCrateID_.c_str(),thisDMB->slot());	
+  std::cout << getLocalDateTime() << " DMB status " << thisChamber->GetLabel() << std::endl;
   //
   MyHeader(in,out,Name);
   //

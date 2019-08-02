@@ -387,10 +387,42 @@ static const unsigned long int gem_tbins_adr             = 0x000310; // GEM Time
 static const unsigned long int gem_cfg_adr               = 0x000312; // GEM Configuration Address
 static const unsigned long int gem_cnt_ctrl_adr          = 0x000314; // GEM Counter Register Control Address
 static const unsigned long int gem_cnt_rdata_adr         = 0x000316; // GEM Counter Register Data Address
+static const unsigned long int gem_trg_adr               = 0x000318; // GEM Trigger control register Address
+static const unsigned long int gem_inj_ctrl_adr          = 0x000320; // GEM injector control Address
+static const unsigned long int gem_inj_data_adr          = 0x000322; // GEM inject data  Address
+static const unsigned long int gem_copad_ctrl_adr        = 0x000324; // GEM copad matching control  Address
+
+
+static const unsigned long int gemA_cluster0_adr         = 0x000340; // GEM clusters and copads
+static const unsigned long int gemA_cluster1_adr         = 0x000342; // GEM clusters and copads
+static const unsigned long int gemA_cluster2_adr         = 0x000344; // GEM clusters and copads
+static const unsigned long int gemA_cluster3_adr         = 0x000346; // GEM clusters and copads
+static const unsigned long int gemA_cluster4_adr         = 0x000348; // GEM clusters and copads
+static const unsigned long int gemA_cluster5_adr         = 0x00034a; // GEM clusters and copads
+static const unsigned long int gemA_cluster6_adr         = 0x00034c; // GEM clusters and copads
+static const unsigned long int gemA_cluster7_adr         = 0x00034e; // GEM clusters and copads
+static const unsigned long int gemB_cluster0_adr         = 0x000350; // GEM clusters and copads
+static const unsigned long int gemB_cluster1_adr         = 0x000352; // GEM clusters and copads
+static const unsigned long int gemB_cluster2_adr         = 0x000354; // GEM clusters and copads
+static const unsigned long int gemB_cluster3_adr         = 0x000356; // GEM clusters and copads
+static const unsigned long int gemB_cluster4_adr         = 0x000358; // GEM clusters and copads
+static const unsigned long int gemB_cluster5_adr         = 0x00035a; // GEM clusters and copads
+static const unsigned long int gemB_cluster6_adr         = 0x00035c; // GEM clusters and copads
+static const unsigned long int gemB_cluster7_adr         = 0x00035e; // GEM clusters and copads
+static const unsigned long int gem_copad0_adr            = 0x000360; // GEM clusters and copads
+static const unsigned long int gem_copad1_adr            = 0x000362; // GEM clusters and copads
+static const unsigned long int gem_copad2_adr            = 0x000364; // GEM clusters and copads
+static const unsigned long int gem_copad3_adr            = 0x000366; // GEM clusters and copads
+static const unsigned long int gem_copad4_adr            = 0x000368; // GEM clusters and copads
+static const unsigned long int gem_copad5_adr            = 0x00036a; // GEM clusters and copads
+static const unsigned long int gem_copad6_adr            = 0x00036c; // GEM clusters and copads
+static const unsigned long int gem_copad7_adr            = 0x00036e; // GEM clusters and copads
 
 //
 static const int LARGEST_VME_ADDRESS = badbits445_adr;
 static const int OTMB_LARGEST_VME_ADDRESS = algo2016_ctrl_adr;
+static const int OTMB_GEM_VME_STARTADDRESS = gem_gtx_rx0_adr;
+static const int OTMB_GEM_VME_ENDADDRESS = gem_copad7_adr;
 //
 //
 // TMB counter indices:
@@ -3238,6 +3270,39 @@ const int clct_use_corrected_bx_default = 1; // for now this improvement is swit
 //
 //
 //-----------------------------------------------------------------------------
+// 0X30c ADR_GEM_DEBUG_FIFO_CTRL 
+//-----------------------------------------------------------------------------
+const int gem_debug_fifo_reset_vmereg         = gem_debug_fifo_ctrl_adr;
+const int gem_debug_fifo_reset_bitlo          = 0;
+const int gem_debug_fifo_reset_bithi          = 0;
+const int gem_debug_fifo_reset_default        = 1;
+//
+const int gem_debug_fifo_sel_vmereg           = gem_debug_fifo_ctrl_adr;
+const int gem_debug_fifo_sel_bitlo            = 1;
+const int gem_debug_fifo_sel_bithi            = 2;
+const int gem_debug_fifo_sel_default          = 0;
+//
+const int gem_debug_fifo_igem_vmereg          = gem_debug_fifo_ctrl_adr;
+const int gem_debug_fifo_igem_bitlo           = 3;
+const int gem_debug_fifo_igem_bithi           = 4;
+const int gem_debug_fifo_igem_default         = 0;
+//
+const int gem_debug_fifo_adr_vmereg           = gem_debug_fifo_ctrl_adr;
+const int gem_debug_fifo_adr_bitlo            = 5;
+const int gem_debug_fifo_adr_bithi            = 14;
+const int gem_debug_fifo_adr_default          = 0;
+//
+//
+//-----------------------------------------------------------------------------
+// 0X30e ADR_GEM_DEBUG_FIFO_DATA
+//-----------------------------------------------------------------------------
+const int gem_debug_fifo_data_vmereg         = gem_debug_fifo_data_adr;
+const int gem_debug_fifo_data_bitlo          = 0;
+const int gem_debug_fifo_data_bithi          = 15;
+const int gem_debug_fifo_data_default        = 0;
+//
+//
+//-----------------------------------------------------------------------------
 // 0X310 ADR_GEM_TBINS
 //-----------------------------------------------------------------------------
 const int gem_fifo_tbins_vmereg           = gem_tbins_adr;
@@ -3296,6 +3361,352 @@ const int gem_readout_mask_vmereg            = gem_cfg_adr;
 const int gem_readout_mask_bitlo             = 9;
 const int gem_readout_mask_bithi             = 12;
 const int gem_readout_mask_default           = 0xf;
+//
+//
+//-----------------------------------------------------------------------------
+// 0X318 ADR_GEM_TRG
+//-----------------------------------------------------------------------------
+//
+const int gem_trg_delay_vmereg               = gem_trg_adr;
+const int gem_trg_delay_bitlo                = 0;
+const int gem_trg_delay_bithi                = 3;
+const int gem_trg_delay_default              = 0;
+//
+//
+//-----------------------------------------------------------------------------
+// 0X320 ADR_GEM_INJ_CTRL
+//-----------------------------------------------------------------------------
+//
+const int gem_inj_wen_vmereg                 = gem_trg_adr;
+const int gem_inj_wen_bitlo                  = 0;
+const int gem_inj_wen_bithi                  = 0;
+const int gem_inj_wen_default                = 0;
+//
+//
+const int gem_inj_sel_vmereg                 = gem_trg_adr;
+const int gem_inj_sel_bitlo                  = 1;
+const int gem_inj_sel_bithi                  = 2;
+const int gem_inj_sel_default                = 0;
+//
+//
+const int gem_inj_igem_vmereg                = gem_trg_adr;
+const int gem_inj_igem_bitlo                 = 3;
+const int gem_inj_igem_bithi                 = 4;
+const int gem_inj_igem_default               = 0;
+//
+//
+const int gem_inj_adr_vmereg                 = gem_trg_adr;
+const int gem_inj_adr_bitlo                  = 5;
+const int gem_inj_adr_bithi                  = 14;
+const int gem_inj_adr_default                = 0;
+//
+//
+const int gem_inj_mask_vmereg                = gem_trg_adr;
+const int gem_inj_mask_bitlo                 = 15;
+const int gem_inj_mask_bithi                 = 15;
+const int gem_inj_mask_default               = 0;
+//
+//
+//-----------------------------------------------------------------------------
+// 0X322 ADR_GEM_INJ_DATA
+//-----------------------------------------------------------------------------
+//
+const int gem_inj_data_vmereg               = gem_inj_data_adr;
+const int gem_inj_data_bitlo                = 0;
+const int gem_inj_data_bithi                = 15;
+const int gem_inj_data_default              = 0;
+//
+//
+//-----------------------------------------------------------------------------
+// 0X34 ADR_GEM_COPAD_CTRL
+//-----------------------------------------------------------------------------
+//
+const int gem_match_neighborRoll_vmereg     = gem_copad_ctrl_adr;
+const int gem_match_neighborRoll_bitlo      = 0;
+const int gem_match_neighborRoll_bithi      = 0;
+const int gem_match_neighborRoll_default    = 0;
+//
+//
+const int gem_match_neighborPad_vmereg     = gem_copad_ctrl_adr;
+const int gem_match_neighborPad_bitlo      = 3;
+const int gem_match_neighborPad_bithi      = 3;
+const int gem_match_neighborPad_default    = 0;
+//
+//
+const int gem_match_deltaPad_vmereg        = gem_copad_ctrl_adr;
+const int gem_match_deltaPad_bitlo         = 4;
+const int gem_match_deltaPad_bithi         = 7;
+const int gem_match_deltaPad_default       = 0;
+//
+//
+//-----------------------------------------------------------------------------
+// 0X340 ADR_GEMA_CLUSTER0
+//-----------------------------------------------------------------------------
+//
+const int gemA_cluster0_vmereg          = gemA_cluster0_adr;
+const int gemA_cluster0_bitlo           = 0;
+const int gemA_cluster0_bithi           = 13;
+const int gemA_cluster0_default         = 0;
+//
+//
+const int gemA_overflow_vmereg          = gemA_cluster0_adr;
+const int gemA_overflow_bitlo           = 14;
+const int gemA_overflow_bithi           = 14;
+const int gemA_overflow_default         = 0;
+//
+//
+const int gemA_sync_vmereg              = gemA_cluster0_adr;
+const int gemA_sync_bitlo               = 15;
+const int gemA_sync_bithi               = 15;
+const int gemA_sync_default             = 0;
+//
+//
+//-----------------------------------------------------------------------------
+// 0X342 ADR_GEMA_CLUSTER1
+//-----------------------------------------------------------------------------
+//
+const int gemA_cluster1_vmereg          = gemA_cluster1_adr;
+const int gemA_cluster1_bitlo           = 0;
+const int gemA_cluster1_bithi           = 13;
+const int gemA_cluster1_default         = 0;
+//
+//
+//-----------------------------------------------------------------------------
+// 0X344 ADR_GEMA_CLUSTER2
+//-----------------------------------------------------------------------------
+//
+const int gemA_cluster2_vmereg          = gemA_cluster2_adr;
+const int gemA_cluster2_bitlo           = 0;
+const int gemA_cluster2_bithi           = 13;
+const int gemA_cluster2_default         = 0;
+//
+//
+//-----------------------------------------------------------------------------
+// 0X346 ADR_GEMA_CLUSTER3
+//-----------------------------------------------------------------------------
+//
+const int gemA_cluster3_vmereg          = gemA_cluster3_adr;
+const int gemA_cluster3_bitlo           = 0;
+const int gemA_cluster3_bithi           = 13;
+const int gemA_cluster3_default         = 0;
+//
+//
+//-----------------------------------------------------------------------------
+// 0X348 ADR_GEMA_CLUSTER4
+//-----------------------------------------------------------------------------
+//
+const int gemA_cluster4_vmereg          = gemA_cluster4_adr;
+const int gemA_cluster4_bitlo           = 0;
+const int gemA_cluster4_bithi           = 13;
+const int gemA_cluster4_default         = 0;
+//
+//
+//-----------------------------------------------------------------------------
+// 0X34a ADR_GEMA_CLUSTER5
+//-----------------------------------------------------------------------------
+//
+const int gemA_cluster5_vmereg          = gemA_cluster5_adr;
+const int gemA_cluster5_bitlo           = 0;
+const int gemA_cluster5_bithi           = 13;
+const int gemA_cluster5_default         = 0;
+//
+//
+//-----------------------------------------------------------------------------
+// 0X34c ADR_GEMA_CLUSTER6
+//-----------------------------------------------------------------------------
+//
+const int gemA_cluster6_vmereg          = gemA_cluster6_adr;
+const int gemA_cluster6_bitlo           = 0;
+const int gemA_cluster6_bithi           = 13;
+const int gemA_cluster6_default         = 0;
+//
+//
+//-----------------------------------------------------------------------------
+// 0X34e ADR_GEMA_CLUSTER7
+//-----------------------------------------------------------------------------
+//
+const int gemA_cluster7_vmereg          = gemA_cluster7_adr;
+const int gemA_cluster7_bitlo           = 0;
+const int gemA_cluster7_bithi           = 13;
+const int gemA_cluster7_default         = 0;
+//
+//
+//-----------------------------------------------------------------------------
+// 0X350 ADR_GEMB_CLUSTER0
+//-----------------------------------------------------------------------------
+//
+const int gemB_cluster0_vmereg          = gemB_cluster0_adr;
+const int gemB_cluster0_bitlo           = 0;
+const int gemB_cluster0_bithi           = 13;
+const int gemB_cluster0_default         = 0;
+//
+//
+const int gemB_overflow_vmereg          = gemB_cluster0_adr;
+const int gemB_overflow_bitlo           = 14;
+const int gemB_overflow_bithi           = 14;
+const int gemB_overflow_default         = 0;
+//
+//
+const int gemB_sync_vmereg              = gemB_cluster0_adr;
+const int gemB_sync_bitlo               = 15;
+const int gemB_sync_bithi               = 15;
+const int gemB_sync_default             = 0;
+//
+//
+//-----------------------------------------------------------------------------
+// 0X352 ADR_GEMB_CLUSTER1
+//-----------------------------------------------------------------------------
+//
+const int gemB_cluster1_vmereg          = gemB_cluster1_adr;
+const int gemB_cluster1_bitlo           = 0;
+const int gemB_cluster1_bithi           = 13;
+const int gemB_cluster1_default         = 0;
+//
+//
+//-----------------------------------------------------------------------------
+// 0X354 ADR_GEMB_CLUSTER2
+//-----------------------------------------------------------------------------
+//
+const int gemB_cluster2_vmereg          = gemB_cluster2_adr;
+const int gemB_cluster2_bitlo           = 0;
+const int gemB_cluster2_bithi           = 13;
+const int gemB_cluster2_default         = 0;
+//
+//
+//-----------------------------------------------------------------------------
+// 0X356 ADR_GEMB_CLUSTER3
+//-----------------------------------------------------------------------------
+//
+const int gemB_cluster3_vmereg          = gemB_cluster3_adr;
+const int gemB_cluster3_bitlo           = 0;
+const int gemB_cluster3_bithi           = 13;
+const int gemB_cluster3_default         = 0;
+//
+//
+//-----------------------------------------------------------------------------
+// 0X358 ADR_GEMB_CLUSTER4
+//-----------------------------------------------------------------------------
+//
+const int gemB_cluster4_vmereg          = gemB_cluster4_adr;
+const int gemB_cluster4_bitlo           = 0;
+const int gemB_cluster4_bithi           = 13;
+const int gemB_cluster4_default         = 0;
+//
+//
+//-----------------------------------------------------------------------------
+// 0X35a ADR_GEMB_CLUSTER5
+//-----------------------------------------------------------------------------
+//
+const int gemB_cluster5_vmereg          = gemB_cluster5_adr;
+const int gemB_cluster5_bitlo           = 0;
+const int gemB_cluster5_bithi           = 13;
+const int gemB_cluster5_default         = 0;
+//
+//
+//-----------------------------------------------------------------------------
+// 0X35c ADR_GEMB_CLUSTER6
+//-----------------------------------------------------------------------------
+//
+const int gemB_cluster6_vmereg          = gemB_cluster6_adr;
+const int gemB_cluster6_bitlo           = 0;
+const int gemB_cluster6_bithi           = 13;
+const int gemB_cluster6_default         = 0;
+//
+//
+//-----------------------------------------------------------------------------
+// 0X35e ADR_GEMB_CLUSTER7
+//-----------------------------------------------------------------------------
+//
+const int gemB_cluster7_vmereg          = gemB_cluster7_adr;
+const int gemB_cluster7_bitlo           = 0;
+const int gemB_cluster7_bithi           = 13;
+const int gemB_cluster7_default         = 0;
+//
+//
+//-----------------------------------------------------------------------------
+// 0X360 ADR_GEM_COPAD0
+//-----------------------------------------------------------------------------
+//
+const int gem_copad0_vmereg             = gem_copad0_adr;
+const int gem_copad0_bitlo              = 0;
+const int gem_copad0_bithi              = 13;
+const int gem_copad0_default            = 0;
+//
+//
+const int gems_sync_low_vmereg          = gem_copad0_adr;
+const int gems_sync_low_bitlo           = 14;
+const int gems_sync_low_bithi           = 14;
+const int gems_sync_low_default         = 0;
+//
+//
+//-----------------------------------------------------------------------------
+// 0X362 ADR_GEM_COPAD1
+//-----------------------------------------------------------------------------
+//
+const int gem_copad1_vmereg             = gem_copad1_adr;
+const int gem_copad1_bitlo              = 0;
+const int gem_copad1_bithi              = 13;
+const int gem_copad1_default            = 0;
+//
+//
+//-----------------------------------------------------------------------------
+// 0X364 ADR_GEM_COPAD2
+//-----------------------------------------------------------------------------
+//
+const int gem_copad2_vmereg             = gem_copad2_adr;
+const int gem_copad2_bitlo              = 0;
+const int gem_copad2_bithi              = 13;
+const int gem_copad2_default            = 0;
+//
+//
+//-----------------------------------------------------------------------------
+// 0X366 ADR_GEM_COPAD3
+//-----------------------------------------------------------------------------
+//
+const int gem_copad3_vmereg             = gem_copad3_adr;
+const int gem_copad3_bitlo              = 0;
+const int gem_copad3_bithi              = 13;
+const int gem_copad3_default            = 0;
+//
+//
+//-----------------------------------------------------------------------------
+// 0X368 ADR_GEM_COPAD4
+//-----------------------------------------------------------------------------
+//
+const int gem_copad4_vmereg             = gem_copad4_adr;
+const int gem_copad4_bitlo              = 0;
+const int gem_copad4_bithi              = 13;
+const int gem_copad4_default            = 0;
+//
+//
+//-----------------------------------------------------------------------------
+// 0X36a ADR_GEM_COPAD5
+//-----------------------------------------------------------------------------
+//
+const int gem_copad5_vmereg             = gem_copad5_adr;
+const int gem_copad5_bitlo              = 0;
+const int gem_copad5_bithi              = 13;
+const int gem_copad5_default            = 0;
+//
+//
+//-----------------------------------------------------------------------------
+// 0X36c ADR_GEM_COPAD6
+//-----------------------------------------------------------------------------
+//
+const int gem_copad6_vmereg             = gem_copad6_adr;
+const int gem_copad6_bitlo              = 0;
+const int gem_copad6_bithi              = 13;
+const int gem_copad6_default            = 0;
+//
+//
+//-----------------------------------------------------------------------------
+// 0X36e ADR_GEM_COPAD7
+//-----------------------------------------------------------------------------
+//
+const int gem_copad7_vmereg             = gem_copad7_adr;
+const int gem_copad7_bitlo              = 0;
+const int gem_copad7_bithi              = 13;
+const int gem_copad7_default            = 0;
 //
 //
 //////////////////////////////////////////////
@@ -3933,6 +4344,16 @@ const int h41_lyr_thresh_pretrig_hi_bit   =13;
 const int h41_layer_trig_en_lo_bit   =14;
 const int h41_layer_trig_en_hi_bit   =14;
 
+const int GEM_VFAT_MAP[24] = {
+0, 8, 16,
+1, 9, 17, 
+2, 10, 18,
+3, 11, 19, 
+4, 12, 20, 
+5, 13, 21, 
+6, 14, 22, 
+7, 15, 23 
+};
 /////////////////////////////////////////////////////////////////////////////
 // The following stuff should be deprecated
 /////////////////////////////////////////////////////////////////////////////

@@ -1886,6 +1886,89 @@ void TMB::DecodeAndPrintMPCFrames(unsigned int event_n = 0) {
   return;
 }
 //
+void TMB::DecodeGEMHits(){
+  //
+  gemA_cluster_[0] = ReadRegister(gemA_cluster0_adr) & 0x3fff;
+  gemA_cluster_[1] = ReadRegister(gemA_cluster1_adr) & 0x3fff;
+  gemA_cluster_[2] = ReadRegister(gemA_cluster2_adr) & 0x3fff;
+  gemA_cluster_[3] = ReadRegister(gemA_cluster3_adr) & 0x3fff;
+  gemA_cluster_[4] = ReadRegister(gemA_cluster4_adr) & 0x3fff;
+  gemA_cluster_[5] = ReadRegister(gemA_cluster5_adr) & 0x3fff;
+  gemA_cluster_[6] = ReadRegister(gemA_cluster6_adr) & 0x3fff;
+  gemA_cluster_[7] = ReadRegister(gemA_cluster7_adr) & 0x3fff;
+  gemB_cluster_[0] = ReadRegister(gemB_cluster0_adr) & 0x3fff;
+  gemB_cluster_[1] = ReadRegister(gemB_cluster1_adr) & 0x3fff;
+  gemB_cluster_[2] = ReadRegister(gemB_cluster2_adr) & 0x3fff;
+  gemB_cluster_[3] = ReadRegister(gemB_cluster3_adr) & 0x3fff;
+  gemB_cluster_[4] = ReadRegister(gemB_cluster4_adr) & 0x3fff;
+  gemB_cluster_[5] = ReadRegister(gemB_cluster5_adr) & 0x3fff;
+  gemB_cluster_[6] = ReadRegister(gemB_cluster6_adr) & 0x3fff;
+  gemB_cluster_[7] = ReadRegister(gemB_cluster7_adr) & 0x3fff;
+  gem_copad_[0]    = ReadRegister(gem_copad0_adr) & 0x3fff;
+  gem_copad_[1]    = ReadRegister(gem_copad1_adr) & 0x3fff;
+  gem_copad_[2]    = ReadRegister(gem_copad2_adr) & 0x3fff;
+  gem_copad_[3]    = ReadRegister(gem_copad3_adr) & 0x3fff;
+  gem_copad_[4]    = ReadRegister(gem_copad4_adr) & 0x3fff;
+  gem_copad_[5]    = ReadRegister(gem_copad5_adr) & 0x3fff;
+  gem_copad_[6]    = ReadRegister(gem_copad6_adr) & 0x3fff;
+  gem_copad_[7]    = ReadRegister(gem_copad7_adr) & 0x3fff;
+  gemA_overflow_   = (ReadRegister(gemA_cluster0_adr) >> 14) & 0x1;
+  gemA_sync_       = (ReadRegister(gemA_cluster0_adr) >> 15) & 0x1;
+  gemB_overflow_   = (ReadRegister(gemB_cluster0_adr) >> 14) & 0x1;
+  gemB_sync_       = (ReadRegister(gemB_cluster0_adr) >> 15) & 0x1;
+  gems_sync_       = (ReadRegister(gem_copad0_adr) >> 14) & 0x1;
+  //[size=3bits, roll=3bits, strip/pad=8bits]
+  for (unsigned int icl = 0; icl<8; icl++){
+      gemA_cluster_globalpad_[icl]  = (gemA_cluster_[icl] & 0x7ff);
+      gemA_cluster_pad_[icl]        = (gemA_cluster_[icl] & 0x3f);
+      //gemA_cluster_vfat_[icl]       = ((gemA_cluster_[icl]>>8) & 0x1f);
+      int gemA_vfat = ((gemA_cluster_[icl]>>6) & 0x1f);
+      gemA_cluster_globalpad_[icl]  = gemA_cluster_pad_[icl] + (gemA_vfat%3)*64;
+      gemA_cluster_roll_[icl]       = gemA_vfat/3;
+      gemA_cluster_vfat_[icl]       = (gemA_vfat <=23 ) ? GEM_VFAT_MAP[gemA_vfat] : gemA_vfat;
+      gemA_cluster_size_[icl]       = ((gemA_cluster_[icl]>>11) & 0x7) + (gemA_vfat <= 23);
+      gemB_cluster_pad_[icl]        = (gemB_cluster_[icl] & 0x3f);
+      //gemB_cluster_vfat_[icl]       = ((gemB_cluster_[icl]>>8) & 0x1f);
+      int gemB_vfat = ((gemB_cluster_[icl]>>6) & 0x1f);
+      gemB_cluster_size_[icl]       = ((gemB_cluster_[icl]>>11) & 0x7) + (gemB_vfat <= 23);
+      gemB_cluster_roll_[icl]       = gemB_vfat/3;
+      gemB_cluster_globalpad_[icl]  = gemB_cluster_pad_[icl] + (gemB_vfat%3)*64;
+      gemB_cluster_vfat_[icl]       = (gemB_vfat <=23 ) ? GEM_VFAT_MAP[gemB_vfat] : gemB_vfat;
+      gem_copad_pad_[icl]           = (gem_copad_[icl] & 0x3f);
+      //gem_copad_vfat_[icl]          = ((gem_copad_[icl]>>8) & 0x1f);
+      int gemcopad_vfat = ((gem_copad_[icl]>>6) & 0x1f);
+      gem_copad_size_[icl]          = ((gem_copad_[icl]>>11) & 0x7) + (gemcopad_vfat <= 23);
+      gem_copad_roll_[icl]       = gemcopad_vfat/3;
+      gem_copad_vfat_[icl]       = (gemcopad_vfat <=23 ) ? GEM_VFAT_MAP[gemcopad_vfat] : gemcopad_vfat;
+      gem_copad_globalpad_[icl]  = gem_copad_pad_[icl] + (gemcopad_vfat%3)*64;
+  }
+
+  //
+  return;
+}
+//
+void TMB::PrintGEMHits() {
+  //
+  std::cout <<"Print GME hits: GEM0 cluster, GEM1 cluster, GEM copad " << std::endl;
+  for (unsigned int icl =0; icl<8; icl++){
+          std::cout<< "cluster"<<icl<<" "<< std::hex << (gemA_cluster_[icl]) << std::dec <<" : global pad "<< gemA_cluster_globalpad_[icl]  << " roll "<< gemA_cluster_roll_[icl] <<" size "<< gemA_cluster_size_[icl] <<"\t|\t";
+          std::cout<< "cluster"<<icl<<" "<< std::hex << (gemB_cluster_[icl]) << std::dec <<" : global pad "<< gemB_cluster_globalpad_[icl]  << " roll "<< gemB_cluster_roll_[icl] <<" size "<< gemB_cluster_size_[icl] <<"\t|\t";
+          std::cout<<" copad"  <<icl<<" "<< std::hex << (gem_copad_[icl])    << std::dec <<" : global pad "<< gem_copad_globalpad_[icl]     << " roll "<< gem_copad_roll_[icl]    <<" size "<< gem_copad_size_[icl]  <<"\t"<< std::endl;
+  }
+  (*MyOutput_) << "----------------------------------------------------------------------------------------------------------------------"       << std::endl;
+  (*MyOutput_) << " GEM0 overflow = "<< gemA_overflow_ <<" sync = "<< gemA_sync_ <<"\t\t    |\t "<< " GEM1 overflow = "<< gemA_overflow_ <<" sync = "<< gemA_sync_ <<"\t\t    |\t "<< " GEM copad sync = "<< gems_sync_ <<"\t" << std::endl;
+  (*MyOutput_) << "----------------------------------------------------------------------------------------------------------------------"       << std::endl;
+  for (unsigned int icl =0; icl<8; icl++){
+          (*MyOutput_) << "cluster"<<icl<<": valid= "<< ((gemA_cluster_vfat_[icl] >= 24) ? 0 : 1) << " VFAT= " << std::setw(2) << gemA_cluster_vfat_[icl] << " pad= "<< std::setw(3) << gemA_cluster_pad_[icl] <<" size= "<< gemA_cluster_size_[icl] <<" | ";
+          (*MyOutput_) << "cluster"<<icl<<": valid= "<< ((gemB_cluster_vfat_[icl] >= 24) ? 0 : 1) << " VFAT= " << std::setw(2) << gemB_cluster_vfat_[icl] << " pad= "<< std::setw(3) << gemB_cluster_pad_[icl] <<" size= "<< gemB_cluster_size_[icl] <<" | ";
+          (*MyOutput_) << "copad  "<<icl<<": valid= "<< ((gem_copad_vfat_[icl] >= 24) ? 0 : 1)    << " VFAT= " << std::setw(2) << gem_copad_vfat_[icl]    << " pad= "<< std::setw(3) << gem_copad_pad_[icl]    <<" size= "<< gem_copad_size_[icl]  << std::endl;
+  }
+  (*MyOutput_) << "----------------------------------------------------------------------------------------------------------------------"       << std::endl;
+//
+  //
+  return;
+ }
+//
 void TMB::PrintCounters(int counter){
   //
   // if (counter < 0) { print all counters }
@@ -5564,6 +5647,7 @@ int TMB::dsnIO(int writeData){
   int tmb_busy,mez_busy,rat_busy;
   int busy = 1;
   int nbusy = 1;
+  rat_busy = 0;
   //
   while (busy && nbusy<101) {
     readData = ReadRegister(vme_dsn_adr);
@@ -5571,13 +5655,14 @@ int TMB::dsnIO(int writeData){
     // check busy on all components:
     tmb_busy = (readData>>3) & 0x1;
     mez_busy = (readData>>8) & 0x1;
-    rat_busy = (readData>>13) & 0x1;
+    //rat_busy = (readData>>13) & 0x1; //ignored by Tao for TAMU test stand as RAT is not installed or configured
     busy = tmb_busy | mez_busy | rat_busy;
     //
     if (nbusy%10 == 0) {
       (*MyOutput_) << "dsnIO: DSN state machine busy, nbusy = "
                 << nbusy << ", readData = " 
-		<< std::hex << readData << std::dec << std::endl;  
+		<< std::hex << readData << " tmb busy = "<< tmb_busy <<" mez busy =  "<< mez_busy <<" rat busy = "<< rat_busy 
+                << std::dec << std::endl;  
     }
     nbusy++;
     udelay(20);
@@ -6113,6 +6198,23 @@ void TMB::DumpAllRegisters() {
 		 << ( (register_value   >> 4) & 0xf )
 		 << ( (register_value   >> 0) & 0xf ) << std::endl;
   }
+  if(GetGemEnabled()) {
+	  (*MyOutput_) << "TMB register dump (GEM section):" << std::endl;
+	  for (int register_address=OTMB_GEM_VME_STARTADDRESS; register_address <= OTMB_GEM_VME_ENDADDRESS; register_address+=2) {
+	    //
+	    int register_value = ReadRegister(register_address);
+	    (*MyOutput_) << " " << std::hex  
+			 << ( (register_address >> 8) & 0xf ) 
+			 << ( (register_address >> 4) & 0xf ) 
+			 << ( (register_address >> 0) & 0xf ) 
+			 << "   " << std::hex
+			 << ( (register_value   >>12) & 0xf )
+			 << ( (register_value   >> 8) & 0xf )
+			 << ( (register_value   >> 4) & 0xf )
+			 << ( (register_value   >> 0) & 0xf ) << std::endl;
+          }
+  }
+    
   //
   return;
 }
@@ -11280,25 +11382,38 @@ int TMB::virtex6_dna(void *dna)
      unsigned char *dout, data[8];
      int rtv;
 
+     //std::cout <<" step 0 check Jtag state machine... " << std::endl;
+     //CheckJTAGStateMachine();
      // random bits as signature
      data[0]=((int)time(NULL) & 0xFF);
 
      setup_jtag(ChainTmbMezz);
 
+
      comd=VTX6_SHUTDN;
      scan(0, (char *)&comd, 10, rcvbuf, 0);
-//     std::cout <<" Start sending 128 clocks... " << std::endl;
+
+     //std::cout <<" step 1 check Jtag state machine... " << std::endl;
+     //CheckJTAGStateMachine();
+
+     //std::cout <<" DNA check, 1st, Start sending 128 clocks... " << std::endl;
      getTheController()->CycleIdle_jtag(128);
      udelay(10000);
+
+     //std::cout <<" step 2 check Jtag state machine... " << std::endl;
+     //CheckJTAGStateMachine();
 
      dout=(unsigned char *)dna;
      comd=VTX6_ISC_ENABLE;
      scan(0, (char *)&comd, 10, rcvbuf, 0);
-     udelay(1000);
+     udelay(10000);
      comd=VTX6_ISC_DNA;
      scan(0, (char *)&comd, 10, rcvbuf, 0);
-     udelay(1000);
+     udelay(10000);
      scan(1, (char *)data, 64, (char *)dna, 1);     
+
+     //std::cout <<" step 3 check Jtag state machine... " << std::endl;
+     //CheckJTAGStateMachine();
      
      // the last 7 bits must be the same as the signature's lowest 7 bits
      if((dout[7]>>1)==(data[0]&0x7F))
@@ -11311,17 +11426,39 @@ int TMB::virtex6_dna(void *dna)
         rtv=-1;
         std::cout << "Error: DNA readback verification failed!" << std::endl;
      }
+     //std::cout <<" step 4 check Jtag state machine... " << std::endl;
+     //CheckJTAGStateMachine();
+
+     udelay(100000);
      comd=VTX6_BYPASS;
      scan(0, (char *)&comd, 10, rcvbuf, 0);
 
+     udelay(100000);
      comd=VTX6_JSTART;
      scan(0, (char *)&comd, 10, rcvbuf, 0);
-//     std::cout <<" Start sending 128 clocks... " << std::endl;
+
+     //std::cout <<" step 5 check Jtag state machine... " << std::endl;
+     //CheckJTAGStateMachine();
+
+     //std::cout <<" check DNA, 2nd, Start sending 128 clocks... " << std::endl;
      getTheController()->CycleIdle_jtag(128);
      udelay(100000);
 
+     //std::cout <<" step 6 check Jtag state machine... " << std::endl;
+     //CheckJTAGStateMachine();
+
      tmb_set_boot_reg(0);
-     udelay(1000);
+     udelay(10000);
+
+     //std::cout <<" step 7 check Jtag state machine... " << std::endl;
+     //CheckJTAGStateMachine();
+
+     UnjamFPGA();
+     
+     std::cout <<" step 8 check Jtag state machine... " << std::endl;
+     CheckJTAGStateMachine();
+
+
      return rtv;
 }
     

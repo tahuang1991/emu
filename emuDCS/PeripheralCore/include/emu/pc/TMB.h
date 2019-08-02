@@ -468,6 +468,8 @@ public:
   int  GetALCTWordCount();
   void DecodeALCT();
   void PrintALCT();
+  void DecodeGEMHits();
+  void PrintGEMHits();
   //
   void clear_i2c();
   //! Set the values for the DDD delays.  Better done writing the register values and firing the state machine separately.
@@ -2839,6 +2841,29 @@ private:
   //
   int CLCT0_data_;
   int CLCT1_data_;
+  int gemA_cluster_[8];
+  int gemA_cluster_pad_[8];
+  int gemA_cluster_size_[8];
+  int gemA_cluster_roll_[8];
+  int gemA_cluster_vfat_[8];
+  int gemA_cluster_globalpad_[8];
+  int gemA_overflow_;
+  int gemA_sync_;
+  int gemB_cluster_[8];
+  int gemB_cluster_pad_[8];
+  int gemB_cluster_roll_[8];
+  int gemB_cluster_size_[8];
+  int gemB_cluster_vfat_[8];
+  int gemB_cluster_globalpad_[8];
+  int gemB_overflow_;
+  int gemB_sync_;
+  int gem_copad_[8];
+  int gem_copad_pad_[8];
+  int gem_copad_roll_[8];
+  int gem_copad_size_[8];
+  int gem_copad_vfat_[8];
+  int gem_copad_globalpad_[8];
+  int gems_sync_;
   //
   int mpc0_frame0_data_;
   int mpc0_frame1_data_;

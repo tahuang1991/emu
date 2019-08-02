@@ -866,7 +866,7 @@ void EmuPeripheralCrateConfig::MainPage(xgi::Input * in, xgi::Output * out )
   //End select crate
  
   *out << cgicc::br()<< std::endl;
-  std::cout << "Main Page: "<< std::dec << active_crates << "/" <<total_crates_ << " Crates" << std::endl;
+  std::cout << "Main Page: "<< std::dec << active_crates << "/" <<total_crates_ << " Crates at " << getLocalDateTime() << std::endl;
   //
   if (tmbVector.size()>0 || dmbVector.size()>0) {
     //
@@ -1071,7 +1071,7 @@ void EmuPeripheralCrateConfig::stateChanged(toolbox::fsm::FiniteStateMachine &fs
      cgicc::Cgicc cgi(in);
 
      std::string in_value = cgi.getElement("runtype")->getValue(); 
-     std::cout << "Select Crate " << in_value << std::endl;
+     std::cout << "Select Crate " << in_value << " at " << getLocalDateTime() << std::endl;
      if(!in_value.empty())
      {
         int k=in_value.find(" ",0);
@@ -1089,7 +1089,7 @@ void EmuPeripheralCrateConfig::stateChanged(toolbox::fsm::FiniteStateMachine &fs
   void EmuPeripheralCrateConfig::ConfigAllCrates(xgi::Input * in, xgi::Output * out ) 
     throw (xgi::exception::Exception)
   {
-     std::cout << "Button: ConfigAllCrates" << std::endl;
+     std::cout << "Button: ConfigAllCrates" << " at " << getLocalDateTime() << std::endl;
      ConfigureInit(0, 0);
      this->Default(in,out);
   }
@@ -1097,7 +1097,7 @@ void EmuPeripheralCrateConfig::stateChanged(toolbox::fsm::FiniteStateMachine &fs
   void EmuPeripheralCrateConfig::ConfigOneCrate(xgi::Input * in, xgi::Output * out ) 
     throw (xgi::exception::Exception)
   {
-     std::cout << "Button: ConfigOneCrate" << std::endl;
+     std::cout << "Button: ConfigOneCrate" << " at " << getLocalDateTime() << std::endl;
      thisCrate->configure(0);
      this->Default(in,out);
   }
@@ -1107,7 +1107,7 @@ void EmuPeripheralCrateConfig::stateChanged(toolbox::fsm::FiniteStateMachine &fs
   {
      if(standalone_)
      {  
-        std::cout << "Button: FastConfigCrates" << std::endl;
+        std::cout << "Button: FastConfigCrates (Power-Up-Init)" << " at " << getLocalDateTime() << std::endl;
         ConfigureInit(2);
      }
      this->Default(in,out);
@@ -1118,6 +1118,7 @@ void EmuPeripheralCrateConfig::stateChanged(toolbox::fsm::FiniteStateMachine &fs
   {
      if(standalone_)
      {  
+        std::cout << "Button: FastConfigOne (Power-Up-Init)" << " at " << getLocalDateTime() << std::endl;
         thisCrate->configure(2);
      }
      this->Default(in,out);
@@ -1303,7 +1304,7 @@ bool EmuPeripheralCrateConfig::ParsingXML(){
   void EmuPeripheralCrateConfig::CheckCrates(xgi::Input * in, xgi::Output * out )
     throw (xgi::exception::Exception)
   {  
-    std::cout << "Button: Check Crates" << std::endl;
+    std::cout << "Button: Check Crates" << " at " << getLocalDateTime() << std::endl;
     if(total_crates_<=0) return;
     for(unsigned i=0; i< crateVector.size(); i++)
     {
@@ -1574,7 +1575,7 @@ void EmuPeripheralCrateConfig::CrateConfiguration(xgi::Input * in, xgi::Output *
   {  this->Default(in,out);
      return;
   }
-  std::cout << "CrateConfiguration: " << ThisCrateID_ << std::endl;
+  std::cout << "CrateConfiguration: " << ThisCrateID_ << " at " << getLocalDateTime() << std::endl;
   MyHeader(in,out,"CrateConfiguration");
   //
   if(thisCrate->IsAlive())
@@ -2585,7 +2586,7 @@ void EmuPeripheralCrateConfig::CheckCratesConfigurationFull(xgi::Input * in, xgi
 void EmuPeripheralCrateConfig::CheckCrateConfiguration(xgi::Input * in, xgi::Output * out )
   throw (xgi::exception::Exception) {
   //  
-  std::cout << "Button: Check Crate Configuration" << std::endl;
+  std::cout << getLocalDateTime()  << " Button: Check Crate Configuration" << std::endl; 
   //
   //std::cout << "Crate address = 0x" << std::hex << thisCrate->vmeController()->ipAddress() << std::endl;
   //
@@ -2597,7 +2598,7 @@ void EmuPeripheralCrateConfig::CheckCrateConfiguration(xgi::Input * in, xgi::Out
 void EmuPeripheralCrateConfig::CheckCrateFirmware(xgi::Input * in, xgi::Output * out )
   throw (xgi::exception::Exception) {
   //  
-  std::cout << "Button: Check CSC firmware in one crate" << std::endl;
+  std::cout << getLocalDateTime() << " Button: Check CSC firmware in one crate" << std::endl;
   //
   std::cout << "Crate address = 0x" << std::hex << thisCrate->vmeController()->ipAddress() << std::dec << std::endl;
   //
@@ -9551,10 +9552,10 @@ void EmuPeripheralCrateConfig::TMBStatus(xgi::Input * in, xgi::Output * out )
   int tmb;
   if(name != cgi.getElements().end()) {
     tmb = cgi["tmb"]->getIntegerValue();
-    std::cout << "TMBStatus:  TMB=" << tmb << std::endl;
+    std::cout << getLocalDateTime() << " TMBStatus:  TMB=" << tmb << std::endl;
     TMB_ = tmb;
   } else {
-    std::cout << "TMBStatus: No TMB" << std::endl ;
+    std::cout << getLocalDateTime() << " TMBStatus: No TMB" << std::endl ;
     tmb = TMB_;
   }
   if(tmb<0 || tmb>=tmbVector.size())
@@ -10198,9 +10199,22 @@ void EmuPeripheralCrateConfig::TMBStatus(xgi::Input * in, xgi::Output * out )
     thisTMB->RedirectOutput(&std::cout);
     *out << cgicc::pre();
     *out << cgicc::fieldset();
+  }
+  if (thisTMB->GetGemEnabled()) {
+    *out << cgicc::td(); 
+    *out << cgicc::td().set("valign", "top");
+    *out << cgicc::fieldset();
+    *out << cgicc::legend("GEM Info").set("style","color:blue") << std::endl ;
+    *out << cgicc::pre();
+    thisTMB->RedirectOutput(out);
+    thisTMB->DecodeGEMHits();
+    thisTMB->PrintGEMHits();
+    thisTMB->RedirectOutput(&std::cout);
+    *out << cgicc::pre();
+    *out << cgicc::fieldset();
     *out << cgicc::td(); 
     *out << cgicc::table();
-  }
+   }
   //
   if(thisTMB->GetHardwareVersion() >= 2) {
     *out << cgicc::fieldset();
@@ -10253,10 +10267,10 @@ void EmuPeripheralCrateConfig::TMBUtils(xgi::Input * in, xgi::Output * out )
   int tmb;
   if(name != cgi.getElements().end()) {
     tmb = cgi["tmb"]->getIntegerValue();
-    std::cout << "TMBUtils:  TMB " << tmb << std::endl;
+    std::cout << getLocalDateTime() << " TMBUtils:  TMB " << tmb << std::endl;
     TMB_ = tmb;
   } else {
-    std::cout << "TMBUtils:  No TMB" << std::endl ;
+    std::cout << getLocalDateTime() << " TMBUtils:  No TMB" << std::endl ;
     tmb = TMB_;
   }
   //

@@ -1188,12 +1188,12 @@ int MPC::erase_eprom(int chip, int broadcast)
        mpc_scan(1, (char *)&data, 8, rcvbuf, 0, chip);
        comd=XCF_XSC_UNLOCK; 
        mpc_scan(0, (char *)&comd, 16, rcvbuf, 0, chip);
-       data=0x3F;
+       data=0x0F;
        mpc_scan(1, (char *)&data, 24, rcvbuf, 0, chip);
        set_flag(0);
        comd=XCF_ISC_ERASE; 
        mpc_scan(0, (char *)&comd, 16, rcvbuf, 0, chip);
-       data=0x3F;
+       data=0x0F;
        mpc_scan(1, (char *)&data, 24, rcvbuf, 0, chip);
        clear_flag(0);
        ::sleep(140);
@@ -1207,8 +1207,9 @@ int MPC::erase_eprom(int chip, int broadcast)
        ::sleep(1);
        data=0;
        mpc_scan(1, (char *)&data, 8, rcvbuf, 1, chip);
-       blank_state = rcvbuf[0]&0x3F;
+       blank_state = rcvbuf[0]&0x0F;
        if(blank_state==0) std::cout << "Blank Check successful!" << std::endl;
+       else std::cout << "ERROR: Blank Check failed! " << std::hex << (rcvbuf[0] & 0xFF) << std::dec << std::endl;
        comd=XCF_CLR_STATUS; 
        mpc_scan(0, (char *)&comd, 16, rcvbuf, 0, chip);
        udelay(50);
@@ -1274,12 +1275,14 @@ int MPC::program_eprom(const char *mcsfile, int chip, int broadcast)
      mpc_scan(1, (char *)&data, 8, rcvbuf, 0, chip);
      comd=XCF_XSC_UNLOCK; 
      mpc_scan(0, (char *)&comd, 16, rcvbuf, 0, chip);
-     data=0x3F;
+     data=0x0F;
      mpc_scan(1, (char *)&data, 24, rcvbuf, 0, chip);
+/*
      comd=XCF_DATA_BTC; 
      mpc_scan(0, (char *)&comd, 16, rcvbuf, 0, chip);
      data=0xFFFFFFEC;
      mpc_scan(1, (char *)&data, 32, rcvbuf, 0, chip);
+*/
      comd=XCF_ISC_PROGRAM; 
      mpc_scan(0, (char *)&comd, 16, rcvbuf, 0, chip);
      udelay(200);
