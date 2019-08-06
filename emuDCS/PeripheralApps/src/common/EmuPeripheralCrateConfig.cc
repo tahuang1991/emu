@@ -10171,7 +10171,7 @@ void EmuPeripheralCrateConfig::TMBStatus(xgi::Input * in, xgi::Output * out )
   *out << cgicc::pre();
   *out << cgicc::fieldset();
   //
-  if (alct){
+  if (alct || thisTMB->GetGemEnabled()){
     *out << cgicc::table().set("border", "0");
     *out << cgicc::td().set("valign", "top");
   }
@@ -10212,6 +10212,8 @@ void EmuPeripheralCrateConfig::TMBStatus(xgi::Input * in, xgi::Output * out )
     thisTMB->RedirectOutput(&std::cout);
     *out << cgicc::pre();
     *out << cgicc::fieldset();
+   }
+   if (alct || thisTMB->GetGemEnabled()){
     *out << cgicc::td(); 
     *out << cgicc::table();
    }

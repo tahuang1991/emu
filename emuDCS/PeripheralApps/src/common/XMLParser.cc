@@ -695,6 +695,13 @@ void XMLParser::TMBParser(xercesc::DOMNode * pNode, Crate * theCrate, Chamber * 
         if (fillInt ("gem_decouple_rxd_int_delay" , value)) { tmb_->SetDecoupleGemRxdIntDelay (value);}
         if (fillInt ("gem_fifo_rxd_int_delay"     , value)) { tmb_->SetGemRxdIntDelay         (value);}
 
+        //0x318
+        if (fillInt ("gem_trigger_delay"     , value)) { tmb_->SetGemTrgDelay        (value);}
+
+        //0x322
+        if (fillInt ("gem_match_neighborRoll"    , value)) { tmb_->SetGemMatchNeighborRoll        (value);}
+        if (fillInt ("gem_match_neighborPad"     , value)) { tmb_->SetGemMatchNeighborPad         (value);}
+        if (fillInt ("gem_match_deltaPad"        , value)) { tmb_->SetGemMatchDeltaPad            (value);}
     }
     //
     xercesc::DOMNode * daughterNode = pNode->getFirstChild();

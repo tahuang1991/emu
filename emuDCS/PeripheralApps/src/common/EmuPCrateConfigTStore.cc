@@ -3814,6 +3814,10 @@ void EmuPCrateConfigTStore::readTMB(
       if (*column == "GEMB_FIFO_RXD_INT_DELAY") tmb_->SetGemBRxdIntDelay(IntValue);
       if (*column == "GEM_DECOUPLE_RXD_INT_DELAY") tmb_->SetDecoupleGemRxdIntDelay(IntValue);
       if (*column == "GEM_FIFO_RXD_INT_DELAY") tmb_->SetGemRxdIntDelay(IntValue);
+      if (*column == "GEM_TRIGGER_DELAY")      tmb_->SetGemTrgDelay(IntValue);
+      if (*column == "GEM_MATCH_NEIGHBORROLL")      tmb_->SetGemMatchNeighborRoll(IntValue);
+      if (*column == "GEM_MATCH_NEIGHBORPAD")      tmb_->SetGemMatchNeighborPad(IntValue);
+      if (*column == "GEM_MATCH_DELTAPAD")      tmb_->SetGemMatchDeltaPad(IntValue);
 
       if (*column == "TMB_CONFIG_ID" ) tmb_config_id_ = StrgValue;
     }

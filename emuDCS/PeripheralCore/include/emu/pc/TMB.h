@@ -2654,7 +2654,23 @@ public:
   inline int  GetGemReadoutMask ()                     { return gem_readout_mask_;}
   inline void SetGemReadoutMask (int gem_readout_mask) { gem_readout_mask_ = gem_readout_mask;}
 
+  //-----------------------------------------------------------------------------
+  // 0X318 GEM_TRG
+  //-----------------------------------------------------------------------------
 
+  inline int  GetGemTrgDelay ()                                { return gem_trg_delay_ ;}
+  inline void  SetGemTrgDelay (int gem_trg_delay)                                { gem_trg_delay_ = gem_trg_delay;}
+
+  //-----------------------------------------------------------------------------
+  // 0X322 GEM_COPAD_CTRL
+  //-----------------------------------------------------------------------------
+
+  inline int  GetGemMatchNeighborRoll ()                                { return gem_match_neighborRoll_ ;}
+  inline int  GetGemMatchNeighborPad ()                                 { return gem_match_neighborPad_ ;}
+  inline int  GetGemMatchDeltaPad ()                                    { return gem_match_deltaPad_ ;}
+  inline void SetGemMatchNeighborRoll (int gem_match_neighborRoll)      { gem_match_neighborRoll_ = gem_match_neighborRoll;}
+  inline void SetGemMatchNeighborPad (int gem_match_neighborPad)        { gem_match_neighborPad_ = gem_match_neighborPad;}
+  inline void SetGemMatchDeltaPad (int gem_match_deltaPad)              { gem_match_deltaPad_ = gem_match_deltaPad;}
   //
   //
   // **********************************************************************************
@@ -4330,7 +4346,29 @@ private:
 
   int read_decouple_gem_rxd_int_delay_;
   int read_gem_readout_mask_;
+
   //
+  //-----------------------------------------------------------------------------
+  // 0X318 ADR_GEM_TRG
+  //-----------------------------------------------------------------------------
+  //
+  int gem_trg_delay_;
+  int read_gem_trg_delay_;
+  //
+  //-----------------------------------------------------------------------------
+  // 0X324 ADR_GEM_COPAD_CTRL
+  //-----------------------------------------------------------------------------
+  //
+  int gem_match_neighborRoll_;
+  int gem_match_neighborPad_;
+  int gem_match_deltaPad_;
+
+  int read_gem_match_neighborRoll_;
+  int read_gem_match_neighborPad_;
+  int read_gem_match_deltaPad_;
+  //
+  //
+
   //*******************************************************************
   // TMB Raw Hits header words
   //*******************************************************************

@@ -592,6 +592,10 @@ throw (emu::exception::ConfigurationException)
     if (conf->has("GEMB_FIFO_RXD_INT_DELAY"))       tmb_->SetGemBRxdIntDelay( getInt(conf, "GEMB_FIFO_RXD_INT_DELAY"));
     if (conf->has("GEM_DECOUPLE_RXD_INT_DELAY"))       tmb_->SetDecoupleGemRxdIntDelay( getInt(conf, "GEM_DECOUPLE_RXD_INT_DELAY"));
     if (conf->has("GEM_FIFO_RXD_INT_DELAY"))       tmb_->SetGemRxdIntDelay( getInt(conf, "GEM_FIFO_RXD_INT_DELAY"));
+    if (conf->has("GEM_TRIGGER_DELAY"))       tmb_->SetGemTrgDelay( getInt(conf, "GEM_TRIGGER_DELAY"));
+    if (conf->has("GEM_MATCH_NEIGHBORROLL"))       tmb_->SetGemMatchNeighborRoll( getInt(conf, "GEM_MATCH_NEIGHBORROLL"));
+    if (conf->has("GEM_MATCH_NEIGHBORPAD"))       tmb_->SetGemMatchNeighborRoll( getInt(conf, "GEM_MATCH_NEIGHBORPAD"));
+    if (conf->has("GEM_MATCH_DELTAPAD"))       tmb_->SetGemMatchDeltaPad( getInt(conf, "GEM_MATCH_DELTAPAD"));
   }
   if(verbose_)
   {

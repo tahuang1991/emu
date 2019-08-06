@@ -6115,7 +6115,6 @@ bool TMB::OkTMBVmeWrite(unsigned vme) {
   // Allow writes from user prom only to specific VME addresses:
   for (unsigned int index=0; index<TMBConfigurationRegister.size(); index++) {
     //
-    //    std::cout << "register " << index << " to write to = " << TMBConfigurationRegister.at(index) << std::endl;
     //
     if ( (vme & 0xfff) == (TMBConfigurationRegister.at(index) & 0xfff)) {
       ok_to_write_to_this_register = true;      
@@ -6426,6 +6425,8 @@ void TMB::DefineTMBConfigurationRegisters_(){
   TMBConfigurationRegister.push_back(gem_cfg_adr) ;         // 0x312 GEM Config Address
   TMBConfigurationRegister.push_back(phaser_gemA_rxd_adr) ; // 0x308 GEM Config Address
   TMBConfigurationRegister.push_back(phaser_gemB_rxd_adr) ; // 0x30A GEM Config Address
+  TMBConfigurationRegister.push_back(gem_trg_adr) ; // 0x318 GEM trigger control Address
+  TMBConfigurationRegister.push_back(gem_copad_ctrl_adr) ; // 0x324 GEM copad control Address
   }
 
   return;
@@ -7002,6 +7003,37 @@ void TMB::SetTMBRegisterDefaults() {
   gemB_rxd_int_delay_         = gemB_rxd_int_delay_default;
   decouple_gem_rxd_int_delay_ = decouple_gem_rxd_int_delay_default;
   gem_readout_mask_           = gem_readout_mask_default;
+
+  //-----------------------------------------------------------------------------
+  // 0X318 ADR_GEM_TRG
+  //-----------------------------------------------------------------------------
+   
+  gem_trg_delay_      =  gem_trg_delay_default;
+
+  ////-----------------------------------------------------------------------------
+  //// 0X320 ADR_GEM_INJ_CTRL
+  ////-----------------------------------------------------------------------------
+  // 
+  //gem_inj_wen_       =  gem_inj_wen_default;
+  //gem_inj_sel_       =  gem_inj_sel_default;
+  //gem_inj_igem_      =  gem_inj_igem_default;
+  //gem_inj_adr_       =  gem_inj_adr_default;
+  //gem_inj_mask_      =  gem_inj_mask_default;
+
+  ////-----------------------------------------------------------------------------
+  //// 0X322 ADR_GEM_INJ_DATA
+  ////-----------------------------------------------------------------------------
+  // 
+  //gem_inj_data_      =  gem_inj_data_default;
+
+  //-----------------------------------------------------------------------------
+  // 0X324 ADR_GEM_COPAD_CTRL
+  //-----------------------------------------------------------------------------
+   
+  gem_match_neighborRoll_      =  gem_match_neighborRoll_default;
+  gem_match_neighborPad_       =  gem_match_neighborPad_default;
+  gem_match_deltaPad_          =  gem_match_deltaPad_default;
+
 
   //defaults are pulled from the main parameter fields
   return;
@@ -8052,6 +8084,20 @@ void TMB::DecodeTMBRegister_(unsigned long int address, int data) {
     read_gemB_rxd_int_delay_         = ExtractValueFromData (data , gemB_rxd_int_delay_bitlo         , gemB_rxd_int_delay_bithi);
     read_decouple_gem_rxd_int_delay_ = ExtractValueFromData (data , decouple_gem_rxd_int_delay_bitlo , decouple_gem_rxd_int_delay_bithi);
     read_gem_readout_mask_           = ExtractValueFromData (data , gem_readout_mask_bitlo           , gem_readout_mask_bithi);
+    //
+  } else if ( address == gem_trg_adr ) {
+    //---------------------------------------------------------------------
+    // 0X318 = ADR_GEM_TRG
+    //---------------------------------------------------------------------
+    read_gem_trg_delay_             = ExtractValueFromData (data , gem_trg_delay_bitlo         , gem_trg_delay_bithi);
+    //
+  } else if ( address == gem_copad_ctrl_adr ) {
+    //---------------------------------------------------------------------
+    // 0X324 = ADR_GEM_COPAD_CTRL
+    //---------------------------------------------------------------------
+    read_gem_match_neighborRoll_          = ExtractValueFromData (data , gem_match_neighborRoll_bitlo        , gem_match_neighborRoll_bithi);
+    read_gem_match_neighborPad_           = ExtractValueFromData (data , gem_match_neighborPad_bitlo         , gem_match_neighborPad_bithi);
+    read_gem_match_deltaPad_              = ExtractValueFromData (data , gem_match_deltaPad_bitlo            , gem_match_deltaPad_bithi);
   }
   //
   // combinations of bits which say which trgmode_ we are using....
@@ -9184,7 +9230,7 @@ void TMB::PrintTMBRegister(unsigned long int address) {
     for (int i=0; i < NumOfGEMs; i++) { (*MyOutput_) << read_gtx_rx_error_count_[i] << " "; }
     (*MyOutput_) << "]" << std::endl;
 
-    } else if ( address == gem_tbins_adr ) {
+    } else if ( address == gem_tbins_adr  && GetGemEnabled()) {
     //---------------------------------------------------------------------
     // 0X310 = ADR_GEM_TBINS
     //---------------------------------------------------------------------
@@ -9195,7 +9241,7 @@ void TMB::PrintTMBRegister(unsigned long int address) {
     (*MyOutput_) << "    TMB gem_read_enable                               = " << read_gem_read_enable_         << std::endl;
     (*MyOutput_) << "    TMB gem Zero Supression Enabled                   = " << read_gem_zero_supress_enable_ << std::endl;
 
-    } else if ( address == gem_cfg_adr ) {
+    } else if ( address == gem_cfg_adr && GetGemEnabled()) {
     //---------------------------------------------------------------------
     // 0X312 = ADR_CFG_ADR
     //---------------------------------------------------------------------
@@ -9210,6 +9256,20 @@ void TMB::PrintTMBRegister(unsigned long int address) {
     (*MyOutput_) << "    TMB gem rxd_int_delays decoupled                  = " << read_decouple_gem_rxd_int_delay_ << std::endl;
     (*MyOutput_) << "    TMB gem readout mask                              = " << read_gem_readout_mask_           << std::endl;
 
+    } else if ( address == gem_trg_adr && GetGemEnabled()) {
+    //---------------------------------------------------------------------
+    // 0X318 = ADR_GEM_TRG_ADR
+    //---------------------------------------------------------------------
+    (*MyOutput_) << " ->GEM Bx Delay for trigger Register:"                  << std::endl;
+    (*MyOutput_) << "    TMB gem Bx delay for trigger/match                = " << read_gem_trg_delay_              << std::endl;
+    } else if ( address == gem_copad_ctrl_adr && GetGemEnabled()) {
+    //---------------------------------------------------------------------
+    // 0X318 = ADR_GEM_COPAD_CTRL
+    //---------------------------------------------------------------------
+    (*MyOutput_) << " ->GEM copad match control  Register:"                    << std::endl;
+    (*MyOutput_) << "    TMB gem copad match with neighbor roll            = " << read_gem_match_neighborRoll_     << std::endl;
+    (*MyOutput_) << "    TMB gem copad match with neighbor pad             = " << read_gem_match_neighborPad_      << std::endl;
+    (*MyOutput_) << "    TMB gem copad match,max pad differences           = " << read_gem_match_deltaPad_         << std::endl;
     }else {
     //
     (*MyOutput_) << " -> Unable to decode register: PLEASE DEFINE" << std::endl;
@@ -10677,6 +10737,20 @@ void TMB::CheckTMBConfiguration(int max_number_of_reads) {
             config_ok &= compareValues("TMB gemB_fine_delay", read_gemB_rx_fine_delay_  , gemB_rx_fine_delay_  , print_errors);
             config_ok &= compareValues("TMB gemB_rx_posneg" , read_gemB_rx_posneg_      , gemB_rx_posneg_      , print_errors);
         }
+
+        //---------------------------------------------------------------------
+        // 0X312 = ADR_GEM_TRG
+        //---------------------------------------------------------------------
+
+        config_ok &= compareValues ("TMB gem_trg_delay"    , read_gem_trg_delay_         , gem_trg_delay_     , print_errors);
+
+        //---------------------------------------------------------------------
+        // 0X312 = ADR_GEM_COPAD_CTRL
+        //---------------------------------------------------------------------
+
+        config_ok &= compareValues ("TMB gem_match_neighborRoll"    , read_gem_match_neighborRoll_         , gem_match_neighborRoll_     , print_errors);
+        config_ok &= compareValues ("TMB gem_match_neighborPad"     , read_gem_match_neighborPad_          , gem_match_neighborPad_      , print_errors);
+        config_ok &= compareValues ("TMB gem_match_deltaPad"        , read_gem_match_deltaPad_             , gem_match_deltaPad_         , print_errors);
     }
     //
   }

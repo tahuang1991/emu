@@ -11,7 +11,7 @@ source ~cscdev/setup_emulib_env.sh
 (setup environment varibale for compiling)
 
 ## modify $BUILD_HOME
-export set BUILD_HOME=/home/cscdev/emu
+export set BUILD_HOME=/home/cscdev/Tao
 
 
 # If a compile of the full setup is needed
